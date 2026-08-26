@@ -71,3 +71,8 @@
 - [x] Tester les préférences, raccourcis et interactions d’aide de navigation.
 - [x] Remplacer l’encart d’aide inline par une infobulle de première utilisation ancrée à la barre latérale.
 - [x] Tester l’ouverture et la fermeture de l’infobulle d’onboarding sans empiétement sur la navigation.
+- [x] Analyser les informations publiques de Busé Press afin d’actualiser le contexte métier de l’application.
+- [x] Définir les adaptations prioritaires de Lucepress à partir de cette analyse.
+- [x] Préparer une présentation synthétique des adaptations multi-services de Lucepres Sarl.
+- [x] Mettre à jour les coordonnées et le positionnement public de Lucepres Sarl dans l’application.
+- [x] Vérifier l’affichage des coordonnées Lucepres dans les paramètres et les documents.

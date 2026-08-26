@@ -17,6 +17,7 @@ import {
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
+import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -186,10 +187,10 @@ export type CompanySettingsInput = {
 
 const emptyCompanySettings = (): Omit<typeof companySettings.$inferSelect, "id"> & { id: number } => ({
   id: 0,
-  legalName: "Lucepress",
-  legalAddress: null,
-  phone: null,
-  email: null,
+  legalName: LUCEPRES_PUBLIC_PROFILE.legalName,
+  legalAddress: LUCEPRES_PUBLIC_PROFILE.location,
+  phone: LUCEPRES_PUBLIC_PROFILE.phone,
+  email: LUCEPRES_PUBLIC_PROFILE.email,
   website: null,
   taxId: null,
   registrationNumber: null,
@@ -199,7 +200,7 @@ const emptyCompanySettings = (): Omit<typeof companySettings.$inferSelect, "id">
   iban: null,
   swift: null,
   paymentInstructions: null,
-  documentFooter: null,
+  documentFooter: LUCEPRES_PUBLIC_PROFILE.documentFooter,
   updatedAt: new Date(),
 });
 

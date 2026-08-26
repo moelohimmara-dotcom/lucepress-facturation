@@ -1,12 +1,13 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
+import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { Building2, Landmark, Loader2, Save } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 type SettingsDraft = { legalName: string; legalAddress: string; phone: string; email: string; website: string; taxId: string; registrationNumber: string; bankName: string; accountName: string; accountNumber: string; iban: string; swift: string; paymentInstructions: string; documentFooter: string };
-const emptySettings: SettingsDraft = { legalName: "Lucepress", legalAddress: "", phone: "", email: "", website: "", taxId: "", registrationNumber: "", bankName: "", accountName: "", accountNumber: "", iban: "", swift: "", paymentInstructions: "", documentFooter: "" };
+const emptySettings: SettingsDraft = { legalName: LUCEPRES_PUBLIC_PROFILE.legalName, legalAddress: LUCEPRES_PUBLIC_PROFILE.location, phone: LUCEPRES_PUBLIC_PROFILE.phone, email: LUCEPRES_PUBLIC_PROFILE.email, website: "", taxId: "", registrationNumber: "", bankName: "", accountName: "", accountNumber: "", iban: "", swift: "", paymentInstructions: "", documentFooter: LUCEPRES_PUBLIC_PROFILE.documentFooter };
 
 export default function SettingsPage() {
   const utils = trpc.useUtils();

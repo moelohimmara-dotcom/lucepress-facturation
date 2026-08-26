@@ -12,6 +12,16 @@ export type CompanyDocumentProfile = {
   swift?: string | null;
 };
 
+export const LUCEPRES_PUBLIC_PROFILE = {
+  displayName: "Lucepres",
+  legalName: "Lucepres Sarl",
+  location: "Conakry, Guinée",
+  phone: "+224 624 19 06 20",
+  email: "Lucepres@gmail.com",
+  positioning: "Solutions durables",
+  documentFooter: "Solutions durables pour les communautés.",
+} as const;
+
 function joinPresent(values: Array<string | null | undefined>) {
   return values.filter((value): value is string => Boolean(value?.trim())).join(" · ");
 }
