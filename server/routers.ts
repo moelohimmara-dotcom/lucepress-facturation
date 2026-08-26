@@ -201,6 +201,28 @@ export const appRouter = router({
         .input(z.object({ clientId: z.number().int().positive(), name: z.string().trim().min(2).max(180), reference: z.string().trim().max(80).optional(), type: z.enum(["btp", "forage", "mixte"]), location: z.string().trim().max(255).optional(), description: optionalText }))
         .mutation(({ input }) => db.createProject(input)),
     }),
+    integrations: router({
+      list: adminProcedure.query(() => db.listIntegrations()),
+      audit: adminProcedure.query(() => db.listIntegrationAuditLogs()),
+      prepareConnection: adminProcedure
+        .input(z.object({ providerSlug: z.string().trim().min(2).max(80) }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.prepareIntegrationConnection(input.providerSlug, ctx.user.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La préparation de la connexion est impossible." });
+          }
+        }),
+      disableConnection: adminProcedure
+        .input(z.object({ connectionId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.disableIntegrationConnection(input.connectionId, ctx.user.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La désactivation de la connexion est impossible." });
+          }
+        }),
+    }),
     services: router({
       list: adminProcedure.query(() => db.listServices()),
       create: adminProcedure

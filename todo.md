@@ -106,3 +106,30 @@
 - [x] Simuler un solde existant dans le flux de persistance et vérifier qu’aucun doublon n’est créé.
 - [x] Tester un acompte historique reclassé afin de garantir son éligibilité au flux de solde.
 - [x] Simuler un acompte historique rétro-classé dans le flux de solde et vérifier sa génération idempotente.
+- [x] Définir les applications externes prioritaires et les flux de données autorisés pour Lucepres.
+- [x] Créer un centre d’intégrations distinguant les connexions API et MCP compatibles.
+- [x] Contrôler la disponibilité, l’autorisation et les limites de chaque intégration avant activation.
+- [x] Tester les parcours de consultation, de compatibilité et de connexion des intégrations.
+- [x] Recenser les intégrations API et MCP pertinentes pour les activités commerciales, techniques et administratives de Lucepres.
+- [x] Prioriser les intégrations proposées selon leur valeur opérationnelle, leur disponibilité et leur niveau de sécurité.
+- [x] Retenir quatre intégrations prioritaires couvrant communication, comptabilité et gestion de chantier.
+- [x] Documenter l’architecture dynamique du centre d’intégrations API et MCP, y compris la sécurité et les tests.
+- [x] Rédiger un exemple TypeScript d’adaptateur WhatsApp Business relié au registre dynamique.
+- [x] Créer une présentation PowerPoint de l’architecture et des quatre intégrations prioritaires.
+- [x] Vérifier le code d’exemple et la présentation avant livraison.
+- [x] Rédiger un adaptateur TypeScript de gestion de chantier Procore via le registre dynamique, avec client typé et OAuth contrôlé.
+- [x] Générer un script oral correspondant à chaque diapositive de la présentation d’intégrations.
+- [x] Vérifier le nouvel adaptateur et le script de présentation par cinq tests Procore et compilation TypeScript.
+- [x] Rédiger un adaptateur TypeScript QuickBooks Online via le registre dynamique.
+- [x] Tester les contrôles comptables, le renouvellement OAuth, l’idempotence et les erreurs fournisseur QuickBooks.
+- [x] Créer le modèle de données des fournisseurs, capacités, connexions, jobs, mappings et journal d’audit d’intégrations.
+- [x] Ajouter les procédures sécurisées de consultation et de gestion des connexions d’intégration.
+- [x] Créer une page Centre d’intégrations affichant compatibilité, disponibilité, capacités et accès requis.
+- [x] Préparer les connecteurs WhatsApp, Google Workspace, Procore et QuickBooks sans les activer ni stocker de secrets en clair.
+- [x] Tester le registre, les autorisations et le parcours UI du centre d’intégrations.
+- [x] Implémenter les adaptateurs applicatifs WhatsApp, Google Workspace, Procore et QuickBooks résolus par le registre dynamique et désactivés par défaut.
+- [x] Tester la résolution des adaptateurs, l’absence de secrets en clair et le blocage de tout appel externe sans activation explicite.
+- [x] Prouver par test de persistance que la préparation d’une connexion ne stocke aucun secret brut et ne conserve qu’une référence opaque validée.
+- [x] Vérifier par test serveur qu’aucun appel externe ne peut être exécuté sans connexion active, activation explicite et approbation requise.
+- [x] Tester la persistance réelle de la préparation d’une connexion afin de vérifier que `secretRef` reste nulle et qu’aucun secret brut n’est enregistré.
+- [x] Tester un flux serveur d’activation interne qui refuse toute référence non opaque avant la persistance.

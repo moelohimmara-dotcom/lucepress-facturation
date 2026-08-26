@@ -259,6 +259,105 @@ export const clientActivities = mysqlTable(
   table => [index("client_activities_clientId_createdAt_idx").on(table.clientId, table.createdAt)],
 );
 
+export const integrationProviders = mysqlTable(
+  "integration_providers",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    slug: varchar("slug", { length: 80 }).notNull(),
+    name: varchar("name", { length: 160 }).notNull(),
+    category: mysqlEnum("category", ["communication", "collaboration", "chantier", "comptabilite"]).notNull(),
+    transport: mysqlEnum("transport", ["api", "mcp"]).notNull(),
+    documentationUrl: varchar("documentationUrl", { length: 512 }),
+    authType: mysqlEnum("authType", ["oauth2", "api_key", "none"]).notNull(),
+    isSupported: mysqlEnum("isSupported", ["oui", "non"]).default("oui").notNull(),
+    sortOrder: int("sortOrder").default(0).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [unique("integration_providers_slug_unique").on(table.slug), index("integration_providers_category_idx").on(table.category, table.sortOrder)],
+);
+
+export const integrationCapabilities = mysqlTable(
+  "integration_capabilities",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    providerId: int("providerId").notNull().references(() => integrationProviders.id, { onDelete: "cascade" }),
+    code: varchar("code", { length: 100 }).notNull(),
+    label: varchar("label", { length: 180 }).notNull(),
+    direction: mysqlEnum("direction", ["lecture", "ecriture", "bidirectionnel"]).notNull(),
+    riskLevel: mysqlEnum("riskLevel", ["faible", "moyen", "eleve"]).default("moyen").notNull(),
+    requiresApproval: mysqlEnum("requiresApproval", ["oui", "non"]).default("oui").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [unique("integration_capabilities_provider_code_unique").on(table.providerId, table.code), index("integration_capabilities_provider_idx").on(table.providerId)],
+);
+
+export const integrationConnections = mysqlTable(
+  "integration_connections",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    providerId: int("providerId").notNull().references(() => integrationProviders.id, { onDelete: "restrict" }),
+    status: mysqlEnum("status", ["eligible", "credentials_pending", "testing", "active", "degraded", "revoked", "disabled"]).default("eligible").notNull(),
+    grantedScopes: text("grantedScopes"),
+    /** Référence opaque vers un gestionnaire de secrets ; aucune clé n’est stockée ici. */
+    secretRef: varchar("secretRef", { length: 255 }),
+    lastHealthCheckAt: timestamp("lastHealthCheckAt"),
+    lastError: text("lastError"),
+    enabledById: int("enabledById").references(() => users.id, { onDelete: "set null" }),
+    connectedAt: timestamp("connectedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [unique("integration_connections_provider_unique").on(table.providerId), index("integration_connections_status_idx").on(table.status)],
+);
+
+export const integrationJobs = mysqlTable(
+  "integration_jobs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    connectionId: int("connectionId").notNull().references(() => integrationConnections.id, { onDelete: "cascade" }),
+    operation: varchar("operation", { length: 100 }).notNull(),
+    idempotencyKey: varchar("idempotencyKey", { length: 255 }).notNull(),
+    payloadHash: varchar("payloadHash", { length: 128 }).notNull(),
+    status: mysqlEnum("status", ["queued", "approved", "running", "completed", "failed", "cancelled"]).default("queued").notNull(),
+    attempts: int("attempts").default(0).notNull(),
+    lastError: text("lastError"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [unique("integration_jobs_idempotency_unique").on(table.idempotencyKey), index("integration_jobs_connection_status_idx").on(table.connectionId, table.status)],
+);
+
+export const integrationMappings = mysqlTable(
+  "integration_mappings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    connectionId: int("connectionId").notNull().references(() => integrationConnections.id, { onDelete: "cascade" }),
+    entityType: varchar("entityType", { length: 80 }).notNull(),
+    internalId: int("internalId").notNull(),
+    externalId: varchar("externalId", { length: 255 }).notNull(),
+    externalVersion: varchar("externalVersion", { length: 255 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [unique("integration_mappings_connection_entity_internal_unique").on(table.connectionId, table.entityType, table.internalId), index("integration_mappings_external_idx").on(table.connectionId, table.externalId)],
+);
+
+export const integrationAuditLogs = mysqlTable(
+  "integration_audit_logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    connectionId: int("connectionId").references(() => integrationConnections.id, { onDelete: "set null" }),
+    actorId: int("actorId").references(() => users.id, { onDelete: "set null" }),
+    action: varchar("action", { length: 100 }).notNull(),
+    target: varchar("target", { length: 255 }),
+    decision: mysqlEnum("decision", ["autorise", "refuse", "information"]).default("information").notNull(),
+    metadata: text("metadata"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("integration_audit_logs_connection_created_idx").on(table.connectionId, table.createdAt), index("integration_audit_logs_actor_created_idx").on(table.actorId, table.createdAt)],
+);
+
 export const documentSequences = mysqlTable(
   "document_sequences",
   {
@@ -281,3 +380,5 @@ export type Payment = typeof payments.$inferSelect;
 export type CompanySettings = typeof companySettings.$inferSelect;
 export type ClientAttachment = typeof clientAttachments.$inferSelect;
 export type ClientActivity = typeof clientActivities.$inferSelect;
+export type IntegrationProvider = typeof integrationProviders.$inferSelect;
+export type IntegrationConnection = typeof integrationConnections.$inferSelect;

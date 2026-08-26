@@ -26,6 +26,7 @@ import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreferen
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import {
   Bot,
+  Cable,
   CircleHelp,
   ChevronDown,
   FileText,
@@ -55,6 +56,7 @@ const menuItems = [
   { icon: UsersRound, label: "Clients", path: "/clients" },
   { icon: FolderKanban, label: "Chantiers", path: "/chantiers" },
   { icon: Wrench, label: "Prestations", path: "/prestations" },
+  { icon: Cable, label: "Intégrations", path: "/integrations" },
   { icon: Settings, label: "Paramètres", path: "/parametres" },
   { icon: Mail, label: "Relances", path: "/relances" },
 ];

@@ -8,6 +8,10 @@ import {
   documentLines,
   documents,
   documentSequences,
+  integrationAuditLogs,
+  integrationCapabilities,
+  integrationConnections,
+  integrationProviders,
   InsertUser,
   payments,
   projects,
@@ -23,6 +27,10 @@ import { calculateDepositInvoiceAmount } from "../shared/depositInvoice";
 import { assertDepositInvoiceIsFullyPaid, calculateBalanceInvoiceAmount, reuseExistingGeneratedInvoice } from "../shared/balanceInvoice";
 import { calculateDocumentDiscount } from "../shared/discounts";
 import { getMissingDefaultServices, type ServiceCategory } from "../shared/defaultServices";
+import { getIntegrationAdapterPreparation } from "../shared/integrationAdapterPreparation";
+import { DEFAULT_INTEGRATION_PROVIDERS, parseGrantedScopes } from "../shared/integrationRegistry";
+import { resolveIntegrationAdapter } from "./integrations/adapterRegistry";
+import { assertOpaqueIntegrationSecretReference, createPreparedIntegrationConnectionValues } from "./integrations/connectionSecurity";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -332,6 +340,165 @@ export async function listServicePriceRevisions(serviceId: number) {
 export async function listAllServicePriceRevisions() {
   const db = await requireDb();
   return db.select({ id: servicePriceRevisions.id, serviceCode: services.code, serviceName: services.name, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).innerJoin(services, eq(servicePriceRevisions.serviceId, services.id)).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).orderBy(desc(servicePriceRevisions.createdAt));
+}
+
+async function ensureDefaultIntegrationProviders() {
+  const db = await requireDb();
+  for (const provider of DEFAULT_INTEGRATION_PROVIDERS) {
+    await db.insert(integrationProviders).values({
+      slug: provider.slug,
+      name: provider.name,
+      category: provider.category,
+      transport: provider.transport,
+      documentationUrl: provider.documentationUrl,
+      authType: provider.authType,
+      isSupported: provider.isSupported,
+      sortOrder: provider.sortOrder,
+    }).onDuplicateKeyUpdate({
+      set: {
+        name: provider.name,
+        category: provider.category,
+        transport: provider.transport,
+        documentationUrl: provider.documentationUrl,
+        authType: provider.authType,
+        isSupported: provider.isSupported,
+        sortOrder: provider.sortOrder,
+      },
+    });
+  }
+
+  const persisted = await db.select({ id: integrationProviders.id, slug: integrationProviders.slug }).from(integrationProviders);
+  const providerIds = new Map(persisted.map(provider => [provider.slug, provider.id]));
+  for (const provider of DEFAULT_INTEGRATION_PROVIDERS) {
+    const providerId = providerIds.get(provider.slug);
+    if (!providerId) continue;
+    for (const capability of provider.capabilities) {
+      await db.insert(integrationCapabilities).values({ providerId, ...capability }).onDuplicateKeyUpdate({
+        set: {
+          label: capability.label,
+          direction: capability.direction,
+          riskLevel: capability.riskLevel,
+          requiresApproval: capability.requiresApproval,
+        },
+      });
+    }
+  }
+}
+
+export async function listIntegrations() {
+  const db = await requireDb();
+  await ensureDefaultIntegrationProviders();
+  const [providers, capabilities, connections] = await Promise.all([
+    db.select().from(integrationProviders).orderBy(asc(integrationProviders.sortOrder)),
+    db.select().from(integrationCapabilities),
+    db.select({
+      id: integrationConnections.id,
+      providerId: integrationConnections.providerId,
+      status: integrationConnections.status,
+      grantedScopes: integrationConnections.grantedScopes,
+      lastHealthCheckAt: integrationConnections.lastHealthCheckAt,
+      lastError: integrationConnections.lastError,
+      connectedAt: integrationConnections.connectedAt,
+      updatedAt: integrationConnections.updatedAt,
+      enabledByName: users.name,
+    }).from(integrationConnections).leftJoin(users, eq(integrationConnections.enabledById, users.id)),
+  ]);
+  const connectionsByProvider = new Map(connections.map(connection => [connection.providerId, connection]));
+  return providers.map(provider => {
+    const connection = connectionsByProvider.get(provider.id) ?? null;
+    return {
+      ...provider,
+      capabilities: capabilities.filter(capability => capability.providerId === provider.id),
+      adapterPreparation: getIntegrationAdapterPreparation(provider.slug),
+      adapter: resolveIntegrationAdapter(provider.slug)?.describe() ?? null,
+      connection: connection ? { ...connection, grantedScopes: parseGrantedScopes(connection.grantedScopes) } : null,
+      readiness: !provider.isSupported
+        ? "non_disponible"
+        : connection?.status === "active"
+          ? "pret"
+          : connection?.status === "degraded"
+            ? "a_verifier"
+            : "a_preparer",
+    };
+  });
+}
+
+export async function prepareIntegrationConnection(providerSlug: string, userId: number) {
+  const db = await requireDb();
+  await ensureDefaultIntegrationProviders();
+  return db.transaction(async tx => {
+    const providerRows = await tx.select().from(integrationProviders).where(eq(integrationProviders.slug, providerSlug)).limit(1);
+    const provider = providerRows[0];
+    if (!provider) throw new Error("Fournisseur d’intégration introuvable.");
+    if (provider.isSupported !== "oui") throw new Error("Cette intégration MCP est documentée mais n’est pas encore disponible dans Lucepres.");
+    if (!resolveIntegrationAdapter(provider.slug)) throw new Error("Aucun adaptateur applicatif sécurisé n’est disponible pour ce fournisseur.");
+
+    const existingRows = await tx.select().from(integrationConnections).where(eq(integrationConnections.providerId, provider.id)).limit(1);
+    const existing = existingRows[0];
+    if (existing && existing.status !== "disabled" && existing.status !== "revoked") return { id: existing.id, status: existing.status, reused: true };
+
+    let connectionId: number;
+    if (existing) {
+      connectionId = existing.id;
+      await tx.update(integrationConnections).set(createPreparedIntegrationConnectionValues(userId)).where(eq(integrationConnections.id, connectionId));
+    } else {
+      const result = await tx.insert(integrationConnections).values({ providerId: provider.id, ...createPreparedIntegrationConnectionValues(userId) });
+      connectionId = Number(result[0].insertId);
+    }
+    await tx.insert(integrationAuditLogs).values({ connectionId, actorId: userId, action: "connection_prepared", target: provider.slug, decision: "information", metadata: JSON.stringify({ transport: provider.transport, authType: provider.authType }) });
+    return { id: connectionId, status: "credentials_pending" as const, reused: false };
+  });
+}
+
+/**
+ * Réservé à un futur callback OAuth côté serveur. Aucun écran ni route tRPC ne
+ * peut soumettre un secret : seule une référence opaque déjà placée au coffre est admise.
+ */
+export async function activateIntegrationConnection(input: { connectionId: number; secretRef: string; grantedScopes: string[]; userId: number }) {
+  const db = await requireDb();
+  const secretRef = assertOpaqueIntegrationSecretReference(input.secretRef);
+  const existing = await db.select({ id: integrationConnections.id }).from(integrationConnections).where(eq(integrationConnections.id, input.connectionId)).limit(1);
+  if (!existing[0]) throw new Error("Connexion d’intégration introuvable.");
+  await db.transaction(async tx => {
+    await tx.update(integrationConnections).set({
+      status: "testing",
+      secretRef,
+      grantedScopes: JSON.stringify(input.grantedScopes),
+      lastError: null,
+      enabledById: input.userId,
+    }).where(eq(integrationConnections.id, input.connectionId));
+    await tx.insert(integrationAuditLogs).values({ connectionId: input.connectionId, actorId: input.userId, action: "connection_activation_prepared", decision: "information" });
+  });
+  return { success: true };
+}
+
+export async function disableIntegrationConnection(connectionId: number, userId: number) {
+  const db = await requireDb();
+  const existing = await db.select({ id: integrationConnections.id }).from(integrationConnections).where(eq(integrationConnections.id, connectionId)).limit(1);
+  if (!existing[0]) throw new Error("Connexion d’intégration introuvable.");
+  await db.transaction(async tx => {
+    await tx.update(integrationConnections).set({ status: "disabled", grantedScopes: null, secretRef: null, lastError: null }).where(eq(integrationConnections.id, connectionId));
+    await tx.insert(integrationAuditLogs).values({ connectionId, actorId: userId, action: "connection_disabled", decision: "autorise" });
+  });
+  return { success: true };
+}
+
+export async function listIntegrationAuditLogs() {
+  const db = await requireDb();
+  return db.select({
+    id: integrationAuditLogs.id,
+    action: integrationAuditLogs.action,
+    target: integrationAuditLogs.target,
+    decision: integrationAuditLogs.decision,
+    createdAt: integrationAuditLogs.createdAt,
+    providerName: integrationProviders.name,
+    actorName: users.name,
+  }).from(integrationAuditLogs)
+    .leftJoin(integrationConnections, eq(integrationAuditLogs.connectionId, integrationConnections.id))
+    .leftJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id))
+    .leftJoin(users, eq(integrationAuditLogs.actorId, users.id))
+    .orderBy(desc(integrationAuditLogs.createdAt))
+    .limit(30);
 }
 
 export async function listDocuments(kind?: DocumentKind) {
