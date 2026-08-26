@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateDocumentTotals, formatDocumentNumber, formatGnf, initialDocumentStatus, summarizeDashboard } from "../shared/billing";
+import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, formatGnf, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard } from "../shared/billing";
 
 describe("calculateDocumentTotals", () => {
   it("calcule le sous-total, les taxes et le total TTC sur des lignes en GNF", () => {
@@ -55,5 +55,26 @@ describe("summarizeDashboard", () => {
     ], now);
 
     expect(metrics).toMatchObject({ toProcess: 1, sent: 2, accepted: 1, paidCount: 1, paidTotal: 2500000, overdue: 1, invoicesToFollow: 1 });
+  });
+});
+
+describe("règlements et alertes facture", () => {
+  const overdueDate = new Date("2026-08-20T00:00:00.000Z");
+  const now = new Date("2026-08-26T12:00:00.000Z");
+
+  it("calcule le solde d’une facture après un paiement partiel", () => {
+    expect(calculatePaymentBalance(12000000, 4500000)).toEqual({ paidAmount: 4500000, balanceDue: 7500000, isPaid: false });
+    expect(calculatePaymentBalance(12000000, 12000000)).toEqual({ paidAmount: 12000000, balanceDue: 0, isPaid: true });
+  });
+
+  it("passe une facture en paiement partiel ou payé selon le montant encaissé", () => {
+    expect(invoicePaymentStatus(1000000, 300000, overdueDate, "envoye", now)).toBe("partiellement_paye");
+    expect(invoicePaymentStatus(1000000, 1000000, overdueDate, "envoye", now)).toBe("paye");
+  });
+
+  it("déclenche une alerte seulement pour une facture active dont l’échéance est dépassée", () => {
+    expect(isInvoiceOverdue("envoye", overdueDate, now)).toBe(true);
+    expect(isInvoiceOverdue("paye", overdueDate, now)).toBe(false);
+    expect(isInvoiceOverdue("brouillon", overdueDate, now)).toBe(false);
   });
 });

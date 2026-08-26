@@ -6,11 +6,12 @@ import {
   documents,
   documentSequences,
   InsertUser,
+  payments,
   projects,
   services,
   users,
 } from "../drizzle/schema";
-import { calculateDocumentTotals, formatDocumentNumber, initialDocumentStatus, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine } from "../shared/billing";
+import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -177,7 +178,15 @@ export async function listDocuments(kind?: DocumentKind) {
     .innerJoin(clients, eq(documents.clientId, clients.id))
     .leftJoin(projects, eq(documents.projectId, projects.id))
     .orderBy(desc(documents.updatedAt));
-  return kind ? rows.filter(row => row.kind === kind) : rows;
+  const paymentRows = await db.select({ documentId: payments.documentId, paidAmount: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(payments).groupBy(payments.documentId);
+  const paidByDocument = new Map(paymentRows.map(row => [row.documentId, Number(row.paidAmount)]));
+  const enriched = rows.map(row => {
+    const paidAmount = row.kind === "facture" ? (paidByDocument.get(row.id) ?? 0) : 0;
+    const balance = calculatePaymentBalance(row.total, paidAmount);
+    const status = row.kind === "facture" ? invoicePaymentStatus(row.total, paidAmount, row.dueDate, row.status) : row.status;
+    return { ...row, status, paidAmount, balanceDue: row.kind === "facture" ? balance.balanceDue : 0, isOverdue: row.kind === "facture" && isInvoiceOverdue(status, row.dueDate) };
+  });
+  return kind ? enriched.filter(row => row.kind === kind) : enriched;
 }
 
 export async function getDocumentById(id: number) {
@@ -212,7 +221,11 @@ export async function getDocumentById(id: number) {
     .limit(1);
   if (!header[0]) return null;
   const lines = await db.select().from(documentLines).where(eq(documentLines.documentId, id)).orderBy(asc(documentLines.position));
-  return { ...header[0], lines };
+  const paymentRows = await db.select().from(payments).where(eq(payments.documentId, id)).orderBy(desc(payments.paidAt), desc(payments.createdAt));
+  const paidAmount = paymentRows.reduce((sum, payment) => sum + payment.amount, 0);
+  const balance = calculatePaymentBalance(header[0].total, paidAmount);
+  const status = header[0].kind === "facture" ? invoicePaymentStatus(header[0].total, paidAmount, header[0].dueDate, header[0].status) : header[0].status;
+  return { ...header[0], status, lines, payments: paymentRows, paidAmount, balanceDue: header[0].kind === "facture" ? balance.balanceDue : 0, isOverdue: header[0].kind === "facture" && isInvoiceOverdue(status, header[0].dueDate) };
 }
 
 export async function createDocument(input: {
@@ -285,6 +298,33 @@ export async function updateDocumentStatus(id: number, status: DocumentStatus) {
   const db = await requireDb();
   await db.update(documents).set({ status }).where(eq(documents.id, id));
   return { success: true };
+}
+
+export async function recordPayment(input: {
+  documentId: number;
+  amount: number;
+  paidAt: string;
+  method: PaymentMethod;
+  reference?: string;
+  notes?: string;
+  createdById: number;
+}) {
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    const document = await tx.select().from(documents).where(eq(documents.id, input.documentId)).limit(1);
+    const invoice = document[0];
+    if (!invoice || invoice.kind !== "facture") throw new Error("Seules les factures peuvent recevoir un paiement.");
+    if (["annule", "refuse"].includes(invoice.status)) throw new Error("Cette facture ne peut plus recevoir de paiement.");
+    const existingPayments = await tx.select({ amount: payments.amount }).from(payments).where(eq(payments.documentId, input.documentId));
+    const paidBefore = existingPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const balanceBefore = calculatePaymentBalance(invoice.total, paidBefore);
+    if (input.amount > balanceBefore.balanceDue) throw new Error("Le montant saisi dépasse le solde restant dû.");
+    const result = await tx.insert(payments).values({ documentId: input.documentId, amount: input.amount, paidAt: new Date(`${input.paidAt}T00:00:00.000Z`), method: input.method, reference: input.reference || null, notes: input.notes || null, createdById: input.createdById });
+    const paidAfter = paidBefore + input.amount;
+    const status = invoicePaymentStatus(invoice.total, paidAfter, invoice.dueDate, invoice.status);
+    await tx.update(documents).set({ status }).where(eq(documents.id, input.documentId));
+    return { id: Number(result[0].insertId), paidAmount: paidAfter, balanceDue: calculatePaymentBalance(invoice.total, paidAfter).balanceDue, status };
+  });
 }
 
 export async function updateDocument(input: {

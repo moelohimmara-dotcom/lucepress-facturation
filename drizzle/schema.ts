@@ -156,6 +156,29 @@ export const documentLines = mysqlTable(
   ],
 );
 
+export const payments = mysqlTable(
+  "payments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    documentId: int("documentId")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    paidAt: date("paidAt").notNull(),
+    method: mysqlEnum("method", ["especes", "virement", "cheque", "mobile_money", "autre"])
+      .default("autre")
+      .notNull(),
+    reference: varchar("reference", { length: 120 }),
+    notes: text("notes"),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("payments_documentId_idx").on(table.documentId),
+    index("payments_paidAt_idx").on(table.paidAt),
+  ],
+);
+
 export const documentSequences = mysqlTable(
   "document_sequences",
   {
@@ -174,3 +197,4 @@ export type Project = typeof projects.$inferSelect;
 export type Service = typeof services.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentLine = typeof documentLines.$inferSelect;
+export type Payment = typeof payments.$inferSelect;

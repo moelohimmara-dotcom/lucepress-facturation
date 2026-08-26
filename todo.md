@@ -16,3 +16,8 @@
 - [x] Corriger l’éditeur afin qu’une facture conserve ses champs et ses statuts propres lors de sa modification.
 - [x] Ajouter un export PDF applicatif téléchargeable pour les devis et factures.
 - [x] Renforcer les tests des numérotations, statuts, agrégations du tableau de bord et du garde-fou de relecture IA.
+- [x] Étendre l’assistant IA afin qu’il génère un devis complet et structuré à partir d’une description libre de chantier.
+- [x] Enregistrer les paiements partiels des factures avec date, montant et référence.
+- [x] Calculer le solde dû et actualiser automatiquement le statut de règlement des factures.
+- [x] Afficher des alertes visuelles de retard sur le tableau de bord, les listes et le détail des factures.
+- [x] Ajouter des tests automatisés des paiements partiels, soldes et règles de retard.

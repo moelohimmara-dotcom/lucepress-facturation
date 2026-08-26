@@ -21,6 +21,8 @@ type DashboardDocument = {
   dueDate: Date | null;
 };
 
+export type PaymentMethod = "especes" | "virement" | "cheque" | "mobile_money" | "autre";
+
 export type EditableDocumentLine = {
   description: string;
   quantity: number;
@@ -67,6 +69,23 @@ export function summarizeDashboard(documents: DashboardDocument[], now = new Dat
     overdue: documents.filter(isLate).length,
     invoicesToFollow: documents.filter(document => document.kind === "facture" && ["envoye", "partiellement_paye", "en_retard"].includes(document.status)).length,
   };
+}
+
+export function calculatePaymentBalance(total: number, paidAmount: number) {
+  const paid = Math.max(0, paidAmount);
+  return { paidAmount: paid, balanceDue: Math.max(0, total - paid), isPaid: paid >= total && total > 0 };
+}
+
+export function isInvoiceOverdue(status: DocumentStatus, dueDate: Date | null, now = new Date()) {
+  return Boolean(dueDate && dueDate < now && !["brouillon", "a_envoyer", "paye", "annule", "refuse"].includes(status));
+}
+
+export function invoicePaymentStatus(total: number, paidAmount: number, dueDate: Date | null, currentStatus: DocumentStatus, now = new Date()): DocumentStatus {
+  const balance = calculatePaymentBalance(total, paidAmount);
+  if (balance.isPaid) return "paye";
+  if (balance.paidAmount > 0) return "partiellement_paye";
+  if (isInvoiceOverdue(currentStatus, dueDate, now)) return "en_retard";
+  return currentStatus;
 }
 
 export function formatGnf(value: number) {

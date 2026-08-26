@@ -26,7 +26,13 @@ const proposalSchema = {
     type: "object",
     properties: {
       title: { type: "string" },
+      projectName: { type: "string" },
       summary: { type: "string" },
+      scope: { type: "array", items: { type: "string" } },
+      executionTimeline: { type: "string" },
+      paymentTerms: { type: "string" },
+      validityDays: { type: "integer" },
+      technicalNotes: { type: "array", items: { type: "string" } },
       assumptions: { type: "array", items: { type: "string" } },
       lines: {
         type: "array",
@@ -45,7 +51,7 @@ const proposalSchema = {
         },
       },
     },
-    required: ["title", "summary", "assumptions", "lines"],
+    required: ["title", "projectName", "summary", "scope", "executionTimeline", "paymentTerms", "validityDays", "technicalNotes", "assumptions", "lines"],
     additionalProperties: false,
   },
 } as const;
@@ -93,6 +99,17 @@ export const appRouter = router({
         .input(z.object({ id: z.number().int().positive(), status: z.enum(DOCUMENT_STATUSES) }))
         .mutation(({ input }) => db.updateDocumentStatus(input.id, input.status)),
     }),
+    payments: router({
+      create: adminProcedure
+        .input(z.object({ documentId: z.number().int().positive(), amount: z.number().int().positive().max(9_000_000_000), paidAt: dateText, method: z.enum(["especes", "virement", "cheque", "mobile_money", "autre"]), reference: z.string().trim().max(120).optional(), notes: optionalText }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.recordPayment({ ...input, createdById: ctx.user.id });
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le paiement ne peut pas être enregistré." });
+          }
+        }),
+    }),
     assistant: router({
       proposeQuote: adminProcedure
         .input(z.object({ description: z.string().trim().min(20).max(6000), projectType: z.enum(["btp", "forage", "mixte"]).optional(), taxRate: z.number().int().min(0).max(100).default(0) }))
@@ -105,7 +122,7 @@ export const appRouter = router({
           const result = await invokeLLM({
             model,
             messages: [
-              { role: "system", content: "Tu es l’assistant commercial de Lucepress, entreprise guinéenne BTP et forage. Prépare une proposition de devis en français, claire et prudente. Il s’agit toujours d’un brouillon à faire relire : ne prétends jamais qu’il est validé. Réutilise le catalogue fourni quand il correspond. Si un prix fiable n’est pas présent dans le catalogue, utilise 0 comme prix unitaire et mentionne explicitement la vérification requise dans note et assumptions. Tous les montants sont des entiers en francs guinéens (GNF)." },
+              { role: "system", content: "Tu es l’assistant commercial de Lucepress, entreprise guinéenne BTP et forage. À partir d’une simple description de chantier, prépare un devis complet, structuré et prêt à relire en français. Déduis le domaine, le périmètre, les étapes, les prestations, les hypothèses, la durée d’exécution, les conditions de paiement et une durée de validité raisonnable. Il s’agit toujours d’un brouillon à faire relire : ne prétends jamais qu’il est validé. Réutilise le catalogue fourni quand il correspond. Si un prix fiable n’est pas présent dans le catalogue, utilise 0 comme prix unitaire et mentionne explicitement la vérification requise dans note, technicalNotes et assumptions. Tous les montants sont des entiers en francs guinéens (GNF). Les lignes doivent être exhaustives mais ne dois pas inventer de prix." },
               { role: "user", content: JSON.stringify({ besoin: input.description, domaine: input.projectType ?? "non précisé", tauxTaxeParDefaut: input.taxRate, cataloguePrestations: serviceContext }) },
             ],
             response_format: { type: "json_schema", json_schema: proposalSchema },
