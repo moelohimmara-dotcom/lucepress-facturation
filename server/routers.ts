@@ -204,6 +204,9 @@ export const appRouter = router({
     integrations: router({
       list: adminProcedure.query(() => db.listIntegrations()),
       audit: adminProcedure.query(() => db.listIntegrationAuditLogs()),
+      runtimeReadiness: adminProcedure.query(() => db.getIntegrationRuntimeReadiness()),
+      operationsDashboard: adminProcedure.query(() => db.getIntegrationOperationsDashboard()),
+      googleOauthSessions: adminProcedure.query(() => db.listGoogleWorkspaceOauthSessions()),
       prepareConnection: adminProcedure
         .input(z.object({ providerSlug: z.string().trim().min(2).max(80) }))
         .mutation(async ({ ctx, input }) => {
@@ -211,6 +214,25 @@ export const appRouter = router({
             return await db.prepareIntegrationConnection(input.providerSlug, ctx.user.id);
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La préparation de la connexion est impossible." });
+          }
+        }),
+      startGoogleOauth: adminProcedure
+        .input(z.object({ clientId: z.string().trim().min(10).max(255), redirectUri: z.string().url().max(512), scopes: z.array(z.string().trim().max(200)).min(1).max(3) }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.startGoogleWorkspaceOAuth({ ...input, userId: ctx.user.id });
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le parcours OAuth Google ne peut pas démarrer." });
+          }
+        }),
+      pendingApprovals: adminProcedure.query(() => db.listPendingIntegrationApprovals()),
+      decideApproval: adminProcedure
+        .input(z.object({ jobId: z.number().int().positive(), decision: z.enum(["approve", "reject"]), note: z.string().trim().max(500).optional() }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.decideIntegrationApproval({ ...input, userId: ctx.user.id });
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La décision d’approbation est impossible." });
           }
         }),
       disableConnection: adminProcedure

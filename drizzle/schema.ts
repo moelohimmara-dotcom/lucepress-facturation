@@ -322,6 +322,9 @@ export const integrationJobs = mysqlTable(
     status: mysqlEnum("status", ["queued", "approved", "running", "completed", "failed", "cancelled"]).default("queued").notNull(),
     attempts: int("attempts").default(0).notNull(),
     lastError: text("lastError"),
+    approvedById: int("approvedById").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approvedAt"),
+    approvalNote: varchar("approvalNote", { length: 500 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -356,6 +359,46 @@ export const integrationAuditLogs = mysqlTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("integration_audit_logs_connection_created_idx").on(table.connectionId, table.createdAt), index("integration_audit_logs_actor_created_idx").on(table.actorId, table.createdAt)],
+);
+
+export const integrationOauthSessions = mysqlTable(
+  "integration_oauth_sessions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    connectionId: int("connectionId").notNull().references(() => integrationConnections.id, { onDelete: "cascade" }),
+    providerId: int("providerId").notNull().references(() => integrationProviders.id, { onDelete: "cascade" }),
+    clientId: varchar("clientId", { length: 255 }).notNull(),
+    redirectUri: varchar("redirectUri", { length: 512 }).notNull(),
+    requestedScopes: text("requestedScopes").notNull(),
+    stateHash: varchar("stateHash", { length: 128 }).notNull(),
+    status: mysqlEnum("status", ["authorization_ready", "completed", "failed", "expired"]).default("authorization_ready").notNull(),
+    error: text("error"),
+    expiresAt: timestamp("expiresAt").notNull(),
+    completedAt: timestamp("completedAt"),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [unique("integration_oauth_sessions_state_hash_unique").on(table.stateHash), index("integration_oauth_sessions_connection_status_idx").on(table.connectionId, table.status)],
+);
+
+export const integrationWebhookEvents = mysqlTable(
+  "integration_webhook_events",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    connectionId: int("connectionId").notNull().references(() => integrationConnections.id, { onDelete: "cascade" }),
+    externalEventId: varchar("externalEventId", { length: 255 }).notNull(),
+    eventType: varchar("eventType", { length: 120 }).notNull(),
+    deliveryStatus: varchar("deliveryStatus", { length: 120 }),
+    signatureStatus: mysqlEnum("signatureStatus", ["valid", "invalid", "pending"]).default("pending").notNull(),
+    processingStatus: mysqlEnum("processingStatus", ["accepted", "rejected", "processed", "failed"]).default("accepted").notNull(),
+    payloadHash: varchar("payloadHash", { length: 128 }).notNull(),
+    summary: varchar("summary", { length: 500 }),
+    error: text("error"),
+    occurredAt: timestamp("occurredAt").notNull(),
+    receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+    processedAt: timestamp("processedAt"),
+  },
+  table => [unique("integration_webhook_events_connection_external_unique").on(table.connectionId, table.externalEventId), index("integration_webhook_events_connection_received_idx").on(table.connectionId, table.receivedAt), index("integration_webhook_events_signature_idx").on(table.signatureStatus, table.receivedAt)],
 );
 
 export const documentSequences = mysqlTable(

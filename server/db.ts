@@ -11,7 +11,10 @@ import {
   integrationAuditLogs,
   integrationCapabilities,
   integrationConnections,
+  integrationJobs,
+  integrationOauthSessions,
   integrationProviders,
+  integrationWebhookEvents,
   InsertUser,
   payments,
   projects,
@@ -29,9 +32,12 @@ import { calculateDocumentDiscount } from "../shared/discounts";
 import { getMissingDefaultServices, type ServiceCategory } from "../shared/defaultServices";
 import { getIntegrationAdapterPreparation } from "../shared/integrationAdapterPreparation";
 import { DEFAULT_INTEGRATION_PROVIDERS, parseGrantedScopes } from "../shared/integrationRegistry";
+import { buildGoogleWorkspaceAuthorizationUrl, normalizeGoogleWorkspaceScopes } from "../shared/googleWorkspaceOAuth";
 import { resolveIntegrationAdapter } from "./integrations/adapterRegistry";
 import { assertOpaqueIntegrationSecretReference, createPreparedIntegrationConnectionValues } from "./integrations/connectionSecurity";
+import { getIntegrationSecretConfiguration, requireIntegrationSecret } from "./integrations/secretConfiguration";
 import { ENV } from "./_core/env";
+import { createHash, randomBytes } from "node:crypto";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -499,6 +505,142 @@ export async function listIntegrationAuditLogs() {
     .leftJoin(users, eq(integrationAuditLogs.actorId, users.id))
     .orderBy(desc(integrationAuditLogs.createdAt))
     .limit(30);
+}
+
+export async function startGoogleWorkspaceOAuth(input: { clientId: string; redirectUri: string; scopes: string[]; userId: number }) {
+  const db = await requireDb();
+  requireIntegrationSecret(process.env.GOOGLE_OAUTH_CLIENT_SECRET, "Le secret client OAuth Google");
+  const clientId = input.clientId.trim();
+  const redirectUri = input.redirectUri.trim();
+  if (!clientId) throw new Error("L’identifiant client OAuth Google est requis.");
+  if (!redirectUri.startsWith("https://")) throw new Error("L’URI de redirection OAuth doit utiliser HTTPS.");
+  const scopes = normalizeGoogleWorkspaceScopes(input.scopes);
+  const rows = await db.select({ connectionId: integrationConnections.id, providerId: integrationProviders.id, status: integrationConnections.status })
+    .from(integrationConnections)
+    .innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id))
+    .where(eq(integrationProviders.slug, "google-workspace"))
+    .limit(1);
+  const connection = rows[0];
+  if (!connection) throw new Error("Préparez d’abord la connexion Google Workspace dans le centre d’intégrations.");
+  if (connection.status === "disabled" || connection.status === "revoked") throw new Error("Réactivez la connexion Google Workspace avant de commencer OAuth.");
+
+  const state = randomBytes(32).toString("base64url");
+  const stateHash = createHash("sha256").update(state).digest("hex");
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const result = await db.insert(integrationOauthSessions).values({
+    connectionId: connection.connectionId,
+    providerId: connection.providerId,
+    clientId,
+    redirectUri,
+    requestedScopes: JSON.stringify(scopes),
+    stateHash,
+    expiresAt,
+    createdById: input.userId,
+  });
+  const sessionId = Number(result[0].insertId);
+  await db.insert(integrationAuditLogs).values({ connectionId: connection.connectionId, actorId: input.userId, action: "google_oauth_started", target: "google-workspace", decision: "information", metadata: JSON.stringify({ scopes, sessionId }) });
+  return { sessionId, authorizationUrl: buildGoogleWorkspaceAuthorizationUrl({ clientId, redirectUri, scopes, state }), expiresAt };
+}
+
+export function getIntegrationRuntimeReadiness() {
+  return getIntegrationSecretConfiguration();
+}
+
+export async function listGoogleWorkspaceOauthSessions() {
+  const db = await requireDb();
+  return db.select({
+    id: integrationOauthSessions.id,
+    status: integrationOauthSessions.status,
+    requestedScopes: integrationOauthSessions.requestedScopes,
+    redirectUri: integrationOauthSessions.redirectUri,
+    expiresAt: integrationOauthSessions.expiresAt,
+    error: integrationOauthSessions.error,
+    createdAt: integrationOauthSessions.createdAt,
+    createdByName: users.name,
+  }).from(integrationOauthSessions)
+    .innerJoin(integrationProviders, eq(integrationOauthSessions.providerId, integrationProviders.id))
+    .leftJoin(users, eq(integrationOauthSessions.createdById, users.id))
+    .where(eq(integrationProviders.slug, "google-workspace"))
+    .orderBy(desc(integrationOauthSessions.createdAt))
+    .limit(10);
+}
+
+export async function listPendingIntegrationApprovals() {
+  const db = await requireDb();
+  return db.select({
+    id: integrationJobs.id,
+    operation: integrationJobs.operation,
+    payloadHash: integrationJobs.payloadHash,
+    attempts: integrationJobs.attempts,
+    createdAt: integrationJobs.createdAt,
+    connectionId: integrationConnections.id,
+    providerName: integrationProviders.name,
+    providerSlug: integrationProviders.slug,
+  }).from(integrationJobs)
+    .innerJoin(integrationConnections, eq(integrationJobs.connectionId, integrationConnections.id))
+    .innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id))
+    .where(eq(integrationJobs.status, "queued"))
+    .orderBy(asc(integrationJobs.createdAt));
+}
+
+export async function decideIntegrationApproval(input: { jobId: number; decision: "approve" | "reject"; note?: string; userId: number }) {
+  const db = await requireDb();
+  const jobRows = await db.select({ id: integrationJobs.id, connectionId: integrationJobs.connectionId, status: integrationJobs.status, operation: integrationJobs.operation })
+    .from(integrationJobs).where(eq(integrationJobs.id, input.jobId)).limit(1);
+  const job = jobRows[0];
+  if (!job) throw new Error("Demande d’approbation introuvable.");
+  if (job.status !== "queued") throw new Error("Cette demande a déjà reçu une décision.");
+  const nextStatus = input.decision === "approve" ? "approved" : "cancelled";
+  const decision = input.decision === "approve" ? "autorise" : "refuse";
+  await db.transaction(async tx => {
+    await tx.update(integrationJobs).set({ status: nextStatus, approvedById: input.userId, approvedAt: new Date(), approvalNote: input.note?.trim() || null }).where(eq(integrationJobs.id, job.id));
+    await tx.insert(integrationAuditLogs).values({ connectionId: job.connectionId, actorId: input.userId, action: `external_write_${nextStatus}`, target: job.operation, decision, metadata: input.note?.trim() ? JSON.stringify({ note: input.note.trim(), jobId: job.id }) : JSON.stringify({ jobId: job.id }) });
+  });
+  return { success: true, status: nextStatus };
+}
+
+/** Appelé uniquement par le futur endpoint WhatsApp après validation cryptographique de la signature. */
+export async function recordWhatsAppWebhookEvent(input: { connectionId: number; externalEventId: string; eventType: string; deliveryStatus?: string; signatureStatus: "valid" | "invalid" | "pending"; processingStatus: "accepted" | "rejected" | "processed" | "failed"; payloadHash: string; summary?: string; error?: string; occurredAt: Date }) {
+  const db = await requireDb();
+  const connectionRows = await db.select({ id: integrationConnections.id })
+    .from(integrationConnections)
+    .innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id))
+    .where(eq(integrationConnections.id, input.connectionId))
+    .limit(1);
+  if (!connectionRows[0]) throw new Error("Connexion WhatsApp introuvable.");
+  const result = await db.insert(integrationWebhookEvents).values({
+    ...input,
+    externalEventId: input.externalEventId.slice(0, 255),
+    eventType: input.eventType.slice(0, 120),
+    deliveryStatus: input.deliveryStatus?.slice(0, 120) || null,
+    payloadHash: input.payloadHash.slice(0, 128),
+    summary: input.summary?.slice(0, 500) || null,
+    error: input.error || null,
+  }).onDuplicateKeyUpdate({ set: { signatureStatus: input.signatureStatus, processingStatus: input.processingStatus, deliveryStatus: input.deliveryStatus?.slice(0, 120) || null, summary: input.summary?.slice(0, 500) || null, error: input.error || null, receivedAt: new Date() } });
+  return { id: Number(result[0].insertId) };
+}
+
+export async function getIntegrationOperationsDashboard() {
+  const db = await requireDb();
+  const [connections, approvals, webhookEvents] = await Promise.all([
+    db.select({ id: integrationConnections.id, status: integrationConnections.status, lastHealthCheckAt: integrationConnections.lastHealthCheckAt, lastError: integrationConnections.lastError, providerName: integrationProviders.name, providerSlug: integrationProviders.slug })
+      .from(integrationConnections).innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id)).orderBy(asc(integrationProviders.sortOrder)),
+    listPendingIntegrationApprovals(),
+    db.select({ id: integrationWebhookEvents.id, eventType: integrationWebhookEvents.eventType, deliveryStatus: integrationWebhookEvents.deliveryStatus, signatureStatus: integrationWebhookEvents.signatureStatus, processingStatus: integrationWebhookEvents.processingStatus, summary: integrationWebhookEvents.summary, error: integrationWebhookEvents.error, receivedAt: integrationWebhookEvents.receivedAt, occurredAt: integrationWebhookEvents.occurredAt })
+      .from(integrationWebhookEvents).innerJoin(integrationConnections, eq(integrationWebhookEvents.connectionId, integrationConnections.id)).innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id)).where(eq(integrationProviders.slug, "whatsapp-business")).orderBy(desc(integrationWebhookEvents.receivedAt)).limit(30),
+  ]);
+  return {
+    connections,
+    pendingApprovals: approvals,
+    webhookEvents,
+    summary: {
+      activeConnections: connections.filter(connection => connection.status === "active").length,
+      degradedConnections: connections.filter(connection => connection.status === "degraded").length,
+      pendingApprovals: approvals.length,
+      acceptedWebhooks: webhookEvents.filter(event => event.processingStatus === "accepted" || event.processingStatus === "processed").length,
+      rejectedWebhooks: webhookEvents.filter(event => event.processingStatus === "rejected" || event.signatureStatus === "invalid").length,
+    },
+  };
 }
 
 export async function listDocuments(kind?: DocumentKind) {
