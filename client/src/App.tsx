@@ -11,6 +11,7 @@ import DocumentsPage from "./pages/DocumentsPage";
 import CatalogPage from "./pages/CatalogPage";
 import Home from "./pages/Home";
 import SettingsPage from "./pages/SettingsPage";
+import RemindersPage from "./pages/RemindersPage";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -25,6 +26,7 @@ function Router() {
       <Route path={"/chantiers"} component={() => <CatalogPage kind="chantiers" />} />
       <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
       <Route path={"/parametres"} component={SettingsPage} />
+      <Route path={"/relances"} component={RemindersPage} />
       <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
       <Route path={"/documents/:id"} component={DocumentPreviewPage} />
       <Route path={"/404"} component={NotFound} />

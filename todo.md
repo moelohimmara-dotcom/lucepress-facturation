@@ -36,3 +36,10 @@
 - [x] Tester les flux d’extraction, de modification client et de paramètres PDF.
 - [x] Ajouter un test automatisé de la mutation de modification d’un client existant.
 - [x] Ajouter un test d’intégration de l’aperçu document avec paramètres entreprise personnalisés.
+- [x] Détecter les doublons clients potentiels à partir du nom, de l’e-mail et du téléphone avant enregistrement.
+- [x] Ajouter un générateur IA de modèles de relance pour les factures en retard.
+- [x] Permettre l’ajout et la consultation de pièces jointes sécurisées dans les fiches clients.
+- [x] Tester la détection des doublons, la préparation de relance et les métadonnées de pièces jointes.
+- [x] Renvoyer des erreurs explicites pour les dépôts non authentifiés ou associés à un client invalide.
+- [x] Ajouter un test automatisé de la route d’envoi et de consultation des pièces jointes client.
+- [x] Ajouter un test automatisé de consultation des pièces jointes liées à un client.

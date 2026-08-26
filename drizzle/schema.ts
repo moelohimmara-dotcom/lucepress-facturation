@@ -198,6 +198,24 @@ export const companySettings = mysqlTable("company_settings", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const clientAttachments = mysqlTable(
+  "client_attachments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    clientId: int("clientId")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    fileName: varchar("fileName", { length: 255 }).notNull(),
+    contentType: varchar("contentType", { length: 120 }).notNull(),
+    size: int("size").notNull(),
+    storageKey: varchar("storageKey", { length: 512 }).notNull(),
+    storageUrl: varchar("storageUrl", { length: 512 }).notNull(),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("client_attachments_clientId_idx").on(table.clientId)],
+);
+
 export const documentSequences = mysqlTable(
   "document_sequences",
   {
@@ -218,3 +236,4 @@ export type Document = typeof documents.$inferSelect;
 export type DocumentLine = typeof documentLines.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type CompanySettings = typeof companySettings.$inferSelect;
+export type ClientAttachment = typeof clientAttachments.$inferSelect;

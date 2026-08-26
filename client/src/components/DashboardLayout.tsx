@@ -27,6 +27,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Mail,
   PanelLeft,
   ReceiptText,
   Settings,
@@ -47,6 +48,7 @@ const menuItems = [
   { icon: FolderKanban, label: "Chantiers", path: "/chantiers" },
   { icon: Wrench, label: "Prestations", path: "/prestations" },
   { icon: Settings, label: "Paramètres", path: "/parametres" },
+  { icon: Mail, label: "Relances", path: "/relances" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   clients,
+  clientAttachments,
   companySettings,
   documentLines,
   documents,
@@ -13,6 +14,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
+import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -72,6 +74,12 @@ export async function listClients() {
   return db.select().from(clients).orderBy(asc(clients.companyName));
 }
 
+export async function getClientById(id: number) {
+  const db = await requireDb();
+  const result = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+  return result[0];
+}
+
 export async function createClient(input: {
   companyName: string;
   contactName?: string;
@@ -116,6 +124,29 @@ export async function updateClient(id: number, input: ClientInput) {
     notes: input.notes || null,
   }).where(eq(clients.id, id));
   return { success: true };
+}
+
+export async function findClientDuplicates(input: ClientDuplicateCandidate, excludedId?: number) {
+  const existing = await listClients();
+  return findPotentialClientDuplicates(existing, input, excludedId).map(match => ({
+    id: match.client.id,
+    companyName: match.client.companyName,
+    contactName: match.client.contactName,
+    email: match.client.email,
+    phone: match.client.phone,
+    reasons: match.reasons,
+  }));
+}
+
+export async function listClientAttachments(clientId: number) {
+  const db = await requireDb();
+  return db.select().from(clientAttachments).where(eq(clientAttachments.clientId, clientId)).orderBy(desc(clientAttachments.createdAt));
+}
+
+export async function createClientAttachment(input: { clientId: number; fileName: string; contentType: string; size: number; storageKey: string; storageUrl: string; createdById: number }) {
+  const db = await requireDb();
+  const result = await db.insert(clientAttachments).values(input);
+  return { id: Number(result[0].insertId) };
 }
 
 export type CompanySettingsInput = {

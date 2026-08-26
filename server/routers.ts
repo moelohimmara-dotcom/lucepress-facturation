@@ -77,6 +77,23 @@ const clientExtractionResponseSchema = {
   },
 } as const;
 
+const reminderResponseSchema = {
+  name: "lucepress_overdue_reminder",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      subject: { type: "string" },
+      greeting: { type: "string" },
+      body: { type: "string" },
+      closing: { type: "string" },
+      tone: { type: "string" },
+    },
+    required: ["subject", "greeting", "body", "closing", "tone"],
+    additionalProperties: false,
+  },
+} as const;
+
 const proposalSchema = {
   name: "lucepress_quote_proposal",
   strict: true,
@@ -128,12 +145,16 @@ export const appRouter = router({
     dashboard: adminProcedure.query(() => db.getDashboardData()),
     clients: router({
       list: adminProcedure.query(() => db.listClients()),
+      duplicates: adminProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
       create: adminProcedure
         .input(clientInputSchema)
         .mutation(({ input }) => db.createClient(input)),
       update: adminProcedure
         .input(clientInputSchema.extend({ id: z.number().int().positive() }))
         .mutation(({ input }) => db.updateClient(input.id, input)),
+      attachments: router({
+        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientAttachments(input.clientId)),
+      }),
     }),
     settings: router({
       get: adminProcedure.query(() => db.getCompanySettings()),
@@ -176,6 +197,26 @@ export const appRouter = router({
         }),
     }),
     assistant: router({
+      generateReminder: adminProcedure
+        .input(z.object({ documentId: z.number().int().positive(), tone: z.enum(["courtois", "ferme"]).default("courtois") }))
+        .mutation(async ({ input }) => {
+          const document = await db.getDocumentById(input.documentId);
+          if (!document || document.kind !== "facture" || document.balanceDue <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
+          const models = await listLLMModels();
+          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const result = await invokeLLM({
+            model,
+            messages: [
+              { role: "system", content: "Tu es l’assistant de recouvrement de Lucepress, entreprise guinéenne BTP et forage. Rédige en français un modèle d’e-mail de relance professionnel, factuel et prêt à relire, sans menaces ni affirmation juridique. Mentionne le numéro de facture, le montant du solde en GNF et l’échéance connue. Le résultat est un brouillon : ne prétends jamais que l’e-mail a été envoyé." },
+              { role: "user", content: JSON.stringify({ ton: input.tone, facture: document.number, client: document.clientName, contact: document.contactName, email: document.clientEmail, echeance: document.dueDate, soldeGNF: document.balanceDue, dateEmission: document.issueDate }) },
+            ],
+            response_format: { type: "json_schema", json_schema: reminderResponseSchema },
+          });
+          const content = result.choices[0]?.message.content;
+          if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance est indisponible. Réessayez dans un instant." });
+          try { return { reminder: JSON.parse(content), requiresReview: true }; } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance ne peut pas être lu. Réessayez dans un instant." }); }
+        }),
       extractClient: adminProcedure
         .input(z.object({ text: z.string().trim().min(10).max(6000) }))
         .mutation(async ({ input }) => {
