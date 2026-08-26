@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { createElement } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const navigate = vi.fn();
@@ -74,5 +74,48 @@ describe("sidebar Lucepress sur format contraint", () => {
     expect(screen.getByTestId("sidebar-shell").style.getPropertyValue("--sidebar-width")).toBe("240px");
     expect(screen.getByTestId("sidebar-scroll-indicator")).toBeTruthy();
     vi.unstubAllGlobals();
+  });
+
+  it("affiche une infobulle à la première utilisation hors de la navigation et mémorise sa fermeture", () => {
+    render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    expect(screen.getByTestId("sidebar-help")).toBeTruthy();
+    expect(within(screen.getByTestId("sidebar-content")).queryByTestId("sidebar-help")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Fermer l’aide de navigation"));
+    expect(screen.queryByTestId("sidebar-help")).toBeNull();
+    expect(localStorage.getItem("lucepress-sidebar-help-seen")).toBe("true");
+  });
+
+  it("permet de choisir manuellement le mode compact ou normal", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1280 });
+    render(createElement(DashboardLayoutContent, { sidebarWidth: 276, setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    const sidebar = screen.getByTestId("sidebar-shell");
+    expect(sidebar.style.getPropertyValue("--sidebar-width")).toBe("276px");
+    fireEvent.click(screen.getByTestId("sidebar-density-toggle"));
+    expect(sidebar.style.getPropertyValue("--sidebar-width")).toBe("240px");
+    expect(localStorage.getItem("lucepress-sidebar-compact")).toBe("compact");
+    fireEvent.click(screen.getByTestId("sidebar-density-toggle"));
+    expect(sidebar.style.getPropertyValue("--sidebar-width")).toBe("276px");
+    expect(localStorage.getItem("lucepress-sidebar-compact")).toBe("normal");
+  });
+
+  it("navigue par raccourci vers Clients, Chantiers et l’assistant IA", () => {
+    navigate.mockClear();
+    render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    fireEvent.keyDown(window, { key: "1", altKey: true });
+    fireEvent.keyDown(window, { key: "2", altKey: true });
+    fireEvent.keyDown(window, { key: "3", altKey: true });
+    expect(navigate).toHaveBeenCalledWith("/clients");
+    expect(navigate).toHaveBeenCalledWith("/chantiers");
+    expect(navigate).toHaveBeenCalledWith("/devis/nouveau?assistant=1");
+  });
+
+  it("ignore les raccourcis lorsque l’utilisateur saisit du texte", () => {
+    navigate.mockClear();
+    render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: "1", altKey: true });
+    expect(navigate).not.toHaveBeenCalledWith("/clients");
+    input.remove();
   });
 });

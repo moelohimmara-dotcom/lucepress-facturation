@@ -6,6 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sidebar,
   SidebarContent,
@@ -21,9 +22,10 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { getEffectiveSidebarWidth, getRestorableRoute, hasSidebarOverflow, isCompactSidebar } from "@shared/sidebarNavigation";
+import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import {
   Bot,
+  CircleHelp,
   ChevronDown,
   FileText,
   FolderKanban,
@@ -38,6 +40,7 @@ import {
   Sparkles,
   UsersRound,
   Wrench,
+  X,
 } from "lucide-react";
 import React, { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -58,6 +61,7 @@ const menuItems = [
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";
 const LAST_ROUTE_KEY = "lucepress-last-route";
 const COMPACT_MODE_KEY = "lucepress-sidebar-compact";
+const SIDEBAR_HELP_SEEN_KEY = "lucepress-sidebar-help-seen";
 const DEFAULT_WIDTH = 276;
 const MIN_WIDTH = 224;
 const MAX_WIDTH = 380;
@@ -105,12 +109,13 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const [hasMoreNavigation, setHasMoreNavigation] = useState(false);
-  const [compactMode, setCompactMode] = useState(() => localStorage.getItem(COMPACT_MODE_KEY) === "true");
+  const [densityPreference, setDensityPreference] = useState<SidebarDensityPreference>(() => getSidebarDensityPreference(localStorage.getItem(COMPACT_MODE_KEY)));
+  const [showSidebarHelp, setShowSidebarHelp] = useState(() => localStorage.getItem(SIDEBAR_HELP_SEEN_KEY) !== "true");
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const activeMenuItem = menuItems.find(item => item.path === location);
-  const isCompact = !isCollapsed && isCompactSidebar(compactMode, viewportWidth);
+  const isCompact = !isCollapsed && isCompactSidebar(densityPreference, viewportWidth);
   const isMediumViewport = viewportWidth >= 768 && viewportWidth <= 1180;
   const effectiveSidebarWidth = getEffectiveSidebarWidth(sidebarWidth, isCompact);
 
@@ -124,14 +129,40 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   }, [location]);
 
   useEffect(() => {
-    localStorage.setItem(COMPACT_MODE_KEY, String(compactMode));
-  }, [compactMode]);
+    if (densityPreference) localStorage.setItem(COMPACT_MODE_KEY, densityPreference);
+    else localStorage.removeItem(COMPACT_MODE_KEY);
+  }, [densityPreference]);
+
+  const dismissSidebarHelp = () => {
+    setShowSidebarHelp(false);
+    localStorage.setItem(SIDEBAR_HELP_SEEN_KEY, "true");
+  };
+
+  const setSidebarHelpOpen = (open: boolean) => {
+    if (open) setShowSidebarHelp(true);
+    else dismissSidebarHelp();
+  };
+
+  const toggleDensity = () => setDensityPreference(isCompact ? "normal" : "compact");
 
   useEffect(() => {
     const updateViewport = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", updateViewport);
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true']")) return;
+      const path = getSidebarShortcutPath(event.key, event.altKey, event.ctrlKey, event.metaKey);
+      if (!path) return;
+      event.preventDefault();
+      setLocation(path);
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [setLocation]);
 
   useEffect(() => {
     const content = sidebarRef.current?.querySelector<HTMLElement>("[data-sidebar='content']");
@@ -176,7 +207,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
                 <PanelLeft className="h-4 w-4" />
               </button>
               {!isCollapsed && <div className="min-w-0 flex-1"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">Lucepress</p>{!isCompact && <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">BTP & Forage</p>}</div>}
-              {!isCollapsed && !isMediumViewport && <button onClick={() => setCompactMode(value => !value)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={compactMode ? "Désactiver le mode compact" : "Activer le mode compact"} title={compactMode ? "Désactiver le mode compact" : "Activer le mode compact"}>{compactMode ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button>}
+              {!isCollapsed && <div className="flex shrink-0 items-center gap-1"><button data-testid="sidebar-density-toggle" onClick={toggleDensity} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={isCompact ? "Passer au mode normal" : "Passer au mode compact"} title={isCompact ? "Passer au mode normal" : "Passer au mode compact"}>{isCompact ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button><Popover open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}><PopoverTrigger asChild><button data-testid="sidebar-help-trigger" className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Afficher l’aide de navigation" title="Afficher l’aide de navigation"><CircleHelp className="h-4 w-4" /></button></PopoverTrigger><PopoverContent data-testid="sidebar-help" align={isMobile ? "start" : "center"} side={isMobile ? "bottom" : "right"} sideOffset={10} className="w-72 rounded-xl border-sidebar-primary/30 bg-sidebar p-3 text-sidebar-foreground shadow-xl"><div className="flex items-start gap-2"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div className="min-w-0 flex-1"><p className="text-xs font-extrabold">Navigation rapide</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/70">Utilisez le bouton voisin pour choisir le mode compact ou normal. Les raccourcis <kbd>Alt + 1</kbd>, <kbd>Alt + 2</kbd> et <kbd>Alt + 3</kbd> ouvrent Clients, Chantiers et l’assistant IA.</p></div><button onClick={dismissSidebarHelp} className="-mt-1 -mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/65 hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Fermer l’aide de navigation"><X className="h-3.5 w-3.5" /></button></div></PopoverContent></Popover></div>}
             </div>
           </SidebarHeader>
           <SidebarContent className={`relative min-h-0 gap-0 overflow-y-auto ${isCompact ? "px-1 py-2" : "px-2 py-3"}`}>
@@ -184,7 +215,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
             <SidebarMenu className="gap-1">
               {menuItems.map(item => (
                 <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton isActive={location === item.path} onClick={() => setLocation(item.path)} tooltip={item.label} className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-11 rounded-xl px-3"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}>
+                  <SidebarMenuButton isActive={location === item.path} onClick={() => setLocation(item.path)} tooltip={item.label} aria-keyshortcuts={item.path === "/clients" ? "Alt+1" : item.path === "/chantiers" ? "Alt+2" : undefined} className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-11 rounded-xl px-3"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}>
                     <item.icon className="h-[18px] w-[18px]" /><span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -193,7 +224,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
             {hasMoreNavigation && !isCollapsed && <div aria-hidden="true" data-testid="sidebar-scroll-indicator" className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-end px-3 text-sidebar-foreground/80"><span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-sidebar/90 shadow-sm"><ChevronDown className="h-3.5 w-3.5 animate-pulse" /></span></div>}
           </SidebarContent>
           <SidebarFooter className={`${isCompact ? "p-2" : "p-3"} shrink-0 border-t border-white/10`}>
-            {!isCollapsed && <div className={`${isCompact ? "mb-0.5 rounded-xl p-2.5" : "mb-1 rounded-2xl p-3.5"} border border-white/10 bg-white/[0.06]`}><div className="flex gap-2.5"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div><p className="text-xs font-bold">Assistant IA</p>{!isCompact && <p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/60">Transformez un besoin de chantier en devis à valider.</p>}</div></div></div>}
+            {!isCollapsed && <button type="button" data-testid="sidebar-ai-assistant" onClick={() => setLocation("/devis/nouveau?assistant=1")} aria-keyshortcuts="Alt+3" aria-label="Ouvrir l’assistant IA pour créer un devis" className={`${isCompact ? "mb-0.5 rounded-xl p-2.5" : "mb-1 rounded-2xl p-3.5"} w-full border border-white/10 bg-white/[0.06] text-left transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring`}><div className="flex gap-2.5"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div><p className="text-xs font-bold">Assistant IA</p>{!isCompact && <p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/60">Transformez un besoin de chantier en devis à valider.</p>}</div></div></button>}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring">

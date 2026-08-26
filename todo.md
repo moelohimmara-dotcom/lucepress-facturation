@@ -65,3 +65,9 @@
 - [x] Tester les préférences de navigation et les états responsive de la barre latérale.
 - [x] Réduire effectivement la largeur de la barre latérale en mode compact sans affecter Clients, Chantiers ni le pied Assistant IA.
 - [x] Ajouter des tests UI des états compact et indicateur de défilement de la barre latérale.
+- [x] Afficher une infobulle d’aide lors de la première utilisation de la barre latérale.
+- [x] Permettre le basculement manuel persistant entre les modes compact et normal.
+- [x] Ajouter des raccourcis clavier accessibles vers Clients, Chantiers et Assistant IA.
+- [x] Tester les préférences, raccourcis et interactions d’aide de navigation.
+- [x] Remplacer l’encart d’aide inline par une infobulle de première utilisation ancrée à la barre latérale.
+- [x] Tester l’ouverture et la fermeture de l’infobulle d’onboarding sans empiétement sur la navigation.
