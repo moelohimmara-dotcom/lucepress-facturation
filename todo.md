@@ -80,3 +80,15 @@
 - [x] Appliquer la signature Lucepres aux nouveaux devis et factures.
 - [x] Ajouter un formulaire de validation des coordonnées fiscales et bancaires dans les paramètres.
 - [x] Tester le catalogue par défaut, la signature documentaire et les validations de paramètres.
+- [x] Permettre de modifier les tarifs unitaires des prestations enregistrées.
+- [x] Proposer des modèles de devis personnalisables pour Hydraulique, Hygiène et Maintenance.
+- [x] Ajouter un échéancier d’acompte et solde aux nouveaux devis.
+- [x] Tester les tarifs, modèles de devis et échéanciers de paiement.
+- [x] Tester la mutation de mise à jour des tarifs personnalisés et sa persistance.
+- [x] Tester le parcours d’application d’un modèle puis l’enregistrement et la restitution d’un échéancier de devis.
+- [x] Vérifier en intégration que la mise à jour d’un tarif est relue avec les nouvelles valeurs dans le catalogue.
+- [x] Vérifier dans l’éditeur le parcours complet modèle de devis, échéancier et restitution dans l’aperçu.
+- [x] Vérifier dans un même scénario la mutation de tarif puis la relecture du catalogue.
+- [x] Vérifier dans le répertoire Prestations l’affichage immédiat d’un tarif mis à jour.
+- [x] Mettre à jour immédiatement le cache des prestations après modification d’un tarif.
+- [x] Tester le rafraîchissement automatique du catalogue sans rendu forcé.

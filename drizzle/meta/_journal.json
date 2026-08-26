@@ -50,6 +50,13 @@
       "when": 1787766907744,
       "tag": "0006_rich_thunderbolts",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1787768010402,
+      "tag": "0007_silent_stephen_strange",
+      "breakpoints": true
     }
   ]
 }

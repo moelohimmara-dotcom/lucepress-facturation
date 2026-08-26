@@ -302,6 +302,12 @@ export async function createService(input: {
   return { id: Number(result[0].insertId) };
 }
 
+export async function updateServiceTariff(input: { id: number; defaultUnitPrice: number; defaultTaxRate: number }) {
+  const db = await requireDb();
+  await db.update(services).set({ defaultUnitPrice: input.defaultUnitPrice, defaultTaxRate: input.defaultTaxRate }).where(eq(services.id, input.id));
+  return { success: true };
+}
+
 export async function listDocuments(kind?: DocumentKind) {
   const db = await requireDb();
   const rows = await db
@@ -313,6 +319,9 @@ export async function listDocuments(kind?: DocumentKind) {
       issueDate: documents.issueDate,
       dueDate: documents.dueDate,
       validUntil: documents.validUntil,
+      depositPercent: documents.depositPercent,
+      depositDueDate: documents.depositDueDate,
+      balanceDueDate: documents.balanceDueDate,
       total: documents.total,
       subtotal: documents.subtotal,
       taxTotal: documents.taxTotal,
@@ -349,6 +358,9 @@ export async function getDocumentById(id: number) {
       issueDate: documents.issueDate,
       dueDate: documents.dueDate,
       validUntil: documents.validUntil,
+      depositPercent: documents.depositPercent,
+      depositDueDate: documents.depositDueDate,
+      balanceDueDate: documents.balanceDueDate,
       subtotal: documents.subtotal,
       taxTotal: documents.taxTotal,
       total: documents.total,
@@ -386,6 +398,9 @@ export async function createDocument(input: {
   issueDate: string;
   dueDate?: string;
   validUntil?: string;
+  depositPercent?: number;
+  depositDueDate?: string;
+  balanceDueDate?: string;
   notes?: string;
   isAiDraft?: boolean;
   createdById: number;
@@ -410,6 +425,9 @@ export async function createDocument(input: {
       issueDate: new Date(`${input.issueDate}T00:00:00.000Z`),
       dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : null,
       validUntil: input.validUntil ? new Date(`${input.validUntil}T00:00:00.000Z`) : null,
+      depositPercent: input.depositPercent ?? null,
+      depositDueDate: input.depositDueDate ? new Date(`${input.depositDueDate}T00:00:00.000Z`) : null,
+      balanceDueDate: input.balanceDueDate ? new Date(`${input.balanceDueDate}T00:00:00.000Z`) : null,
       subtotal: totals.subtotal,
       taxTotal: totals.taxTotal,
       total: totals.total,
@@ -484,6 +502,9 @@ export async function updateDocument(input: {
   issueDate: string;
   dueDate?: string;
   validUntil?: string;
+  depositPercent?: number;
+  depositDueDate?: string;
+  balanceDueDate?: string;
   notes?: string;
   lines: EditableDocumentLine[];
 }) {
@@ -497,6 +518,9 @@ export async function updateDocument(input: {
       issueDate: new Date(`${input.issueDate}T00:00:00.000Z`),
       dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : null,
       validUntil: input.validUntil ? new Date(`${input.validUntil}T00:00:00.000Z`) : null,
+      depositPercent: input.depositPercent ?? null,
+      depositDueDate: input.depositDueDate ? new Date(`${input.depositDueDate}T00:00:00.000Z`) : null,
+      balanceDueDate: input.balanceDueDate ? new Date(`${input.balanceDueDate}T00:00:00.000Z`) : null,
       subtotal: totals.subtotal,
       taxTotal: totals.taxTotal,
       total: totals.total,
