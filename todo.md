@@ -92,3 +92,9 @@
 - [x] Vérifier dans le répertoire Prestations l’affichage immédiat d’un tarif mis à jour.
 - [x] Mettre à jour immédiatement le cache des prestations après modification d’un tarif.
 - [x] Tester le rafraîchissement automatique du catalogue sans rendu forcé.
+- [x] Permettre les remises personnalisées par client lors de la création d’un devis.
+- [x] Générer une facture d’acompte à partir d’un devis accepté.
+- [x] Conserver un historique des révisions de tarifs des prestations.
+- [x] Tester les remises, factures d’acompte et l’historique tarifaire.
+- [x] Tester dans l’aperçu la génération d’une facture d’acompte et sa navigation.
+- [x] Tester l’affichage de l’historique des révisions dans le répertoire Prestations.

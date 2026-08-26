@@ -11,6 +11,7 @@ import {
   InsertUser,
   payments,
   projects,
+  servicePriceRevisions,
   services,
   users,
 } from "../drizzle/schema";
@@ -18,6 +19,8 @@ import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber,
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
+import { calculateDepositInvoiceAmount } from "../shared/depositInvoice";
+import { calculateDocumentDiscount } from "../shared/discounts";
 import { getMissingDefaultServices, type ServiceCategory } from "../shared/defaultServices";
 import { ENV } from "./_core/env";
 
@@ -92,6 +95,7 @@ export async function createClient(input: {
   address?: string;
   taxId?: string;
   notes?: string;
+  defaultDiscountPercent?: number;
 }) {
   const db = await requireDb();
   const result = await db.insert(clients).values({
@@ -102,6 +106,7 @@ export async function createClient(input: {
     address: input.address || null,
     taxId: input.taxId || null,
     notes: input.notes || null,
+    defaultDiscountPercent: input.defaultDiscountPercent ?? 0,
   });
   return { id: Number(result[0].insertId) };
 }
@@ -114,6 +119,7 @@ export type ClientInput = {
   address?: string;
   taxId?: string;
   notes?: string;
+  defaultDiscountPercent?: number;
 };
 
 export async function updateClient(id: number, input: ClientInput) {
@@ -126,6 +132,7 @@ export async function updateClient(id: number, input: ClientInput) {
     address: input.address || null,
     taxId: input.taxId || null,
     notes: input.notes || null,
+    defaultDiscountPercent: input.defaultDiscountPercent ?? 0,
   }).where(eq(clients.id, id));
   return { success: true };
 }
@@ -302,10 +309,23 @@ export async function createService(input: {
   return { id: Number(result[0].insertId) };
 }
 
-export async function updateServiceTariff(input: { id: number; defaultUnitPrice: number; defaultTaxRate: number }) {
+export async function updateServiceTariff(input: { id: number; defaultUnitPrice: number; defaultTaxRate: number; changedById: number }) {
   const db = await requireDb();
-  await db.update(services).set({ defaultUnitPrice: input.defaultUnitPrice, defaultTaxRate: input.defaultTaxRate }).where(eq(services.id, input.id));
-  return { success: true };
+  return db.transaction(async tx => {
+    const current = await tx.select().from(services).where(eq(services.id, input.id)).limit(1);
+    const service = current[0];
+    if (!service) throw new Error("Prestation introuvable.");
+    const changed = service.defaultUnitPrice !== input.defaultUnitPrice || service.defaultTaxRate !== input.defaultTaxRate;
+    if (!changed) return { success: true, revisionCreated: false };
+    await tx.update(services).set({ defaultUnitPrice: input.defaultUnitPrice, defaultTaxRate: input.defaultTaxRate }).where(eq(services.id, input.id));
+    await tx.insert(servicePriceRevisions).values({ serviceId: service.id, previousUnitPrice: service.defaultUnitPrice, nextUnitPrice: input.defaultUnitPrice, previousTaxRate: service.defaultTaxRate, nextTaxRate: input.defaultTaxRate, changedById: input.changedById });
+    return { success: true, revisionCreated: true };
+  });
+}
+
+export async function listServicePriceRevisions(serviceId: number) {
+  const db = await requireDb();
+  return db.select({ id: servicePriceRevisions.id, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(eq(servicePriceRevisions.serviceId, serviceId)).orderBy(desc(servicePriceRevisions.createdAt));
 }
 
 export async function listDocuments(kind?: DocumentKind) {
@@ -361,6 +381,8 @@ export async function getDocumentById(id: number) {
       depositPercent: documents.depositPercent,
       depositDueDate: documents.depositDueDate,
       balanceDueDate: documents.balanceDueDate,
+      discountPercent: documents.discountPercent,
+      discountAmount: documents.discountAmount,
       subtotal: documents.subtotal,
       taxTotal: documents.taxTotal,
       total: documents.total,
@@ -401,13 +423,14 @@ export async function createDocument(input: {
   depositPercent?: number;
   depositDueDate?: string;
   balanceDueDate?: string;
+  discountPercent?: number;
   notes?: string;
   isAiDraft?: boolean;
   createdById: number;
   lines: EditableDocumentLine[];
 }) {
   const db = await requireDb();
-  const totals = calculateDocumentTotals(input.lines);
+  const totals = calculateDocumentDiscount(input.lines, input.discountPercent);
   const result = await db.transaction(async tx => {
     await tx
       .insert(documentSequences)
@@ -430,7 +453,9 @@ export async function createDocument(input: {
       balanceDueDate: input.balanceDueDate ? new Date(`${input.balanceDueDate}T00:00:00.000Z`) : null,
       subtotal: totals.subtotal,
       taxTotal: totals.taxTotal,
-      total: totals.total,
+      total: totals.totalAfterDiscount,
+      discountPercent: totals.discountPercent,
+      discountAmount: totals.discountAmount,
       notes: input.notes || null,
       isAiDraft: input.isAiDraft ? "oui" : "non",
       createdById: input.createdById,
@@ -458,13 +483,40 @@ export async function createDocument(input: {
     }
     return { id: documentId, number: formatDocumentNumber(input.kind, new Date(input.issueDate).getUTCFullYear(), serial) };
   });
-  return { ...result, totals };
+  return { ...result, totals: { subtotal: totals.subtotal, taxTotal: totals.taxTotal, total: totals.totalAfterDiscount, discountPercent: totals.discountPercent, discountAmount: totals.discountAmount } };
 }
 
 export async function updateDocumentStatus(id: number, status: DocumentStatus) {
   const db = await requireDb();
   await db.update(documents).set({ status }).where(eq(documents.id, id));
   return { success: true };
+}
+
+export async function createDepositInvoiceFromQuote(quoteId: number, createdById: number) {
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    const quoteRows = await tx.select().from(documents).where(eq(documents.id, quoteId)).limit(1);
+    const quote = quoteRows[0];
+    if (!quote || quote.kind !== "devis") throw new Error("Le devis demandé est introuvable.");
+    if (quote.status !== "accepte") throw new Error("Seul un devis accepté peut générer une facture d’acompte.");
+    const existing = await tx.select({ id: documents.id, number: documents.number }).from(documents).where(and(eq(documents.kind, "facture"), eq(documents.relatedDocumentId, quoteId))).limit(1);
+    if (existing[0]) return { ...existing[0], existing: true };
+    const amount = calculateDepositInvoiceAmount(quote.total, quote.depositPercent);
+    await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
+    const serial = sequence[0]?.lastValue ?? 1;
+    const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
+    const result = await tx.insert(documents).values({
+      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id,
+      status: "brouillon", issueDate: new Date(), dueDate: quote.depositDueDate ?? new Date(), validUntil: null,
+      depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
+      subtotal: amount, taxTotal: 0, total: amount,
+      notes: `Facture d’acompte de ${quote.depositPercent}% générée à partir du devis ${quote.number}.`, isAiDraft: "non", createdById,
+    });
+    const id = Number(result[0].insertId);
+    await tx.insert(documentLines).values({ documentId: id, position: 1, description: `Acompte de ${quote.depositPercent}% sur devis ${quote.number}`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
+    return { id, number, existing: false };
+  });
 }
 
 export async function recordPayment(input: {
@@ -505,11 +557,12 @@ export async function updateDocument(input: {
   depositPercent?: number;
   depositDueDate?: string;
   balanceDueDate?: string;
+  discountPercent?: number;
   notes?: string;
   lines: EditableDocumentLine[];
 }) {
   const db = await requireDb();
-  const totals = calculateDocumentTotals(input.lines);
+  const totals = calculateDocumentDiscount(input.lines, input.discountPercent);
   await db.transaction(async tx => {
     await tx.update(documents).set({
       clientId: input.clientId,
@@ -523,7 +576,9 @@ export async function updateDocument(input: {
       balanceDueDate: input.balanceDueDate ? new Date(`${input.balanceDueDate}T00:00:00.000Z`) : null,
       subtotal: totals.subtotal,
       taxTotal: totals.taxTotal,
-      total: totals.total,
+      total: totals.totalAfterDiscount,
+      discountPercent: totals.discountPercent,
+      discountAmount: totals.discountAmount,
       notes: input.notes || null,
     }).where(eq(documents.id, input.id));
     await tx.delete(documentLines).where(eq(documentLines.documentId, input.id));
@@ -543,7 +598,7 @@ export async function updateDocument(input: {
       };
     }));
   });
-  return { success: true, totals };
+  return { success: true, totals: { subtotal: totals.subtotal, taxTotal: totals.taxTotal, total: totals.totalAfterDiscount, discountPercent: totals.discountPercent, discountAmount: totals.discountAmount } };
 }
 
 export async function getDashboardData() {

@@ -35,6 +35,7 @@ export const clients = mysqlTable(
     address: text("address"),
     taxId: varchar("taxId", { length: 100 }),
     notes: text("notes"),
+    defaultDiscountPercent: int("defaultDiscountPercent").default(0).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -92,6 +93,21 @@ export const services = mysqlTable(
   table => [unique("services_code_unique").on(table.code)],
 );
 
+export const servicePriceRevisions = mysqlTable(
+  "service_price_revisions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    serviceId: int("serviceId").notNull().references(() => services.id, { onDelete: "cascade" }),
+    previousUnitPrice: bigint("previousUnitPrice", { mode: "number" }).notNull(),
+    nextUnitPrice: bigint("nextUnitPrice", { mode: "number" }).notNull(),
+    previousTaxRate: int("previousTaxRate").notNull(),
+    nextTaxRate: int("nextTaxRate").notNull(),
+    changedById: int("changedById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("service_price_revisions_serviceId_createdAt_idx").on(table.serviceId, table.createdAt)],
+);
+
 export const documents = mysqlTable(
   "documents",
   {
@@ -122,6 +138,8 @@ export const documents = mysqlTable(
     depositPercent: int("depositPercent"),
     depositDueDate: date("depositDueDate"),
     balanceDueDate: date("balanceDueDate"),
+    discountPercent: int("discountPercent").default(0).notNull(),
+    discountAmount: bigint("discountAmount", { mode: "number" }).default(0).notNull(),
     currency: varchar("currency", { length: 3 }).default("GNF").notNull(),
     subtotal: bigint("subtotal", { mode: "number" }).default(0).notNull(),
     taxTotal: bigint("taxTotal", { mode: "number" }).default(0).notNull(),

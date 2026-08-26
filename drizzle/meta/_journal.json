@@ -57,6 +57,20 @@
       "when": 1787768010402,
       "tag": "0007_silent_stephen_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1787769463640,
+      "tag": "0008_blushing_speedball",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1787769985457,
+      "tag": "0009_many_exodus",
+      "breakpoints": true
     }
   ]
 }

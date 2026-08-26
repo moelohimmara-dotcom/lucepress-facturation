@@ -11,6 +11,6 @@ const adminContext = { user: { id: 1, openId: "admin-tariff", name: "Admin", ema
 describe("billing.services.updateTariff", () => {
   it("transmet le prix unitaire et la taxe personnalisés au service sécurisé", async () => {
     await appRouter.createCaller(adminContext).billing.services.updateTariff({ id: 12, defaultUnitPrice: 450000, defaultTaxRate: 18 });
-    expect(mocks.updateServiceTariff).toHaveBeenCalledWith({ id: 12, defaultUnitPrice: 450000, defaultTaxRate: 18 });
+    expect(mocks.updateServiceTariff).toHaveBeenCalledWith({ id: 12, defaultUnitPrice: 450000, defaultTaxRate: 18, changedById: 1 });
   });
 });

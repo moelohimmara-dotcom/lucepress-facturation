@@ -21,6 +21,7 @@ const quotePaymentScheduleSchema = z.object({
   const errors = validateQuotePaymentSchedule(input);
   for (const [field, message] of Object.entries(errors)) context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message });
 });
+const quoteDiscountSchema = z.object({ discountPercent: z.number().int().min(0).max(99).optional() });
 const documentLineSchema = z.object({
   description: z.string().trim().min(2).max(1000),
   quantity: z.number().positive().max(999999),
@@ -38,6 +39,7 @@ const clientInputSchema = z.object({
   address: optionalText,
   taxId: z.string().trim().max(100).optional(),
   notes: optionalText,
+  defaultDiscountPercent: z.number().int().min(0).max(99).optional(),
 });
 
 const companySettingsInputSchema = z.object({
@@ -206,20 +208,32 @@ export const appRouter = router({
         .mutation(({ input }) => db.createService(input)),
       updateTariff: adminProcedure
         .input(z.object({ id: z.number().int().positive(), defaultUnitPrice: z.number().int().min(0).max(9_000_000_000), defaultTaxRate: z.number().int().min(0).max(100) }))
-        .mutation(({ input }) => db.updateServiceTariff(input)),
+        .mutation(({ ctx, input }) => db.updateServiceTariff({ ...input, changedById: ctx.user.id })),
+      priceHistory: adminProcedure
+        .input(z.object({ serviceId: z.number().int().positive() }))
+        .query(({ input }) => db.listServicePriceRevisions(input.serviceId)),
     }),
     documents: router({
       list: adminProcedure.input(z.object({ kind: z.enum(["devis", "facture"]).optional() }).optional()).query(({ input }) => db.listDocuments(input?.kind)),
       get: adminProcedure.input(z.object({ id: z.number().int().positive() })).query(({ input }) => db.getDocumentById(input.id)),
       create: adminProcedure
-        .input(z.object({ kind: z.enum(["devis", "facture"]), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), relatedDocumentId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES).optional(), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, isAiDraft: z.boolean().optional(), lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema))
+        .input(z.object({ kind: z.enum(["devis", "facture"]), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), relatedDocumentId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES).optional(), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, isAiDraft: z.boolean().optional(), lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
         .mutation(({ ctx, input }) => db.createDocument({ ...input, createdById: ctx.user.id, lines: input.lines as EditableDocumentLine[] })),
       update: adminProcedure
-        .input(z.object({ id: z.number().int().positive(), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema))
+        .input(z.object({ id: z.number().int().positive(), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
         .mutation(({ input }) => db.updateDocument({ ...input, lines: input.lines as EditableDocumentLine[] })),
       updateStatus: adminProcedure
         .input(z.object({ id: z.number().int().positive(), status: z.enum(DOCUMENT_STATUSES) }))
         .mutation(({ input }) => db.updateDocumentStatus(input.id, input.status)),
+      createDepositInvoice: adminProcedure
+        .input(z.object({ quoteId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.createDepositInvoiceFromQuote(input.quoteId, ctx.user.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture d’acompte ne peut pas être générée." });
+          }
+        }),
     }),
     payments: router({
       create: adminProcedure
