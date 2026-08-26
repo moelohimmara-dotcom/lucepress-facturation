@@ -21,13 +21,17 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
+import { getEffectiveSidebarWidth, getRestorableRoute, hasSidebarOverflow, isCompactSidebar } from "@shared/sidebarNavigation";
 import {
   Bot,
+  ChevronDown,
   FileText,
   FolderKanban,
   LayoutDashboard,
   LogOut,
   Mail,
+  Maximize2,
+  Minimize2,
   PanelLeft,
   ReceiptText,
   Settings,
@@ -52,6 +56,8 @@ const menuItems = [
 ];
 
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";
+const LAST_ROUTE_KEY = "lucepress-last-route";
+const COMPACT_MODE_KEY = "lucepress-sidebar-compact";
 const DEFAULT_WIDTH = 276;
 const MIN_WIDTH = 224;
 const MAX_WIDTH = 380;
@@ -87,20 +93,56 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarProvider style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}>
-      <DashboardLayoutContent setSidebarWidth={setSidebarWidth}>{children}</DashboardLayoutContent>
+      <DashboardLayoutContent sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth}>{children}</DashboardLayoutContent>
     </SidebarProvider>
   );
 }
 
-export function DashboardLayoutContent({ children, setSidebarWidth }: { children: React.ReactNode; setSidebarWidth: (width: number) => void }) {
+export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH, setSidebarWidth }: { children: React.ReactNode; sidebarWidth?: number; setSidebarWidth: (width: number) => void }) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
+  const [hasMoreNavigation, setHasMoreNavigation] = useState(false);
+  const [compactMode, setCompactMode] = useState(() => localStorage.getItem(COMPACT_MODE_KEY) === "true");
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const activeMenuItem = menuItems.find(item => item.path === location);
+  const isCompact = !isCollapsed && isCompactSidebar(compactMode, viewportWidth);
+  const isMediumViewport = viewportWidth >= 768 && viewportWidth <= 1180;
+  const effectiveSidebarWidth = getEffectiveSidebarWidth(sidebarWidth, isCompact);
+
+  useEffect(() => {
+    const routeToRestore = getRestorableRoute(location, localStorage.getItem(LAST_ROUTE_KEY), menuItems.map(item => item.path));
+    if (routeToRestore) setLocation(routeToRestore);
+  }, []);
+
+  useEffect(() => {
+    if (menuItems.some(item => item.path === location)) localStorage.setItem(LAST_ROUTE_KEY, location);
+  }, [location]);
+
+  useEffect(() => {
+    localStorage.setItem(COMPACT_MODE_KEY, String(compactMode));
+  }, [compactMode]);
+
+  useEffect(() => {
+    const updateViewport = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    const content = sidebarRef.current?.querySelector<HTMLElement>("[data-sidebar='content']");
+    if (!content || isCollapsed) return;
+    const updateOverflow = () => setHasMoreNavigation(hasSidebarOverflow(content.scrollHeight, content.clientHeight, content.scrollTop));
+    updateOverflow();
+    content.addEventListener("scroll", updateOverflow, { passive: true });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateOverflow) : null;
+    observer?.observe(content);
+    return () => { content.removeEventListener("scroll", updateOverflow); observer?.disconnect(); };
+  }, [isCollapsed]);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -126,35 +168,37 @@ export function DashboardLayoutContent({ children, setSidebarWidth }: { children
 
   return (
     <>
-      <div className="relative" ref={sidebarRef}>
+      <div className="relative" data-testid="sidebar-shell" ref={sidebarRef} style={{ "--sidebar-width": `${effectiveSidebarWidth}px` } as CSSProperties}>
         <Sidebar collapsible="icon" className="border-r-0 bg-sidebar text-sidebar-foreground" disableTransition={isResizing}>
-          <SidebarHeader className="h-[92px] shrink-0 justify-center px-3">
+          <SidebarHeader className={`${isCompact ? "h-[76px]" : "h-[92px]"} shrink-0 justify-center px-3`}>
             <div className="flex items-center gap-3">
               <button onClick={toggleSidebar} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Réduire la navigation">
                 <PanelLeft className="h-4 w-4" />
               </button>
-              {!isCollapsed && <div className="min-w-0"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">Lucepress</p><p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">BTP & Forage</p></div>}
+              {!isCollapsed && <div className="min-w-0 flex-1"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">Lucepress</p>{!isCompact && <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">BTP & Forage</p>}</div>}
+              {!isCollapsed && !isMediumViewport && <button onClick={() => setCompactMode(value => !value)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={compactMode ? "Désactiver le mode compact" : "Activer le mode compact"} title={compactMode ? "Désactiver le mode compact" : "Activer le mode compact"}>{compactMode ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button>}
             </div>
           </SidebarHeader>
-          <SidebarContent className="min-h-0 gap-0 overflow-y-auto px-2 py-3">
-            {!isCollapsed && <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45">Gestion commerciale</p>}
+          <SidebarContent className={`relative min-h-0 gap-0 overflow-y-auto ${isCompact ? "px-1 py-2" : "px-2 py-3"}`}>
+            {!isCollapsed && !isCompact && <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45">Gestion commerciale</p>}
             <SidebarMenu className="gap-1">
               {menuItems.map(item => (
                 <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton isActive={location === item.path} onClick={() => setLocation(item.path)} tooltip={item.label} className="h-11 rounded-xl px-3 font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                  <SidebarMenuButton isActive={location === item.path} onClick={() => setLocation(item.path)} tooltip={item.label} className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-11 rounded-xl px-3"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}>
                     <item.icon className="h-[18px] w-[18px]" /><span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+            {hasMoreNavigation && !isCollapsed && <div aria-hidden="true" data-testid="sidebar-scroll-indicator" className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-end px-3 text-sidebar-foreground/80"><span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-sidebar/90 shadow-sm"><ChevronDown className="h-3.5 w-3.5 animate-pulse" /></span></div>}
           </SidebarContent>
-          <SidebarFooter className="shrink-0 border-t border-white/10 p-3">
-            {!isCollapsed && <div className="mb-1 rounded-2xl border border-white/10 bg-white/[0.06] p-3.5"><div className="flex gap-2.5"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div><p className="text-xs font-bold">Assistant IA</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/60">Transformez un besoin de chantier en devis à valider.</p></div></div></div>}
+          <SidebarFooter className={`${isCompact ? "p-2" : "p-3"} shrink-0 border-t border-white/10`}>
+            {!isCollapsed && <div className={`${isCompact ? "mb-0.5 rounded-xl p-2.5" : "mb-1 rounded-2xl p-3.5"} border border-white/10 bg-white/[0.06]`}><div className="flex gap-2.5"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div><p className="text-xs font-bold">Assistant IA</p>{!isCompact && <p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/60">Transformez un besoin de chantier en devis à valider.</p>}</div></div></div>}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring">
                   <Avatar className="h-9 w-9 shrink-0 border border-white/15"><AvatarFallback className="bg-sidebar-primary text-xs font-extrabold text-sidebar-primary-foreground">{user?.name?.charAt(0).toUpperCase() || "L"}</AvatarFallback></Avatar>
-                  {!isCollapsed && <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{user?.name || "Utilisateur Lucepress"}</p><p className="mt-0.5 truncate text-[11px] text-sidebar-foreground/55">{user?.email || "Accès sécurisé"}</p></div>}
+                  {!isCollapsed && <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{user?.name || "Utilisateur Lucepress"}</p>{!isCompact && <p className="mt-0.5 truncate text-[11px] text-sidebar-foreground/55">{user?.email || "Accès sécurisé"}</p>}</div>}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive"><LogOut className="mr-2 h-4 w-4" />Se déconnecter</DropdownMenuItem></DropdownMenuContent>

@@ -59,3 +59,9 @@
 - [x] Corriger le chevauchement du bloc Assistant IA avec les entrées Clients et Chantiers de la barre latérale.
 - [x] Vérifier la navigation latérale sur une fenêtre de hauteur réduite et sur mobile.
 - [x] Ajouter un test d’interface confirmant la séparation entre la navigation latérale défilante et le bloc Assistant IA.
+- [x] Ajouter un indicateur de défilement discret dans la barre latérale lorsque la navigation dépasse l’espace disponible.
+- [x] Mémoriser et restaurer la dernière rubrique visitée lors du rechargement de l’application.
+- [x] Ajouter un mode compact de barre latérale pour les écrans de largeur intermédiaire.
+- [x] Tester les préférences de navigation et les états responsive de la barre latérale.
+- [x] Réduire effectivement la largeur de la barre latérale en mode compact sans affecter Clients, Chantiers ni le pied Assistant IA.
+- [x] Ajouter des tests UI des états compact et indicateur de défilement de la barre latérale.
