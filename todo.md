@@ -76,3 +76,7 @@
 - [x] Préparer une présentation synthétique des adaptations multi-services de Lucepres Sarl.
 - [x] Mettre à jour les coordonnées et le positionnement public de Lucepres Sarl dans l’application.
 - [x] Vérifier l’affichage des coordonnées Lucepres dans les paramètres et les documents.
+- [x] Créer un catalogue de prestations par défaut pour Hydraulique, Hygiène et Maintenance.
+- [x] Appliquer la signature Lucepres aux nouveaux devis et factures.
+- [x] Ajouter un formulaire de validation des coordonnées fiscales et bancaires dans les paramètres.
+- [x] Tester le catalogue par défaut, la signature documentaire et les validations de paramètres.

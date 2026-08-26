@@ -22,6 +22,13 @@ export const LUCEPRES_PUBLIC_PROFILE = {
   documentFooter: "Solutions durables pour les communautés.",
 } as const;
 
+export function formatCompanyDocumentFooter(customFooter?: string | null) {
+  const footer = customFooter?.trim();
+  if (!footer) return LUCEPRES_PUBLIC_PROFILE.documentFooter;
+  if (footer.includes(LUCEPRES_PUBLIC_PROFILE.documentFooter)) return footer;
+  return `${LUCEPRES_PUBLIC_PROFILE.documentFooter} · ${footer}`;
+}
+
 function joinPresent(values: Array<string | null | undefined>) {
   return values.filter((value): value is string => Boolean(value?.trim())).join(" · ");
 }

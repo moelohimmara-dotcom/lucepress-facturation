@@ -43,6 +43,13 @@
       "when": 1787747638443,
       "tag": "0005_dapper_selene",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1787766907744,
+      "tag": "0006_rich_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

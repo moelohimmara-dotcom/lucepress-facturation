@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { DOCUMENT_STATUSES, type EditableDocumentLine } from "../shared/billing";
+import { validateCompanyFinancialDetails } from "../shared/companySettingsValidation";
+import { SERVICE_CATEGORIES } from "../shared/defaultServices";
 import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
@@ -44,6 +46,9 @@ const companySettingsInputSchema = z.object({
   swift: z.string().trim().max(32).optional(),
   paymentInstructions: optionalText,
   documentFooter: optionalText,
+}).superRefine((input, context) => {
+  const errors = validateCompanyFinancialDetails(input);
+  for (const [field, message] of Object.entries(errors)) context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message });
 });
 
 const extractedClientSchema = z.object({
@@ -188,7 +193,7 @@ export const appRouter = router({
     services: router({
       list: adminProcedure.query(() => db.listServices()),
       create: adminProcedure
-        .input(z.object({ code: z.string().trim().min(2).max(50), name: z.string().trim().min(2).max(180), category: z.enum(["btp", "forage", "etude", "transport", "autre"]), description: optionalText, unit: z.string().trim().min(1).max(30), defaultUnitPrice: z.number().int().min(0).max(9_000_000_000), defaultTaxRate: z.number().int().min(0).max(100) }))
+        .input(z.object({ code: z.string().trim().min(2).max(50), name: z.string().trim().min(2).max(180), category: z.enum(SERVICE_CATEGORIES), description: optionalText, unit: z.string().trim().min(1).max(30), defaultUnitPrice: z.number().int().min(0).max(9_000_000_000), defaultTaxRate: z.number().int().min(0).max(100) }))
         .mutation(({ input }) => db.createService(input)),
     }),
     documents: router({

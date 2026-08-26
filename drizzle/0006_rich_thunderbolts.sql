@@ -1,0 +1,1 @@
+ALTER TABLE `services` MODIFY COLUMN `category` enum('btp','forage','hydraulique','hygiene','maintenance','etude','transport','autre') NOT NULL DEFAULT 'autre';

@@ -74,6 +74,9 @@ export const services = mysqlTable(
     category: mysqlEnum("category", [
       "btp",
       "forage",
+      "hydraulique",
+      "hygiene",
+      "maintenance",
       "etude",
       "transport",
       "autre",

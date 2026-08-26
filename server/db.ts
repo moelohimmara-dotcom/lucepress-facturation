@@ -18,6 +18,7 @@ import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber,
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
+import { getMissingDefaultServices, type ServiceCategory } from "../shared/defaultServices";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -278,13 +279,16 @@ export async function createProject(input: {
 
 export async function listServices() {
   const db = await requireDb();
+  const existingCodes = await db.select({ code: services.code }).from(services);
+  const missingDefaults = getMissingDefaultServices(existingCodes.map(service => service.code));
+  if (missingDefaults.length) await db.insert(services).values(missingDefaults);
   return db.select().from(services).orderBy(asc(services.category), asc(services.name));
 }
 
 export async function createService(input: {
   code: string;
   name: string;
-  category: "btp" | "forage" | "etude" | "transport" | "autre";
+  category: ServiceCategory;
   description?: string;
   unit: string;
   defaultUnitPrice: number;
