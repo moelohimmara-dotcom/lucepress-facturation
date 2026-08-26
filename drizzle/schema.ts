@@ -216,6 +216,23 @@ export const clientAttachments = mysqlTable(
   table => [index("client_attachments_clientId_idx").on(table.clientId)],
 );
 
+export const clientActivities = mysqlTable(
+  "client_activities",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    clientId: int("clientId")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    documentId: int("documentId").references(() => documents.id, { onDelete: "set null" }),
+    type: mysqlEnum("type", ["relance_preparee", "note"]).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("client_activities_clientId_createdAt_idx").on(table.clientId, table.createdAt)],
+);
+
 export const documentSequences = mysqlTable(
   "document_sequences",
   {
@@ -237,3 +254,4 @@ export type DocumentLine = typeof documentLines.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type CompanySettings = typeof companySettings.$inferSelect;
 export type ClientAttachment = typeof clientAttachments.$inferSelect;
+export type ClientActivity = typeof clientActivities.$inferSelect;

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   clients,
+  clientActivities,
   clientAttachments,
   companySettings,
   documentLines,
@@ -15,6 +16,7 @@ import {
 } from "../drizzle/schema";
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
+import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -147,6 +149,21 @@ export async function createClientAttachment(input: { clientId: number; fileName
   const db = await requireDb();
   const result = await db.insert(clientAttachments).values(input);
   return { id: Number(result[0].insertId) };
+}
+
+export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note"; title: string; description?: string; createdById: number }) {
+  const db = await requireDb();
+  const result = await db.insert(clientActivities).values({ ...input, documentId: input.documentId ?? null, description: input.description ?? null });
+  return { id: Number(result[0].insertId) };
+}
+
+export async function listClientActivities(clientId: number) {
+  const db = await requireDb();
+  const [activities, clientDocuments] = await Promise.all([
+    db.select().from(clientActivities).where(eq(clientActivities.clientId, clientId)).orderBy(desc(clientActivities.createdAt)),
+    db.select({ id: documents.id, kind: documents.kind, number: documents.number, total: documents.total, status: documents.status, createdAt: documents.createdAt }).from(documents).where(eq(documents.clientId, clientId)).orderBy(desc(documents.createdAt)),
+  ]);
+  return buildClientActivityTimeline(clientId, clientDocuments, activities);
 }
 
 export type CompanySettingsInput = {

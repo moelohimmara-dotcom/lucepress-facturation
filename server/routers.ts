@@ -155,6 +155,9 @@ export const appRouter = router({
       attachments: router({
         list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientAttachments(input.clientId)),
       }),
+      activities: router({
+        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientActivities(input.clientId)),
+      }),
     }),
     settings: router({
       get: adminProcedure.query(() => db.getCompanySettings()),
@@ -199,7 +202,7 @@ export const appRouter = router({
     assistant: router({
       generateReminder: adminProcedure
         .input(z.object({ documentId: z.number().int().positive(), tone: z.enum(["courtois", "ferme"]).default("courtois") }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           const document = await db.getDocumentById(input.documentId);
           if (!document || document.kind !== "facture" || document.balanceDue <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
           const models = await listLLMModels();
@@ -215,7 +218,11 @@ export const appRouter = router({
           });
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance est indisponible. Réessayez dans un instant." });
-          try { return { reminder: JSON.parse(content), requiresReview: true }; } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance ne peut pas être lu. Réessayez dans un instant." }); }
+          try {
+            const reminder = JSON.parse(content) as { subject: string; greeting: string; body: string; closing: string; tone: string };
+            await db.createClientActivity({ clientId: document.clientId, documentId: document.id, type: "relance_preparee", title: `Relance ${reminder.tone || input.tone} préparée`, description: reminder.subject, createdById: ctx.user.id });
+            return { reminder, requiresReview: true };
+          } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance ne peut pas être lu. Réessayez dans un instant." }); }
         }),
       extractClient: adminProcedure
         .input(z.object({ text: z.string().trim().min(10).max(6000) }))

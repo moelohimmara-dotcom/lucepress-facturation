@@ -43,3 +43,10 @@
 - [x] Renvoyer des erreurs explicites pour les dépôts non authentifiés ou associés à un client invalide.
 - [x] Ajouter un test automatisé de la route d’envoi et de consultation des pièces jointes client.
 - [x] Ajouter un test automatisé de consultation des pièces jointes liées à un client.
+- [x] Enregistrer les documents générés et les relances préparées dans un historique d’activités client.
+- [x] Afficher l’historique chronologique dans la fiche client avec liens vers les documents concernés.
+- [x] Tester la collecte et la restitution des activités client.
+- [x] Ajouter un test de fusion, tri et métadonnées de l’historique construit depuis les documents et relances.
+- [x] Ajouter un test de rendu de la fiche client affichant l’historique et le lien vers un document.
+- [x] Ajouter un test d’intégration de la fiche client affichant l’historique chargé et la navigation vers son document.
+- [x] Ajouter un test d’intégration utilisateur réel de la fiche client, de l’ouverture de l’historique et de la navigation documentaire.
