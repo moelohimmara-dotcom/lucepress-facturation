@@ -35,7 +35,7 @@ import {
   UsersRound,
   Wrench,
 } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import React, { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
@@ -92,7 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
 }
 
-function DashboardLayoutContent({ children, setSidebarWidth }: { children: React.ReactNode; setSidebarWidth: (width: number) => void }) {
+export function DashboardLayoutContent({ children, setSidebarWidth }: { children: React.ReactNode; setSidebarWidth: (width: number) => void }) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
@@ -128,7 +128,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: { children: React
     <>
       <div className="relative" ref={sidebarRef}>
         <Sidebar collapsible="icon" className="border-r-0 bg-sidebar text-sidebar-foreground" disableTransition={isResizing}>
-          <SidebarHeader className="h-[92px] justify-center px-3">
+          <SidebarHeader className="h-[92px] shrink-0 justify-center px-3">
             <div className="flex items-center gap-3">
               <button onClick={toggleSidebar} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Réduire la navigation">
                 <PanelLeft className="h-4 w-4" />
@@ -136,7 +136,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: { children: React
               {!isCollapsed && <div className="min-w-0"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">Lucepress</p><p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">BTP & Forage</p></div>}
             </div>
           </SidebarHeader>
-          <SidebarContent className="gap-0 px-2 py-3">
+          <SidebarContent className="min-h-0 gap-0 overflow-y-auto px-2 py-3">
             {!isCollapsed && <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45">Gestion commerciale</p>}
             <SidebarMenu className="gap-1">
               {menuItems.map(item => (
@@ -147,9 +147,9 @@ function DashboardLayoutContent({ children, setSidebarWidth }: { children: React
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
-            {!isCollapsed && <div className="mt-auto rounded-2xl border border-white/10 bg-white/[0.06] p-3.5"><div className="flex gap-2.5"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div><p className="text-xs font-bold">Assistant IA</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/60">Transformez un besoin de chantier en devis à valider.</p></div></div></div>}
           </SidebarContent>
-          <SidebarFooter className="p-3">
+          <SidebarFooter className="shrink-0 border-t border-white/10 p-3">
+            {!isCollapsed && <div className="mb-1 rounded-2xl border border-white/10 bg-white/[0.06] p-3.5"><div className="flex gap-2.5"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div><p className="text-xs font-bold">Assistant IA</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/60">Transformez un besoin de chantier en devis à valider.</p></div></div></div>}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring">

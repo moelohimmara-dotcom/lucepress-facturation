@@ -56,3 +56,6 @@
 - [x] Tester les notes, paiements historiques et le résumé IA client.
 - [x] Ajouter un test de paiement partiel réel dans la fusion et le tri de l’historique client.
 - [x] Ajouter un test de rendu de l’événement de paiement lié à son document dans la fiche client.
+- [x] Corriger le chevauchement du bloc Assistant IA avec les entrées Clients et Chantiers de la barre latérale.
+- [x] Vérifier la navigation latérale sur une fenêtre de hauteur réduite et sur mobile.
+- [x] Ajouter un test d’interface confirmant la séparation entre la navigation latérale défilante et le bloc Assistant IA.
