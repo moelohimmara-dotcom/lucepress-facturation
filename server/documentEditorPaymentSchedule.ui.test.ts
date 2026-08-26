@@ -28,7 +28,7 @@ vi.mock("@/lib/trpc", () => ({
       documents: {
         get: { useQuery: () => ({ data: state.savedDocument, isLoading: false }) },
         create: { useMutation: ({ onSuccess }: any) => ({ isPending: false, mutate: (input: any) => { state.created(input); state.savedDocument = { id: 44, kind: "devis", number: "DEV-2026-0044", status: "brouillon", issueDate: input.issueDate, dueDate: null, validUntil: input.validUntil, depositPercent: input.depositPercent, depositDueDate: input.depositDueDate, balanceDueDate: input.balanceDueDate, subtotal: 2_200_000, taxTotal: 126000, total: 2_326_000, notes: input.notes, isAiDraft: "non", clientId: 8, projectId: null, clientName: "Client test", contactName: null, clientAddress: null, clientEmail: null, projectName: null, projectLocation: null, lines: input.lines.map((line: any, index: number) => ({ id: index + 1, ...line, quantity: String(line.quantity), lineTotal: Math.round(line.quantity * line.unitPrice * (1 + line.taxRate / 100)) })), payments: [], paidAmount: 0, balanceDue: 0, isOverdue: false }; onSuccess({ id: 44, number: "DEV-2026-0044" }); } }) },
-        update: { useMutation: () => ({ mutate: noOp, isPending: false }) }, createDepositInvoice: { useMutation: () => ({ mutate: noOp, isPending: false }) }, list: { useQuery: () => ({ data: [] }) },
+        update: { useMutation: () => ({ mutate: noOp, isPending: false }) }, createDepositInvoice: { useMutation: () => ({ mutate: noOp, isPending: false }) }, createBalanceInvoice: { useMutation: () => ({ mutate: noOp, isPending: false }) }, list: { useQuery: () => ({ data: [] }) },
       },
       settings: { get: { useQuery: () => ({ data: {} }) } },
       payments: { create: { useMutation: () => ({ mutate: noOp, isPending: false }) } },

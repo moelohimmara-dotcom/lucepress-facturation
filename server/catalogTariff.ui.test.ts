@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ catalog: [{ id: 12, code: "HYD-ETU-001", name: "Étude hydraulique", category: "hydraulique", description: null, unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0, isActive: "oui" }], history: [] as Array<Record<string, unknown>>, noOp: () => undefined, setCatalog: null as any }));
+const state = vi.hoisted(() => ({ catalog: [{ id: 12, code: "HYD-ETU-001", name: "Étude hydraulique", category: "hydraulique", description: null, unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0, isActive: "oui" }], history: [] as Array<Record<string, unknown>>, exportHistory: [] as Array<Record<string, unknown>>, noOp: () => undefined, setCatalog: null as any }));
 
 vi.mock("@/components/DashboardLayout", () => ({ default: ({ children }: { children: unknown }) => createElement("div", null, children) }));
 vi.mock("@/components/ui/button", () => ({ Button: ({ children, ...props }: any) => createElement("button", props, children) }));
@@ -19,6 +19,7 @@ vi.mock("@/lib/trpc", async () => {
       services: {
         list: { useQuery: () => { const [catalog, setCatalog] = React.useState(state.catalog); state.setCatalog = setCatalog; return { data: catalog }; } },
         priceHistory: { useQuery: () => ({ data: state.history }) },
+        priceHistoryExport: { useQuery: () => ({ isFetching: false, refetch: async () => ({ data: state.exportHistory }) }) },
         create: { useMutation: () => ({ mutate: state.noOp, isPending: false }) },
         updateTariff: { useMutation: ({ onSuccess }: any) => ({ isPending: false, mutate: (input: any) => onSuccess({ success: true }, input) }) },
       },
@@ -33,6 +34,7 @@ afterEach(() => { cleanup(); Object.assign(state.catalog[0], { defaultUnitPrice:
 describe("répertoire Prestations", () => {
   it("rafraîchit le prix et la taxe affichés après la modification d’un tarif", () => {
     render(createElement(CatalogPage, { kind: "prestations" }));
+    expect(screen.getByRole("button", { name: "Exporter l’historique CSV" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Tarif" }));
     fireEvent.change(screen.getByLabelText("Prix unitaire (GNF) *"), { target: { value: "450000" } });
     fireEvent.change(screen.getByLabelText("Taux de taxe (%)"), { target: { value: "18" } });

@@ -98,3 +98,11 @@
 - [x] Tester les remises, factures d’acompte et l’historique tarifaire.
 - [x] Tester dans l’aperçu la génération d’une facture d’acompte et sa navigation.
 - [x] Tester l’affichage de l’historique des révisions dans le répertoire Prestations.
+- [x] Générer une facture de solde après le paiement complet d’une facture d’acompte.
+- [x] Exporter l’historique des révisions tarifaires du catalogue au format CSV.
+- [x] Tester les contrôles de solde, l’anti-duplication et l’export tarifaire.
+- [x] Migrer les factures d’acompte historiques vers leur étape documentaire explicite.
+- [x] Tester l’idempotence de la génération de facture de solde et la non-régression des acomptes existants.
+- [x] Simuler un solde existant dans le flux de persistance et vérifier qu’aucun doublon n’est créé.
+- [x] Tester un acompte historique reclassé afin de garantir son éligibilité au flux de solde.
+- [x] Simuler un acompte historique rétro-classé dans le flux de solde et vérifier sa génération idempotente.

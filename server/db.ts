@@ -20,6 +20,7 @@ import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "..
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { calculateDepositInvoiceAmount } from "../shared/depositInvoice";
+import { assertDepositInvoiceIsFullyPaid, calculateBalanceInvoiceAmount, reuseExistingGeneratedInvoice } from "../shared/balanceInvoice";
 import { calculateDocumentDiscount } from "../shared/discounts";
 import { getMissingDefaultServices, type ServiceCategory } from "../shared/defaultServices";
 import { ENV } from "./_core/env";
@@ -328,6 +329,11 @@ export async function listServicePriceRevisions(serviceId: number) {
   return db.select({ id: servicePriceRevisions.id, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(eq(servicePriceRevisions.serviceId, serviceId)).orderBy(desc(servicePriceRevisions.createdAt));
 }
 
+export async function listAllServicePriceRevisions() {
+  const db = await requireDb();
+  return db.select({ id: servicePriceRevisions.id, serviceCode: services.code, serviceName: services.name, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).innerJoin(services, eq(servicePriceRevisions.serviceId, services.id)).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).orderBy(desc(servicePriceRevisions.createdAt));
+}
+
 export async function listDocuments(kind?: DocumentKind) {
   const db = await requireDb();
   const rows = await db
@@ -390,6 +396,8 @@ export async function getDocumentById(id: number) {
       isAiDraft: documents.isAiDraft,
       clientId: documents.clientId,
       projectId: documents.projectId,
+      relatedDocumentId: documents.relatedDocumentId,
+      invoiceStage: documents.invoiceStage,
       clientName: clients.companyName,
       contactName: clients.contactName,
       clientAddress: clients.address,
@@ -499,15 +507,16 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
     const quote = quoteRows[0];
     if (!quote || quote.kind !== "devis") throw new Error("Le devis demandé est introuvable.");
     if (quote.status !== "accepte") throw new Error("Seul un devis accepté peut générer une facture d’acompte.");
-    const existing = await tx.select({ id: documents.id, number: documents.number }).from(documents).where(and(eq(documents.kind, "facture"), eq(documents.relatedDocumentId, quoteId))).limit(1);
-    if (existing[0]) return { ...existing[0], existing: true };
+    const existing = await tx.select({ id: documents.id, number: documents.number }).from(documents).where(and(eq(documents.kind, "facture"), eq(documents.relatedDocumentId, quoteId), eq(documents.invoiceStage, "acompte"))).limit(1);
+    const existingDeposit = reuseExistingGeneratedInvoice(existing[0]);
+    if (existingDeposit) return existingDeposit;
     const amount = calculateDepositInvoiceAmount(quote.total, quote.depositPercent);
     await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
     const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
     const result = await tx.insert(documents).values({
-      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id,
+      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "acompte",
       status: "brouillon", issueDate: new Date(), dueDate: quote.depositDueDate ?? new Date(), validUntil: null,
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
       subtotal: amount, taxTotal: 0, total: amount,
@@ -515,6 +524,43 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
     });
     const id = Number(result[0].insertId);
     await tx.insert(documentLines).values({ documentId: id, position: 1, description: `Acompte de ${quote.depositPercent}% sur devis ${quote.number}`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
+    return { id, number, existing: false };
+  });
+}
+
+export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, createdById: number) {
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    const depositRows = await tx.select().from(documents).where(eq(documents.id, depositInvoiceId)).limit(1);
+    const deposit = depositRows[0];
+    if (!deposit || deposit.kind !== "facture" || deposit.invoiceStage !== "acompte" || !deposit.relatedDocumentId) throw new Error("La facture d’acompte demandée est introuvable.");
+
+    const quoteRows = await tx.select().from(documents).where(eq(documents.id, deposit.relatedDocumentId)).limit(1);
+    const quote = quoteRows[0];
+    if (!quote || quote.kind !== "devis" || quote.status !== "accepte") throw new Error("Le devis d’origine doit être accepté.");
+
+    const depositPayments = await tx.select({ amount: payments.amount }).from(payments).where(eq(payments.documentId, deposit.id));
+    const paidAmount = depositPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    assertDepositInvoiceIsFullyPaid(deposit.total, paidAmount);
+
+    const existing = await tx.select({ id: documents.id, number: documents.number }).from(documents).where(and(eq(documents.kind, "facture"), eq(documents.relatedDocumentId, deposit.id), eq(documents.invoiceStage, "solde"))).limit(1);
+    const existingBalance = reuseExistingGeneratedInvoice(existing[0]);
+    if (existingBalance) return existingBalance;
+
+    const amount = calculateBalanceInvoiceAmount(quote.total, deposit.total);
+    await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
+    const serial = sequence[0]?.lastValue ?? 1;
+    const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
+    const result = await tx.insert(documents).values({
+      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: deposit.id, invoiceStage: "solde",
+      status: "brouillon", issueDate: new Date(), dueDate: quote.balanceDueDate ?? new Date(), validUntil: null,
+      depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
+      subtotal: amount, taxTotal: 0, total: amount,
+      notes: `Facture de solde générée après règlement de l’acompte lié au devis ${quote.number}.`, isAiDraft: "non", createdById,
+    });
+    const id = Number(result[0].insertId);
+    await tx.insert(documentLines).values({ documentId: id, position: 1, description: `Solde sur devis ${quote.number} après acompte`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
     return { id, number, existing: false };
   });
 }

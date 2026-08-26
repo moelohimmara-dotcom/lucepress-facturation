@@ -71,6 +71,20 @@
       "when": 1787769985457,
       "tag": "0009_many_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1787771473387,
+      "tag": "0010_far_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1787771885993,
+      "tag": "0011_backfill_invoice_stages",
+      "breakpoints": true
     }
   ]
 }

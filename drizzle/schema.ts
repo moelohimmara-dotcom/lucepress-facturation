@@ -119,6 +119,7 @@ export const documents = mysqlTable(
       .references(() => clients.id, { onDelete: "restrict" }),
     projectId: int("projectId").references(() => projects.id, { onDelete: "set null" }),
     relatedDocumentId: int("relatedDocumentId"),
+    invoiceStage: mysqlEnum("invoiceStage", ["standard", "acompte", "solde"]).default("standard").notNull(),
     status: mysqlEnum("status", [
       "brouillon",
       "a_envoyer",
@@ -155,6 +156,7 @@ export const documents = mysqlTable(
     index("documents_kind_status_idx").on(table.kind, table.status),
     index("documents_clientId_idx").on(table.clientId),
     index("documents_dueDate_idx").on(table.dueDate),
+    index("documents_related_stage_idx").on(table.relatedDocumentId, table.invoiceStage),
   ],
 );
 

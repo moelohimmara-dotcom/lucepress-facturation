@@ -212,6 +212,8 @@ export const appRouter = router({
       priceHistory: adminProcedure
         .input(z.object({ serviceId: z.number().int().positive() }))
         .query(({ input }) => db.listServicePriceRevisions(input.serviceId)),
+      priceHistoryExport: adminProcedure
+        .query(() => db.listAllServicePriceRevisions()),
     }),
     documents: router({
       list: adminProcedure.input(z.object({ kind: z.enum(["devis", "facture"]).optional() }).optional()).query(({ input }) => db.listDocuments(input?.kind)),
@@ -232,6 +234,15 @@ export const appRouter = router({
             return await db.createDepositInvoiceFromQuote(input.quoteId, ctx.user.id);
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture d’acompte ne peut pas être générée." });
+          }
+        }),
+      createBalanceInvoice: adminProcedure
+        .input(z.object({ depositInvoiceId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.createBalanceInvoiceFromDeposit(input.depositInvoiceId, ctx.user.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture de solde ne peut pas être générée." });
           }
         }),
     }),

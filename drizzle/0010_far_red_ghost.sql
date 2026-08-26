@@ -1,0 +1,2 @@
+ALTER TABLE `documents` ADD `invoiceStage` enum('standard','acompte','solde') DEFAULT 'standard' NOT NULL;--> statement-breakpoint
+CREATE INDEX `documents_related_stage_idx` ON `documents` (`relatedDocumentId`,`invoiceStage`);
