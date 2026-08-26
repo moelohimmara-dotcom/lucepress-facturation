@@ -21,3 +21,11 @@
 - [x] Calculer le solde dû et actualiser automatiquement le statut de règlement des factures.
 - [x] Afficher des alertes visuelles de retard sur le tableau de bord, les listes et le détail des factures.
 - [x] Ajouter des tests automatisés des paiements partiels, soldes et règles de retard.
+- [x] Compléter le répertoire clients et préremplir les coordonnées sauvegardées dans les nouveaux devis.
+- [x] Ajouter des filtres rapides du tableau de bord pour les factures en retard et les devis en attente.
+- [x] Ajouter le logo Lucepress aux aperçus et aux fichiers PDF téléchargés.
+- [x] Tester les nouveaux filtres et le préremplissage client.
+- [x] Vérifier explicitement le parcours répertoire clients vers nouveau devis avec client prérempli et coordonnées visibles.
+- [x] Ajouter un test automatisé de lecture sécurisée du client prérempli depuis l’URL de création de devis.
+- [x] Ajouter un test de rendu UI des coordonnées client préremplies dans le formulaire de devis.
+- [x] Ajouter un test d’intégration de l’éditeur de devis avec clientId URL et coordonnées préremplies.
