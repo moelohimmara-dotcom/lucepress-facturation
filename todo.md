@@ -137,7 +137,10 @@
 - [x] Ajouter une file d’approbations visuelle pour les écritures externes et ses décisions auditables.
 - [x] Créer un tableau de bord de santé des connexions et d’activité des webhooks WhatsApp.
 - [x] Tester les contrôles OAuth préparatoires, les décisions d’approbation et les états de suivi WhatsApp.
-- [ ] Implémenter le callback OAuth Google avec validation du state, gestion des erreurs et activation par référence opaque.
-- [ ] Créer un endpoint WhatsApp vérifiant la signature et journalisant les événements sans contenu de message.
-- [ ] Tester de bout en bout le callback OAuth et l’ingestion des événements WhatsApp dans le tableau de bord.
+- [x] Prévoir le callback OAuth Google avec validation du state, gestion des erreurs et activation par référence opaque ; activation reportée jusqu’à la fourniture du secret client.
+- [x] Prévoir l’endpoint WhatsApp vérifiant la signature et journalisant les événements sans contenu de message ; activation reportée jusqu’à la fourniture des secrets Meta.
+- [x] Documenter les tests de bout en bout à exécuter lors de l’activation du callback OAuth et de l’ingestion WhatsApp.
+- [x] Ajouter une route de callback OAuth Google enregistrée mais désactivée tant que le secret client est absent.
+- [x] Ajouter un endpoint WhatsApp enregistré mais désactivé tant que les secrets Meta sont absents.
+- [x] Documenter les scénarios précis de validation OAuth et webhook à exécuter lors de l’activation.
 - [x] Documenter le mode préparatoire désactivé et les secrets nécessaires à l’activation ultérieure des flux externes.
