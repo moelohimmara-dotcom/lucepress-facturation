@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   clients,
+  companySettings,
   documentLines,
   documents,
   documentSequences,
@@ -91,6 +92,100 @@ export async function createClient(input: {
     notes: input.notes || null,
   });
   return { id: Number(result[0].insertId) };
+}
+
+export type ClientInput = {
+  companyName: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  taxId?: string;
+  notes?: string;
+};
+
+export async function updateClient(id: number, input: ClientInput) {
+  const db = await requireDb();
+  await db.update(clients).set({
+    companyName: input.companyName,
+    contactName: input.contactName || null,
+    email: input.email || null,
+    phone: input.phone || null,
+    address: input.address || null,
+    taxId: input.taxId || null,
+    notes: input.notes || null,
+  }).where(eq(clients.id, id));
+  return { success: true };
+}
+
+export type CompanySettingsInput = {
+  legalName: string;
+  legalAddress?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  taxId?: string;
+  registrationNumber?: string;
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  iban?: string;
+  swift?: string;
+  paymentInstructions?: string;
+  documentFooter?: string;
+};
+
+const emptyCompanySettings = (): Omit<typeof companySettings.$inferSelect, "id"> & { id: number } => ({
+  id: 0,
+  legalName: "Lucepress",
+  legalAddress: null,
+  phone: null,
+  email: null,
+  website: null,
+  taxId: null,
+  registrationNumber: null,
+  bankName: null,
+  accountName: null,
+  accountNumber: null,
+  iban: null,
+  swift: null,
+  paymentInstructions: null,
+  documentFooter: null,
+  updatedAt: new Date(),
+});
+
+function normalizeCompanySettings(input: CompanySettingsInput): typeof companySettings.$inferInsert {
+  return {
+    legalName: input.legalName,
+    legalAddress: input.legalAddress || null,
+    phone: input.phone || null,
+    email: input.email || null,
+    website: input.website || null,
+    taxId: input.taxId || null,
+    registrationNumber: input.registrationNumber || null,
+    bankName: input.bankName || null,
+    accountName: input.accountName || null,
+    accountNumber: input.accountNumber || null,
+    iban: input.iban || null,
+    swift: input.swift || null,
+    paymentInstructions: input.paymentInstructions || null,
+    documentFooter: input.documentFooter || null,
+  };
+}
+
+export async function getCompanySettings() {
+  const db = await requireDb();
+  const result = await db.select().from(companySettings).limit(1);
+  return result[0] ?? emptyCompanySettings();
+}
+
+export async function saveCompanySettings(input: CompanySettingsInput) {
+  const db = await requireDb();
+  const values = normalizeCompanySettings(input);
+  const existing = await db.select({ id: companySettings.id }).from(companySettings).limit(1);
+  if (existing[0]) await db.update(companySettings).set(values).where(eq(companySettings.id, existing[0].id));
+  else await db.insert(companySettings).values(values);
+  return getCompanySettings();
 }
 
 export async function listProjects() {

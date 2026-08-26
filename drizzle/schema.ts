@@ -179,6 +179,25 @@ export const payments = mysqlTable(
   ],
 );
 
+export const companySettings = mysqlTable("company_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  legalName: varchar("legalName", { length: 180 }).default("Lucepress").notNull(),
+  legalAddress: text("legalAddress"),
+  phone: varchar("phone", { length: 64 }),
+  email: varchar("email", { length: 320 }),
+  website: varchar("website", { length: 255 }),
+  taxId: varchar("taxId", { length: 100 }),
+  registrationNumber: varchar("registrationNumber", { length: 100 }),
+  bankName: varchar("bankName", { length: 180 }),
+  accountName: varchar("accountName", { length: 180 }),
+  accountNumber: varchar("accountNumber", { length: 120 }),
+  iban: varchar("iban", { length: 120 }),
+  swift: varchar("swift", { length: 32 }),
+  paymentInstructions: text("paymentInstructions"),
+  documentFooter: text("documentFooter"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const documentSequences = mysqlTable(
   "document_sequences",
   {
@@ -198,3 +217,4 @@ export type Service = typeof services.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentLine = typeof documentLines.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type CompanySettings = typeof companySettings.$inferSelect;

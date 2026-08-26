@@ -29,3 +29,10 @@
 - [x] Ajouter un test automatisé de lecture sécurisée du client prérempli depuis l’URL de création de devis.
 - [x] Ajouter un test de rendu UI des coordonnées client préremplies dans le formulaire de devis.
 - [x] Ajouter un test d’intégration de l’éditeur de devis avec clientId URL et coordonnées préremplies.
+- [x] Ajouter une extraction IA des coordonnées client depuis un texte, avec relecture avant ajout au répertoire.
+- [x] Ajouter la modification directe des informations des clients existants dans le répertoire.
+- [x] Créer une page de paramètres pour les mentions légales, coordonnées et informations bancaires Lucepress.
+- [x] Reprendre les paramètres entreprise dans les aperçus et PDF générés.
+- [x] Tester les flux d’extraction, de modification client et de paramètres PDF.
+- [x] Ajouter un test automatisé de la mutation de modification d’un client existant.
+- [x] Ajouter un test d’intégration de l’aperçu document avec paramètres entreprise personnalisés.

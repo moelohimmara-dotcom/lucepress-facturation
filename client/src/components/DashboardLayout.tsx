@@ -29,6 +29,7 @@ import {
   LogOut,
   PanelLeft,
   ReceiptText,
+  Settings,
   Sparkles,
   UsersRound,
   Wrench,
@@ -45,6 +46,7 @@ const menuItems = [
   { icon: UsersRound, label: "Clients", path: "/clients" },
   { icon: FolderKanban, label: "Chantiers", path: "/chantiers" },
   { icon: Wrench, label: "Prestations", path: "/prestations" },
+  { icon: Settings, label: "Paramètres", path: "/parametres" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";

@@ -19,6 +19,64 @@ const documentLineSchema = z.object({
   serviceId: z.number().int().positive().optional(),
 });
 
+const clientInputSchema = z.object({
+  companyName: z.string().trim().min(2).max(180),
+  contactName: optionalText,
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().trim().max(64).optional(),
+  address: optionalText,
+  taxId: z.string().trim().max(100).optional(),
+  notes: optionalText,
+});
+
+const companySettingsInputSchema = z.object({
+  legalName: z.string().trim().min(2).max(180),
+  legalAddress: optionalText,
+  phone: z.string().trim().max(64).optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  website: z.string().trim().max(255).optional(),
+  taxId: z.string().trim().max(100).optional(),
+  registrationNumber: z.string().trim().max(100).optional(),
+  bankName: z.string().trim().max(180).optional(),
+  accountName: z.string().trim().max(180).optional(),
+  accountNumber: z.string().trim().max(120).optional(),
+  iban: z.string().trim().max(120).optional(),
+  swift: z.string().trim().max(32).optional(),
+  paymentInstructions: optionalText,
+  documentFooter: optionalText,
+});
+
+const extractedClientSchema = z.object({
+  companyName: z.string().trim().min(2).max(180),
+  contactName: z.string().trim().max(180),
+  email: z.string().trim().max(320),
+  phone: z.string().trim().max(64),
+  address: z.string().trim().max(2000),
+  taxId: z.string().trim().max(100),
+  notes: z.string().trim().max(2000),
+  missingFields: z.array(z.string().trim().max(100)).max(8),
+});
+
+const clientExtractionResponseSchema = {
+  name: "lucepress_client_extraction",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      companyName: { type: "string" },
+      contactName: { type: "string" },
+      email: { type: "string" },
+      phone: { type: "string" },
+      address: { type: "string" },
+      taxId: { type: "string" },
+      notes: { type: "string" },
+      missingFields: { type: "array", items: { type: "string" } },
+    },
+    required: ["companyName", "contactName", "email", "phone", "address", "taxId", "notes", "missingFields"],
+    additionalProperties: false,
+  },
+} as const;
+
 const proposalSchema = {
   name: "lucepress_quote_proposal",
   strict: true,
@@ -71,8 +129,15 @@ export const appRouter = router({
     clients: router({
       list: adminProcedure.query(() => db.listClients()),
       create: adminProcedure
-        .input(z.object({ companyName: z.string().trim().min(2).max(180), contactName: optionalText, email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), address: optionalText, taxId: z.string().trim().max(100).optional(), notes: optionalText }))
+        .input(clientInputSchema)
         .mutation(({ input }) => db.createClient(input)),
+      update: adminProcedure
+        .input(clientInputSchema.extend({ id: z.number().int().positive() }))
+        .mutation(({ input }) => db.updateClient(input.id, input)),
+    }),
+    settings: router({
+      get: adminProcedure.query(() => db.getCompanySettings()),
+      save: adminProcedure.input(companySettingsInputSchema).mutation(({ input }) => db.saveCompanySettings(input)),
     }),
     projects: router({
       list: adminProcedure.query(() => db.listProjects()),
@@ -111,6 +176,28 @@ export const appRouter = router({
         }),
     }),
     assistant: router({
+      extractClient: adminProcedure
+        .input(z.object({ text: z.string().trim().min(10).max(6000) }))
+        .mutation(async ({ input }) => {
+          const models = await listLLMModels();
+          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const result = await invokeLLM({
+            model,
+            messages: [
+              { role: "system", content: "Tu es l’assistant administratif de Lucepress. Extrais uniquement les coordonnées d’un prospect ou client contenues dans le texte fourni. Ne fabrique jamais une donnée absente : utilise une chaîne vide et indique le champ dans missingFields. companyName doit être le nom de l’entreprise ou du client, et si aucun nom exploitable n’est mentionné, utilise 'Client à confirmer' et signale-le. notes doit contenir seulement les précisions utiles au répertoire. La sortie est un brouillon à faire relire avant enregistrement." },
+              { role: "user", content: input.text },
+            ],
+            response_format: { type: "json_schema", json_schema: clientExtractionResponseSchema },
+          });
+          const content = result.choices[0]?.message.content;
+          if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "L’extraction IA est indisponible. Réessayez dans un instant." });
+          try {
+            return { client: extractedClientSchema.parse(JSON.parse(content)), requiresReview: true };
+          } catch {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Les coordonnées extraites ne peuvent pas être lues. Réessayez dans un instant." });
+          }
+        }),
       proposeQuote: adminProcedure
         .input(z.object({ description: z.string().trim().min(20).max(6000), projectType: z.enum(["btp", "forage", "mixte"]).optional(), taxRate: z.number().int().min(0).max(100).default(0) }))
         .mutation(async ({ input }) => {
