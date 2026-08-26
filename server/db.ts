@@ -1,11 +1,20 @@
-import { eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  clients,
+  documentLines,
+  documents,
+  documentSequences,
+  InsertUser,
+  projects,
+  services,
+  users,
+} from "../drizzle/schema";
+import { calculateDocumentTotals, formatDocumentNumber, initialDocumentStatus, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine } from "../shared/billing";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -18,75 +27,318 @@ export async function getDb() {
   return _db;
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
-
+async function requireDb() {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
+  if (!db) throw new Error("La base de données Lucepress est indisponible.");
+  return db;
+}
+
+export async function upsertUser(user: InsertUser): Promise<void> {
+  if (!user.openId) throw new Error("User openId is required for upsert");
+  const db = await getDb();
+  if (!db) return;
+
+  const values: InsertUser = { openId: user.openId };
+  const updateSet: Record<string, unknown> = {};
+  (["name", "email", "loginMethod"] as const).forEach(field => {
+    if (user[field] !== undefined) {
+      values[field] = user[field] ?? null;
+      updateSet[field] = user[field] ?? null;
+    }
+  });
+  values.lastSignedIn = user.lastSignedIn ?? new Date();
+  updateSet.lastSignedIn = values.lastSignedIn;
+  if (user.role !== undefined) {
+    values.role = user.role;
+    updateSet.role = user.role;
+  } else if (user.openId === ENV.ownerOpenId) {
+    values.role = "admin";
+    updateSet.role = "admin";
   }
-
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
-
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
-  }
+  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
+  if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
+  return result[0];
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function listClients() {
+  const db = await requireDb();
+  return db.select().from(clients).orderBy(asc(clients.companyName));
+}
+
+export async function createClient(input: {
+  companyName: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  taxId?: string;
+  notes?: string;
+}) {
+  const db = await requireDb();
+  const result = await db.insert(clients).values({
+    companyName: input.companyName,
+    contactName: input.contactName || null,
+    email: input.email || null,
+    phone: input.phone || null,
+    address: input.address || null,
+    taxId: input.taxId || null,
+    notes: input.notes || null,
+  });
+  return { id: Number(result[0].insertId) };
+}
+
+export async function listProjects() {
+  const db = await requireDb();
+  return db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      reference: projects.reference,
+      type: projects.type,
+      status: projects.status,
+      location: projects.location,
+      description: projects.description,
+      clientId: projects.clientId,
+      clientName: clients.companyName,
+      createdAt: projects.createdAt,
+    })
+    .from(projects)
+    .innerJoin(clients, eq(projects.clientId, clients.id))
+    .orderBy(desc(projects.createdAt));
+}
+
+export async function createProject(input: {
+  clientId: number;
+  name: string;
+  reference?: string;
+  type: "btp" | "forage" | "mixte";
+  location?: string;
+  description?: string;
+}) {
+  const db = await requireDb();
+  const result = await db.insert(projects).values({
+    ...input,
+    reference: input.reference || null,
+    location: input.location || null,
+    description: input.description || null,
+  });
+  return { id: Number(result[0].insertId) };
+}
+
+export async function listServices() {
+  const db = await requireDb();
+  return db.select().from(services).orderBy(asc(services.category), asc(services.name));
+}
+
+export async function createService(input: {
+  code: string;
+  name: string;
+  category: "btp" | "forage" | "etude" | "transport" | "autre";
+  description?: string;
+  unit: string;
+  defaultUnitPrice: number;
+  defaultTaxRate: number;
+}) {
+  const db = await requireDb();
+  const result = await db.insert(services).values({
+    ...input,
+    description: input.description || null,
+  });
+  return { id: Number(result[0].insertId) };
+}
+
+export async function listDocuments(kind?: DocumentKind) {
+  const db = await requireDb();
+  const rows = await db
+    .select({
+      id: documents.id,
+      kind: documents.kind,
+      number: documents.number,
+      status: documents.status,
+      issueDate: documents.issueDate,
+      dueDate: documents.dueDate,
+      validUntil: documents.validUntil,
+      total: documents.total,
+      subtotal: documents.subtotal,
+      taxTotal: documents.taxTotal,
+      isAiDraft: documents.isAiDraft,
+      clientId: clients.id,
+      clientName: clients.companyName,
+      projectId: projects.id,
+      projectName: projects.name,
+      updatedAt: documents.updatedAt,
+    })
+    .from(documents)
+    .innerJoin(clients, eq(documents.clientId, clients.id))
+    .leftJoin(projects, eq(documents.projectId, projects.id))
+    .orderBy(desc(documents.updatedAt));
+  return kind ? rows.filter(row => row.kind === kind) : rows;
+}
+
+export async function getDocumentById(id: number) {
+  const db = await requireDb();
+  const header = await db
+    .select({
+      id: documents.id,
+      kind: documents.kind,
+      number: documents.number,
+      status: documents.status,
+      issueDate: documents.issueDate,
+      dueDate: documents.dueDate,
+      validUntil: documents.validUntil,
+      subtotal: documents.subtotal,
+      taxTotal: documents.taxTotal,
+      total: documents.total,
+      notes: documents.notes,
+      isAiDraft: documents.isAiDraft,
+      clientId: documents.clientId,
+      projectId: documents.projectId,
+      clientName: clients.companyName,
+      contactName: clients.contactName,
+      clientAddress: clients.address,
+      clientEmail: clients.email,
+      projectName: projects.name,
+      projectLocation: projects.location,
+    })
+    .from(documents)
+    .innerJoin(clients, eq(documents.clientId, clients.id))
+    .leftJoin(projects, eq(documents.projectId, projects.id))
+    .where(eq(documents.id, id))
+    .limit(1);
+  if (!header[0]) return null;
+  const lines = await db.select().from(documentLines).where(eq(documentLines.documentId, id)).orderBy(asc(documentLines.position));
+  return { ...header[0], lines };
+}
+
+export async function createDocument(input: {
+  kind: DocumentKind;
+  clientId: number;
+  projectId?: number;
+  relatedDocumentId?: number;
+  status?: DocumentStatus;
+  issueDate: string;
+  dueDate?: string;
+  validUntil?: string;
+  notes?: string;
+  isAiDraft?: boolean;
+  createdById: number;
+  lines: EditableDocumentLine[];
+}) {
+  const db = await requireDb();
+  const totals = calculateDocumentTotals(input.lines);
+  const result = await db.transaction(async tx => {
+    await tx
+      .insert(documentSequences)
+      .values({ kind: input.kind, lastValue: 1 })
+      .onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, input.kind)).limit(1);
+    const serial = sequence[0]?.lastValue ?? 1;
+    const documentValues: typeof documents.$inferInsert = {
+      kind: input.kind,
+      number: formatDocumentNumber(input.kind, new Date(input.issueDate).getUTCFullYear(), serial),
+      clientId: input.clientId,
+      projectId: input.projectId ?? null,
+      relatedDocumentId: input.relatedDocumentId ?? null,
+      status: initialDocumentStatus(input.status, Boolean(input.isAiDraft)),
+      issueDate: new Date(`${input.issueDate}T00:00:00.000Z`),
+      dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : null,
+      validUntil: input.validUntil ? new Date(`${input.validUntil}T00:00:00.000Z`) : null,
+      subtotal: totals.subtotal,
+      taxTotal: totals.taxTotal,
+      total: totals.total,
+      notes: input.notes || null,
+      isAiDraft: input.isAiDraft ? "oui" : "non",
+      createdById: input.createdById,
+    };
+    const documentResult = await tx.insert(documents).values(documentValues);
+    const documentId = Number(documentResult[0].insertId);
+    if (input.lines.length) {
+      await tx.insert(documentLines).values(
+        input.lines.map((line, index) => {
+          const base = Math.round(line.quantity * line.unitPrice);
+          const tax = Math.round((base * line.taxRate) / 100);
+          return {
+            documentId,
+            position: index + 1,
+            description: line.description,
+            quantity: line.quantity.toFixed(2),
+            unit: line.unit,
+            unitPrice: line.unitPrice,
+            taxRate: line.taxRate,
+            lineTotal: base + tax,
+            serviceId: line.serviceId ?? null,
+          };
+        }),
+      );
+    }
+    return { id: documentId, number: formatDocumentNumber(input.kind, new Date(input.issueDate).getUTCFullYear(), serial) };
+  });
+  return { ...result, totals };
+}
+
+export async function updateDocumentStatus(id: number, status: DocumentStatus) {
+  const db = await requireDb();
+  await db.update(documents).set({ status }).where(eq(documents.id, id));
+  return { success: true };
+}
+
+export async function updateDocument(input: {
+  id: number;
+  clientId: number;
+  projectId?: number;
+  status: DocumentStatus;
+  issueDate: string;
+  dueDate?: string;
+  validUntil?: string;
+  notes?: string;
+  lines: EditableDocumentLine[];
+}) {
+  const db = await requireDb();
+  const totals = calculateDocumentTotals(input.lines);
+  await db.transaction(async tx => {
+    await tx.update(documents).set({
+      clientId: input.clientId,
+      projectId: input.projectId ?? null,
+      status: input.status,
+      issueDate: new Date(`${input.issueDate}T00:00:00.000Z`),
+      dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : null,
+      validUntil: input.validUntil ? new Date(`${input.validUntil}T00:00:00.000Z`) : null,
+      subtotal: totals.subtotal,
+      taxTotal: totals.taxTotal,
+      total: totals.total,
+      notes: input.notes || null,
+    }).where(eq(documents.id, input.id));
+    await tx.delete(documentLines).where(eq(documentLines.documentId, input.id));
+    await tx.insert(documentLines).values(input.lines.map((line, index) => {
+      const base = Math.round(line.quantity * line.unitPrice);
+      const tax = Math.round((base * line.taxRate) / 100);
+      return {
+        documentId: input.id,
+        position: index + 1,
+        description: line.description,
+        quantity: line.quantity.toFixed(2),
+        unit: line.unit,
+        unitPrice: line.unitPrice,
+        taxRate: line.taxRate,
+        lineTotal: base + tax,
+        serviceId: line.serviceId ?? null,
+      };
+    }));
+  });
+  return { success: true, totals };
+}
+
+export async function getDashboardData() {
+  const allDocuments = await listDocuments();
+  const now = new Date();
+  const priority = allDocuments.filter(document => document.status === "a_envoyer" || (document.kind === "facture" && document.dueDate && document.dueDate < now && !["paye", "annule", "refuse"].includes(document.status))).slice(0, 6);
+  return {
+    counts: summarizeDashboard(allDocuments, now),
+    priority,
+  };
+}

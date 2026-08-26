@@ -4,6 +4,11 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import DocumentEditorPage from "./pages/DocumentEditorPage";
+import DocumentEditRoute from "./pages/DocumentEditRoute";
+import DocumentPreviewPage from "./pages/DocumentPreviewPage";
+import DocumentsPage from "./pages/DocumentsPage";
+import CatalogPage from "./pages/CatalogPage";
 import Home from "./pages/Home";
 
 function Router() {
@@ -11,6 +16,15 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/devis"} component={() => <DocumentsPage kind="devis" />} />
+      <Route path={"/factures"} component={() => <DocumentsPage kind="facture" />} />
+      <Route path={"/devis/nouveau"} component={() => <DocumentEditorPage kind="devis" mode="create" />} />
+      <Route path={"/factures/nouveau"} component={() => <DocumentEditorPage kind="facture" mode="create" />} />
+      <Route path={"/clients"} component={() => <CatalogPage kind="clients" />} />
+      <Route path={"/chantiers"} component={() => <CatalogPage kind="chantiers" />} />
+      <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
+      <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
+      <Route path={"/documents/:id"} component={DocumentPreviewPage} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
