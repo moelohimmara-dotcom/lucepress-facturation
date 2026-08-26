@@ -94,6 +94,21 @@ const reminderResponseSchema = {
   },
 } as const;
 
+const clientHistorySummarySchema = {
+  name: "lucepress_client_history_summary",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+      attentionPoints: { type: "array", items: { type: "string" } },
+      nextSteps: { type: "array", items: { type: "string" } },
+    },
+    required: ["summary", "attentionPoints", "nextSteps"],
+    additionalProperties: false,
+  },
+} as const;
+
 const proposalSchema = {
   name: "lucepress_quote_proposal",
   strict: true,
@@ -157,6 +172,7 @@ export const appRouter = router({
       }),
       activities: router({
         list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientActivities(input.clientId)),
+        createNote: adminProcedure.input(z.object({ clientId: z.number().int().positive(), title: z.string().trim().min(2).max(255).default("Note d’appel"), description: z.string().trim().min(3).max(2000) })).mutation(({ ctx, input }) => db.createClientActivity({ ...input, type: "note", createdById: ctx.user.id })),
       }),
     }),
     settings: router({
@@ -200,6 +216,27 @@ export const appRouter = router({
         }),
     }),
     assistant: router({
+      summarizeClientHistory: adminProcedure
+        .input(z.object({ clientId: z.number().int().positive() }))
+        .mutation(async ({ input }) => {
+          const client = await db.getClientById(input.clientId);
+          if (!client) throw new TRPCError({ code: "NOT_FOUND", message: "Client introuvable." });
+          const history = await db.listClientActivities(input.clientId);
+          const models = await listLLMModels();
+          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const result = await invokeLLM({
+            model,
+            messages: [
+              { role: "system", content: "Tu es l’assistant de suivi commercial de Lucepress, entreprise BTP et forage. À partir de l’historique fourni, rédige en français une synthèse brève et factuelle pour préparer le prochain échange avec le client. Ne fabrique aucun fait. Signale les éléments financiers ou commerciaux à vérifier et propose des prochaines étapes pragmatiques. Le résultat est une aide interne à relire, jamais un message envoyé au client." },
+              { role: "user", content: JSON.stringify({ client: { nom: client.companyName, contact: client.contactName }, historique: history.slice(0, 50).map(event => ({ date: event.createdAt, type: event.type, titre: event.title, detail: event.description })) }) },
+            ],
+            response_format: { type: "json_schema", json_schema: clientHistorySummarySchema },
+          });
+          const content = result.choices[0]?.message.content;
+          if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le résumé IA est indisponible. Réessayez dans un instant." });
+          try { return { summary: JSON.parse(content) as { summary: string; attentionPoints: string[]; nextSteps: string[] }, requiresReview: true }; } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le résumé IA ne peut pas être lu. Réessayez dans un instant." }); }
+        }),
       generateReminder: adminProcedure
         .input(z.object({ documentId: z.number().int().positive(), tone: z.enum(["courtois", "ferme"]).default("courtois") }))
         .mutation(async ({ ctx, input }) => {

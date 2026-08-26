@@ -50,3 +50,9 @@
 - [x] Ajouter un test de rendu de la fiche client affichant l’historique et le lien vers un document.
 - [x] Ajouter un test d’intégration de la fiche client affichant l’historique chargé et la navigation vers son document.
 - [x] Ajouter un test d’intégration utilisateur réel de la fiche client, de l’ouverture de l’historique et de la navigation documentaire.
+- [x] Permettre l’ajout de notes manuelles d’appel dans l’historique d’un client.
+- [x] Intégrer les paiements partiels dans la chronologie financière de la fiche client.
+- [x] Ajouter un résumé IA rapide de l’historique pour préparer les prochains échanges.
+- [x] Tester les notes, paiements historiques et le résumé IA client.
+- [x] Ajouter un test de paiement partiel réel dans la fusion et le tri de l’historique client.
+- [x] Ajouter un test de rendu de l’événement de paiement lié à son document dans la fiche client.

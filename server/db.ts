@@ -159,11 +159,12 @@ export async function createClientActivity(input: { clientId: number; documentId
 
 export async function listClientActivities(clientId: number) {
   const db = await requireDb();
-  const [activities, clientDocuments] = await Promise.all([
+  const [activities, clientDocuments, clientPayments] = await Promise.all([
     db.select().from(clientActivities).where(eq(clientActivities.clientId, clientId)).orderBy(desc(clientActivities.createdAt)),
     db.select({ id: documents.id, kind: documents.kind, number: documents.number, total: documents.total, status: documents.status, createdAt: documents.createdAt }).from(documents).where(eq(documents.clientId, clientId)).orderBy(desc(documents.createdAt)),
+    db.select({ id: payments.id, documentId: payments.documentId, documentNumber: documents.number, amount: payments.amount, method: payments.method, reference: payments.reference, paidAt: payments.paidAt, createdAt: payments.createdAt }).from(payments).innerJoin(documents, eq(payments.documentId, documents.id)).where(eq(documents.clientId, clientId)).orderBy(desc(payments.paidAt)),
   ]);
-  return buildClientActivityTimeline(clientId, clientDocuments, activities);
+  return buildClientActivityTimeline(clientId, clientDocuments, activities, clientPayments);
 }
 
 export type CompanySettingsInput = {

@@ -1,7 +1,8 @@
 export type ClientActivityRecord = { id: number; clientId: number; documentId: number | null; type: "relance_preparee" | "note"; title: string; description: string | null; createdAt: Date };
 export type ClientDocumentRecord = { id: number; kind: "devis" | "facture"; number: string; total: number; status: string; createdAt: Date };
+export type ClientPaymentRecord = { id: number; documentId: number; documentNumber: string; amount: number; method: string; reference: string | null; paidAt: Date; createdAt: Date };
 
-export function buildClientActivityTimeline(clientId: number, documents: ClientDocumentRecord[], activities: ClientActivityRecord[]) {
+export function buildClientActivityTimeline(clientId: number, documents: ClientDocumentRecord[], activities: ClientActivityRecord[], payments: ClientPaymentRecord[] = []) {
   const documentEvents = documents.map(document => ({
     id: `document-${document.id}`,
     clientId,
@@ -12,5 +13,14 @@ export function buildClientActivityTimeline(clientId: number, documents: ClientD
     createdAt: document.createdAt,
   }));
   const reminderEvents = activities.map(activity => ({ ...activity, id: `activity-${activity.id}` }));
-  return [...documentEvents, ...reminderEvents].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const paymentEvents = payments.map(payment => ({
+    id: `payment-${payment.id}`,
+    clientId,
+    documentId: payment.documentId,
+    type: "paiement_enregistre" as const,
+    title: `Paiement de ${payment.amount.toLocaleString("fr-GN")} GNF enregistré`,
+    description: `Facture ${payment.documentNumber} · ${payment.method.replaceAll("_", " ")}${payment.reference ? ` · Réf. ${payment.reference}` : ""}`,
+    createdAt: payment.paidAt ?? payment.createdAt,
+  }));
+  return [...documentEvents, ...reminderEvents, ...paymentEvents].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
