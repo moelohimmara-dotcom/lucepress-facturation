@@ -232,3 +232,5 @@
 - [x] Agréger les échéances de devis et les relances programmées dans une source calendrier sécurisée.
 - [x] Créer une vue calendrier interactive avec navigation, filtres et accès aux éléments associés.
 - [x] Tester les thèmes, le calendrier, les pages modernisées et leurs parcours responsive.
+- [x] Moderniser la page Créances : indicateurs, filtres, priorités et liste de suivi.
+- [x] Vérifier le rendu desktop/mobile et les tests de la page Créances avant livraison.
