@@ -31,7 +31,15 @@ describe("interface de recouvrement Lucepress", () => {
 
   it("affiche et configure une date lorsque la créance est à rappeler", () => {
     expect(source).toContain("Date de rappel");
-    expect(source).toContain("Rappel le");
+    expect(source).toContain("Rappel aujourd’hui");
     expect(source).toContain("Requise pour classer cette créance");
+  });
+
+  it("signale les rappels proches et permet la réattribution groupée de la sélection", () => {
+    expect(source).toContain("Rappels du jour");
+    expect(source).toContain("Rappel imminent");
+    expect(source).toContain("Rappel aujourd’hui");
+    expect(source).toContain("Réattribuer les créances");
+    expect(source).toContain("Nouveau responsable des créances sélectionnées");
   });
 });

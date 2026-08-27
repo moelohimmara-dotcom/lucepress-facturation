@@ -247,3 +247,8 @@
 - [x] Ajouter un graphique circulaire déterministe de répartition des statuts au PDF mensuel.
 - [x] Repenser la guidance d’accueil en un parcours interactif, accessible et mémorisable.
 - [x] Tester les règles de rappel, le graphique PDF et les parcours responsive de guidance.
+- [x] Détacher la guidance d’accueil de la barre latérale dans un panneau autonome et interactif.
+- [x] Signaler visuellement les créances avec un rappel prévu aujourd’hui ou dans les trois prochains jours.
+- [x] Ajouter un filtre rapide pour isoler les créances dont le rappel est prévu aujourd’hui.
+- [x] Permettre la réattribution groupée de créances sélectionnées à un même responsable avec journalisation.
+- [x] Tester les alertes de rappel, le filtre du jour, la réattribution groupée et la guidance indépendante.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionFollowUpLabels, collectionMonthBounds, getCollectionStatusDistribution, isCollectionFollowUpStatus, isCollectionReportMonth, normalizeCollectionReminderDate, validateCollectionReminder } from "../shared/collectionFollowUp";
+import { collectionFollowUpLabels, collectionMonthBounds, getCollectionReminderSignal, getCollectionStatusDistribution, isCollectionFollowUpStatus, isCollectionReminderToday, isCollectionReportMonth, normalizeCollectionReminderDate, validateCollectionReminder } from "../shared/collectionFollowUp";
 
 describe("règles de suivi des créances", () => {
   it("centralise les statuts de traitement autorisés et leurs libellés français", () => {
@@ -29,5 +29,14 @@ describe("règles de suivi des créances", () => {
       { status: "contacte", count: 2, percentage: 50 },
       { status: "a_rappeler", count: 1, percentage: 25 },
     ]);
+  });
+
+  it("signale les rappels du jour, proches et dépassés selon une fenêtre de trois jours", () => {
+    const today = new Date("2026-08-27T10:00:00.000Z");
+    expect(getCollectionReminderSignal("2026-08-26", today)).toBe("depasse");
+    expect(getCollectionReminderSignal("2026-08-27", today)).toBe("aujourdhui");
+    expect(getCollectionReminderSignal("2026-08-30", today)).toBe("proche");
+    expect(getCollectionReminderSignal("2026-08-31", today)).toBeNull();
+    expect(isCollectionReminderToday("2026-08-27", today)).toBe(true);
   });
 });

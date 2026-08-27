@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   listCollectionAssignees: vi.fn(async () => [{ id: 7, name: "Awa Camara", email: "awa@example.com", role: "admin" }]),
   updateCollectionFollowUp: vi.fn(async () => ({ success: true, collectionStatus: "contacte", collectionOwnerId: 7 })),
+  reassignCollectionFollowUps: vi.fn(async () => ({ success: true, updatedCount: 2, unchangedCount: 0, collectionOwnerId: 7 })),
   getCollectionMonthlyReport: vi.fn(async (month: string) => ({ month, summary: { activityCount: 3 }, invoices: [], activities: [] })),
 }));
 vi.mock("./db", () => ({
   listCollectionAssignees: mocks.listCollectionAssignees,
   updateCollectionFollowUp: mocks.updateCollectionFollowUp,
+  reassignCollectionFollowUps: mocks.reassignCollectionFollowUps,
   getCollectionMonthlyReport: mocks.getCollectionMonthlyReport,
 }));
 
@@ -29,5 +31,12 @@ describe("routes de supervision des créances", () => {
     await expect(caller.billing.collection.monthlyReport({ month: "2026-08" })).resolves.toMatchObject({ month: "2026-08" });
     expect(mocks.getCollectionMonthlyReport).toHaveBeenCalledWith("2026-08");
     await expect(caller.billing.collection.monthlyReport({ month: "08-2026" } as any)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("réattribue un lot borné de créances avec l’auteur authentifié", async () => {
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.billing.collection.reassign({ documentIds: [12, 14], collectionOwnerId: 7 })).resolves.toMatchObject({ success: true, updatedCount: 2 });
+    expect(mocks.reassignCollectionFollowUps).toHaveBeenCalledWith({ documentIds: [12, 14], collectionOwnerId: 7, updatedById: 1 });
+    await expect(caller.billing.collection.reassign({ documentIds: [12, 12], collectionOwnerId: 7 } as any)).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

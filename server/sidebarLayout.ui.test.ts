@@ -92,7 +92,7 @@ describe("sidebar Lucepress sur format contraint", () => {
     expect(screen.getByText("Gardez le travail en mouvement.")).toBeTruthy();
     fireEvent.click(screen.getByText("Terminer"));
     expect(screen.queryByTestId("sidebar-help")).toBeNull();
-    expect(localStorage.getItem("lucepress-sidebar-guidance-v2-seen")).toBe("true");
+    expect(localStorage.getItem("lucepress-sidebar-guidance-v3-seen")).toBe("true");
   });
 
   it("permet de choisir manuellement le mode compact ou normal", () => {

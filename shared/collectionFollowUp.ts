@@ -14,6 +14,25 @@ export function getCollectionStatusDistribution(statusCounts: Record<CollectionF
   return COLLECTION_FOLLOW_UP_STATUSES.map(status => ({ status, count: statusCounts[status], percentage: total ? Math.round((statusCounts[status] / total) * 100) : 0 }));
 }
 
+export const COLLECTION_REMINDER_ALERT_WINDOW_DAYS = 3;
+export type CollectionReminderSignal = "aujourdhui" | "proche" | "depasse";
+
+export function getCollectionReminderSignal(value: Date | string | null | undefined, now = new Date()): CollectionReminderSignal | null {
+  if (!value) return null;
+  const reminder = new Date(value);
+  if (Number.isNaN(reminder.getTime())) return null;
+  const reminderDay = Date.UTC(reminder.getUTCFullYear(), reminder.getUTCMonth(), reminder.getUTCDate());
+  const todayDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const daysUntil = Math.round((reminderDay - todayDay) / 86_400_000);
+  if (daysUntil < 0) return "depasse";
+  if (daysUntil === 0) return "aujourdhui";
+  return daysUntil <= COLLECTION_REMINDER_ALERT_WINDOW_DAYS ? "proche" : null;
+}
+
+export function isCollectionReminderToday(value: Date | string | null | undefined, now = new Date()) {
+  return getCollectionReminderSignal(value, now) === "aujourdhui";
+}
+
 export function isCollectionFollowUpStatus(value: string): value is CollectionFollowUpStatus {
   return (COLLECTION_FOLLOW_UP_STATUSES as readonly string[]).includes(value);
 }

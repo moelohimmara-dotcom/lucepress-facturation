@@ -294,6 +294,12 @@ export const appRouter = router({
           try { return await db.updateCollectionFollowUp({ ...input, updatedById: ctx.user.id }); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le suivi de recouvrement ne peut pas être mis à jour." }); }
         }),
+      reassign: adminProcedure
+        .input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(20).refine(ids => new Set(ids).size === ids.length, "Une créance ne peut être sélectionnée qu’une fois."), collectionOwnerId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try { return await db.reassignCollectionFollowUps({ ...input, updatedById: ctx.user.id }); }
+          catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Les créances ne peuvent pas être réattribuées." }); }
+        }),
       monthlyReport: adminProcedure
         .input(z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Le mois doit respecter le format AAAA-MM.") }))
         .query(async ({ input }) => {

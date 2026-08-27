@@ -1180,6 +1180,24 @@ export async function updateCollectionFollowUp(input: { documentId: number; coll
   return { success: true, collectionStatus: input.collectionStatus, collectionReminderDate: newReminderKey, collectionOwnerId: input.collectionOwnerId ?? undefined };
 }
 
+export async function reassignCollectionFollowUps(input: { documentIds: number[]; collectionOwnerId: number; updatedById: number }) {
+  const documentIds = Array.from(new Set(input.documentIds));
+  if (!documentIds.length || documentIds.length > 20 || documentIds.some(id => !Number.isInteger(id) || id <= 0)) throw new Error("Sélectionnez entre 1 et 20 créances valides.");
+  const db = await requireDb();
+  const owners = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, input.collectionOwnerId)).limit(1);
+  const owner = owners[0];
+  if (!owner) throw new Error("Le responsable sélectionné est introuvable.");
+  const invoices = (await listDocuments("facture")).filter(invoice => documentIds.includes(invoice.id));
+  if (invoices.length !== documentIds.length || invoices.some(invoice => invoice.balanceDue <= 0)) throw new Error("Toutes les créances sélectionnées doivent être ouvertes et disponibles.");
+  const changedInvoices = invoices.filter(invoice => invoice.collectionOwnerId !== input.collectionOwnerId);
+  if (changedInvoices.length) {
+    await db.update(documents).set({ collectionOwnerId: input.collectionOwnerId }).where(inArray(documents.id, changedInvoices.map(invoice => invoice.id)));
+    const ownerName = owner.name || owner.email || `Utilisateur ${owner.id}`;
+    await Promise.all(changedInvoices.map(invoice => createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "responsable_recouvrement", title: "Responsable de recouvrement mis à jour", description: `${ownerName} · Facture ${invoice.number}`, createdById: input.updatedById })));
+  }
+  return { success: true, updatedCount: changedInvoices.length, unchangedCount: invoices.length - changedInvoices.length, collectionOwnerId: owner.id };
+}
+
 export async function getCollectionMonthlyReport(month: string) {
   if (!isCollectionReportMonth(month)) throw new Error("Le mois du rapport est invalide.");
   const { start, end } = collectionMonthBounds(month);
