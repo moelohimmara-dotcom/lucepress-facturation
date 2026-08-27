@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDaysOverdue, summarizeReceivables } from "../shared/receivables";
+import { getDaysOverdue, isPaymentPromiseOverdue, summarizeReceivables } from "../shared/receivables";
 
 const now = new Date("2026-08-27T12:00:00Z");
 const invoice = (overrides: Partial<any>) => ({ id: 1, number: "FAC-001", clientId: 1, clientName: "Client", projectId: 1, projectName: "Chantier", issueDate: "2026-08-01", dueDate: "2026-08-15", total: 300_000, paidAmount: 0, balanceDue: 300_000, isOverdue: true, ...overrides });
@@ -11,12 +11,22 @@ describe("tableau de créances", () => {
       invoice({ id: 3, number: "FAC-003", balanceDue: 0, isOverdue: false }),
       invoice({ id: 1, number: "FAC-001", balanceDue: 300_000, isOverdue: true, dueDate: "2026-08-15" }),
     ], now);
-    expect(result.summary).toEqual({ openCount: 2, overdueCount: 1, outstandingTotal: 380_000, overdueTotal: 300_000, currentTotal: 80_000 });
+    expect(result.summary).toEqual({ openCount: 2, overdueCount: 1, outstandingTotal: 380_000, overdueTotal: 300_000, currentTotal: 80_000, expiredPromiseCount: 0, expiredPromiseTotal: 0 });
     expect(result.invoices.map(item => item.number)).toEqual(["FAC-001", "FAC-002"]);
     expect(result.invoices[0]?.daysOverdue).toBe(12);
   });
 
   it("évite de calculer un retard sans échéance renseignée", () => {
     expect(getDaysOverdue(null, now)).toBe(0);
+  });
+
+  it("signale et priorise les promesses de paiement qui sont dépassées", () => {
+    const result = summarizeReceivables([
+      invoice({ id: 1, number: "FAC-001", paymentPromise: { id: 9, documentId: 1, promisedDate: "2026-08-20", note: null, updatedAt: now } }),
+      invoice({ id: 2, number: "FAC-002", dueDate: "2026-08-10", paymentPromise: { id: 10, documentId: 2, promisedDate: "2026-08-29", note: null, updatedAt: now } }),
+    ], now);
+    expect(isPaymentPromiseOverdue("2026-08-20", now)).toBe(true);
+    expect(result.summary).toMatchObject({ expiredPromiseCount: 1, expiredPromiseTotal: 300_000 });
+    expect(result.invoices[0]).toMatchObject({ number: "FAC-001", isPaymentPromiseOverdue: true });
   });
 });

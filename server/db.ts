@@ -277,6 +277,7 @@ export async function listProjects() {
       status: projects.status,
       location: projects.location,
       description: projects.description,
+      plannedBudget: projects.plannedBudget,
       clientId: projects.clientId,
       clientName: clients.companyName,
       createdAt: projects.createdAt,
@@ -302,6 +303,14 @@ export async function createProject(input: {
     description: input.description || null,
   });
   return { id: Number(result[0].insertId) };
+}
+
+export async function updateProjectPlannedBudget(input: { id: number; plannedBudget: number }) {
+  const db = await requireDb();
+  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.id)).limit(1);
+  if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
+  await db.update(projects).set({ plannedBudget: input.plannedBudget }).where(eq(projects.id, input.id));
+  return { success: true };
 }
 
 export type ProjectCostInput = {
@@ -361,14 +370,16 @@ export async function deleteProjectCostAttachment(id: number) {
 
 export async function listProjectProfitability() {
   const db = await requireDb();
-  const [projectRows, costRows, paymentRows] = await Promise.all([
-    db.select({ id: projects.id, name: projects.name, reference: projects.reference, status: projects.status, clientName: clients.companyName }).from(projects).innerJoin(clients, eq(projects.clientId, clients.id)).orderBy(desc(projects.createdAt)),
+  const [projectRows, costRows, paymentRows, plannedRevenueRows] = await Promise.all([
+    db.select({ id: projects.id, name: projects.name, reference: projects.reference, status: projects.status, clientName: clients.companyName, plannedBudget: projects.plannedBudget }).from(projects).innerJoin(clients, eq(projects.clientId, clients.id)).orderBy(desc(projects.createdAt)),
     db.select({ projectId: projectCosts.projectId, costTotal: sql<number>`coalesce(sum(${projectCosts.amount}), 0)` }).from(projectCosts).groupBy(projectCosts.projectId),
     db.select({ projectId: documents.projectId, revenueCollected: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(documents).innerJoin(payments, eq(payments.documentId, documents.id)).where(and(eq(documents.kind, "facture"), sql`${documents.projectId} is not null`, sql`${documents.status} <> 'annule'`)).groupBy(documents.projectId),
+    db.select({ projectId: documents.projectId, plannedRevenue: sql<number>`coalesce(sum(${documents.total}), 0)` }).from(documents).where(and(eq(documents.kind, "devis"), eq(documents.status, "accepte"), sql`${documents.projectId} is not null`)).groupBy(documents.projectId),
   ]);
   const costsByProject = new Map(costRows.map(row => [row.projectId, Number(row.costTotal)]));
   const revenueByProject = new Map(paymentRows.filter(row => row.projectId !== null).map(row => [row.projectId as number, Number(row.revenueCollected)]));
-  return projectRows.map(project => ({ ...project, ...calculateProjectMargin({ revenueCollected: revenueByProject.get(project.id) ?? 0, costTotal: costsByProject.get(project.id) ?? 0 }) }));
+  const plannedRevenueByProject = new Map(plannedRevenueRows.filter(row => row.projectId !== null).map(row => [row.projectId as number, Number(row.plannedRevenue)]));
+  return projectRows.map(project => ({ ...project, ...calculateProjectMargin({ revenueCollected: revenueByProject.get(project.id) ?? 0, costTotal: costsByProject.get(project.id) ?? 0, plannedRevenue: plannedRevenueByProject.get(project.id) ?? 0, plannedBudget: Number(project.plannedBudget) }) }));
 }
 
 export async function listServices() {

@@ -25,13 +25,21 @@ export function getDaysOverdue(dueDate: Date | string | null, now = new Date()) 
   return Math.max(0, Math.floor((startOfDay(now) - startOfDay(due)) / 86_400_000));
 }
 
+export function isPaymentPromiseOverdue(promisedDate: Date | string | null | undefined, now = new Date()) {
+  if (!promisedDate) return false;
+  const promised = new Date(promisedDate);
+  if (Number.isNaN(promised.getTime())) return false;
+  return startOfDay(promised) < startOfDay(now);
+}
+
 export function summarizeReceivables(documents: ReceivableDocument[], now = new Date()) {
   const invoices = documents
     .filter(document => document.balanceDue > 0)
-    .map(document => ({ ...document, daysOverdue: document.isOverdue ? getDaysOverdue(document.dueDate, now) : 0 }))
-    .sort((left, right) => Number(right.isOverdue) - Number(left.isOverdue) || right.daysOverdue - left.daysOverdue || right.balanceDue - left.balanceDue);
+    .map(document => ({ ...document, daysOverdue: document.isOverdue ? getDaysOverdue(document.dueDate, now) : 0, isPaymentPromiseOverdue: isPaymentPromiseOverdue(document.paymentPromise?.promisedDate, now) }))
+    .sort((left, right) => Number(right.isPaymentPromiseOverdue) - Number(left.isPaymentPromiseOverdue) || Number(right.isOverdue) - Number(left.isOverdue) || right.daysOverdue - left.daysOverdue || right.balanceDue - left.balanceDue);
   const overdue = invoices.filter(invoice => invoice.isOverdue);
   const current = invoices.filter(invoice => !invoice.isOverdue);
+  const expiredPromises = invoices.filter(invoice => invoice.isPaymentPromiseOverdue);
   return {
     invoices,
     summary: {
@@ -40,6 +48,8 @@ export function summarizeReceivables(documents: ReceivableDocument[], now = new 
       outstandingTotal: invoices.reduce((sum, invoice) => sum + invoice.balanceDue, 0),
       overdueTotal: overdue.reduce((sum, invoice) => sum + invoice.balanceDue, 0),
       currentTotal: current.reduce((sum, invoice) => sum + invoice.balanceDue, 0),
+      expiredPromiseCount: expiredPromises.length,
+      expiredPromiseTotal: expiredPromises.reduce((sum, invoice) => sum + invoice.balanceDue, 0),
     },
   };
 }

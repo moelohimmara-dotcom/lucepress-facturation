@@ -189,3 +189,8 @@
 - [x] Revoir la Vue d’ensemble avec les alertes prioritaires de créances et de marge.
 - [x] Tester les autorisations, validations, filtres et parcours de pièces jointes.
 - [x] Garantir que le lien Vue d’ensemble mène toujours au cockpit racine, même après navigation interne.
+- [x] Ajouter une modale de prévisualisation sécurisée des justificatifs PDF et images de coûts.
+- [x] Calculer la marge initialement prévue à partir des factures émises et comparer son niveau à la marge réalisée.
+- [x] Ajouter et renseigner un budget initial par chantier pour calculer une marge prévue fiable.
+- [x] Signaler les promesses de paiement dont la date est dépassée dans le tableau de créances.
+- [x] Tester les alertes de promesses échues, les calculs de marge et l’aperçu des justificatifs.

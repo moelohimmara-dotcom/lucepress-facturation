@@ -57,6 +57,7 @@ export const projects = mysqlTable(
       .notNull(),
     location: varchar("location", { length: 255 }),
     description: text("description"),
+    plannedBudget: bigint("plannedBudget", { mode: "number" }).default(0).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

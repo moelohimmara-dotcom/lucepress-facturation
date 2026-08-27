@@ -200,6 +200,7 @@ export const appRouter = router({
       create: adminProcedure
         .input(z.object({ clientId: z.number().int().positive(), name: z.string().trim().min(2).max(180), reference: z.string().trim().max(80).optional(), type: z.enum(["btp", "forage", "mixte"]), location: z.string().trim().max(255).optional(), description: optionalText }))
         .mutation(({ input }) => db.createProject(input)),
+      updatePlannedBudget: adminProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000) })).mutation(({ input }) => db.updateProjectPlannedBudget(input)),
       costs: router({
         list: adminProcedure.input(z.object({ projectId: z.number().int().positive().optional() }).optional()).query(({ input }) => db.listProjectCosts(input?.projectId)),
         create: adminProcedure.input(z.object({ projectId: z.number().int().positive(), category: z.enum(["materiaux", "main_oeuvre", "transport", "equipement", "sous_traitance", "autre"]), description: z.string().trim().min(3).max(500), amount: z.number().int().positive().max(9_000_000_000), incurredAt: dateText })).mutation(({ ctx, input }) => db.createProjectCost({ ...input, createdById: ctx.user.id })),

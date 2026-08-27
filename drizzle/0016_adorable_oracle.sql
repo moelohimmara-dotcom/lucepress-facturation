@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `plannedBudget` bigint DEFAULT 0 NOT NULL;
