@@ -1,6 +1,11 @@
-import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
+  agentAuditLogs,
+  agentCampaigns,
+  agentDelegations,
+  agentMessageJobs,
+  agentOperatorGrants,
   clients,
   clientActivities,
   clientAttachments,
@@ -41,6 +46,7 @@ import { assertOpaqueIntegrationSecretReference, createPreparedIntegrationConnec
 import { getIntegrationSecretConfiguration, requireIntegrationSecret } from "./integrations/secretConfiguration";
 import { calculateProjectMargin } from "../shared/projectFinancials";
 import { summarizeReceivables } from "../shared/receivables";
+import { createAgentMessageDraft, getDelegationPolicyErrors, isCampaignEligibleForSimulation, requiresSecondApproval, type AgentChannel, type AgentPurpose, type AgentTone } from "../shared/agentDelegationPolicy";
 import { ENV } from "./_core/env";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -732,6 +738,281 @@ export async function getIntegrationOperationsDashboard() {
       acceptedWebhooks: webhookEvents.filter(event => event.processingStatus === "accepted" || event.processingStatus === "processed").length,
       rejectedWebhooks: webhookEvents.filter(event => event.processingStatus === "rejected" || event.signatureStatus === "invalid").length,
     },
+  };
+}
+
+type AgentGrantRole = "directeur_general" | "responsable_commercial";
+type AgentGrantScope = "global" | "commercial";
+
+export async function getAgentOperatorAccess(userId: number, systemRole: "admin" | "user") {
+  if (systemRole === "admin") return { canApprove: true, canActivate: true, scope: "global" as const, isAdministrator: true, grantIds: [] as number[] };
+  const db = await requireDb();
+  const now = new Date();
+  const grants = await db.select().from(agentOperatorGrants).where(eq(agentOperatorGrants.userId, userId));
+  const active = grants.filter(grant => grant.status === "active" && (!grant.expiresAt || grant.expiresAt > now));
+  if (!active.length) return null;
+  return {
+    canApprove: active.some(grant => grant.canApprove === "oui"),
+    canActivate: active.some(grant => grant.canActivate === "oui"),
+    scope: active.some(grant => grant.scope === "global") ? "global" as const : "commercial" as const,
+    isAdministrator: false,
+    grantIds: active.map(grant => grant.id),
+  };
+}
+
+export async function listAgentOperators() {
+  const db = await requireDb();
+  const [people, grants] = await Promise.all([
+    db.select({ id: users.id, name: users.name, email: users.email, systemRole: users.role }).from(users).orderBy(asc(users.name)),
+    db.select().from(agentOperatorGrants).orderBy(desc(agentOperatorGrants.updatedAt)),
+  ]);
+  return people.map(person => ({
+    ...person,
+    grants: grants.filter(grant => grant.userId === person.id),
+  }));
+}
+
+export async function upsertAgentOperatorGrant(input: {
+  userId: number;
+  role: AgentGrantRole;
+  canApprove: boolean;
+  canActivate: boolean;
+  scope: AgentGrantScope;
+  status: "active" | "suspendue" | "revoquee";
+  expiresAt?: Date | null;
+  grantedById: number;
+}) {
+  const db = await requireDb();
+  const subject = await db.select({ id: users.id }).from(users).where(eq(users.id, input.userId)).limit(1);
+  if (!subject[0]) throw new Error("Utilisateur introuvable pour cette habilitation.");
+  const values = {
+    userId: input.userId,
+    role: input.role,
+    canApprove: input.canApprove ? "oui" as const : "non" as const,
+    canActivate: input.canActivate ? "oui" as const : "non" as const,
+    scope: input.scope,
+    status: input.status,
+    expiresAt: input.expiresAt ?? null,
+    grantedById: input.grantedById,
+  };
+  await db.transaction(async tx => {
+    await tx.insert(agentOperatorGrants).values(values).onDuplicateKeyUpdate({ set: { ...values, updatedAt: new Date() } });
+    await tx.insert(agentAuditLogs).values({ actorId: input.grantedById, action: "operator_grant_upserted", target: `user:${input.userId}`, decision: "autorise", metadata: JSON.stringify({ role: input.role, scope: input.scope, canApprove: input.canApprove, canActivate: input.canActivate, status: input.status, expiresAt: input.expiresAt ?? null }) });
+  });
+  return { success: true };
+}
+
+export async function listAgentDelegationCenter() {
+  const db = await requireDb();
+  const [delegations, campaigns, jobs, audit, operatorGrants] = await Promise.all([
+    db.select({
+      id: agentDelegations.id, name: agentDelegations.name, purpose: agentDelegations.purpose, channel: agentDelegations.channel, tone: agentDelegations.tone, status: agentDelegations.status, startsAt: agentDelegations.startsAt, expiresAt: agentDelegations.expiresAt, dailyLimit: agentDelegations.dailyLimit, contactCooldownDays: agentDelegations.contactCooldownDays, requiresSecondApproval: agentDelegations.requiresSecondApproval, policyVersion: agentDelegations.policyVersion, ownerId: agentDelegations.ownerId, ownerName: users.name, approvedById: agentDelegations.approvedById, approvedAt: agentDelegations.approvedAt, secondApprovedById: agentDelegations.secondApprovedById, secondApprovedAt: agentDelegations.secondApprovedAt, activatedById: agentDelegations.activatedById, suspendedById: agentDelegations.suspendedById, createdAt: agentDelegations.createdAt, updatedAt: agentDelegations.updatedAt,
+    }).from(agentDelegations).innerJoin(users, eq(agentDelegations.ownerId, users.id)).orderBy(desc(agentDelegations.updatedAt)),
+    db.select({
+      id: agentCampaigns.id, delegationId: agentCampaigns.delegationId, delegationName: agentDelegations.name, purpose: agentDelegations.purpose, channel: agentDelegations.channel, name: agentCampaigns.name, status: agentCampaigns.status, scheduledFor: agentCampaigns.scheduledFor, eligibleCount: agentCampaigns.eligibleCount, preparedById: agentCampaigns.preparedById, approvedById: agentCampaigns.approvedById, approvedAt: agentCampaigns.approvedAt, secondApprovedById: agentCampaigns.secondApprovedById, secondApprovedAt: agentCampaigns.secondApprovedAt, activatedById: agentCampaigns.activatedById, suspendedById: agentCampaigns.suspendedById, createdAt: agentCampaigns.createdAt, updatedAt: agentCampaigns.updatedAt,
+    }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).orderBy(desc(agentCampaigns.updatedAt)).limit(40),
+    db.select({
+      id: agentMessageJobs.id, campaignId: agentMessageJobs.campaignId, clientId: agentMessageJobs.clientId, clientName: clients.companyName, documentId: agentMessageJobs.documentId, documentNumber: documents.number, subject: agentMessageJobs.subject, body: agentMessageJobs.body, status: agentMessageJobs.status, blockedReason: agentMessageJobs.blockedReason, scheduledFor: agentMessageJobs.scheduledFor, createdAt: agentMessageJobs.createdAt,
+    }).from(agentMessageJobs).innerJoin(clients, eq(agentMessageJobs.clientId, clients.id)).innerJoin(documents, eq(agentMessageJobs.documentId, documents.id)).orderBy(desc(agentMessageJobs.createdAt)).limit(80),
+    db.select({ id: agentAuditLogs.id, delegationId: agentAuditLogs.delegationId, campaignId: agentAuditLogs.campaignId, action: agentAuditLogs.action, target: agentAuditLogs.target, decision: agentAuditLogs.decision, metadata: agentAuditLogs.metadata, createdAt: agentAuditLogs.createdAt, actorName: users.name }).from(agentAuditLogs).leftJoin(users, eq(agentAuditLogs.actorId, users.id)).orderBy(desc(agentAuditLogs.createdAt)).limit(40),
+    db.select().from(agentOperatorGrants).orderBy(desc(agentOperatorGrants.updatedAt)),
+  ]);
+  return {
+    delegations,
+    campaigns: campaigns.map(campaign => ({ ...campaign, requiresSecondApproval: requiresSecondApproval(campaign.eligibleCount) })),
+    jobs,
+    audit,
+    operatorGrants,
+    channelReadiness: [
+      { channel: "email" as const, label: "E-mail", status: "preparatoire" as const, detail: "Aucun connecteur e-mail applicatif n’est activé ; les campagnes restent en simulation." },
+      { channel: "whatsapp" as const, label: "WhatsApp Business", status: "preparatoire" as const, detail: "La connexion WhatsApp Business reste désactivée tant que les secrets et vérifications ne sont pas configurés." },
+    ],
+    summary: {
+      activeDelegations: delegations.filter(delegation => delegation.status === "active_simulation").length,
+      pendingApprovals: campaigns.filter(campaign => campaign.status === "a_approuver").length,
+      simulationReady: jobs.filter(job => job.status === "simulation_prete").length,
+      blocked: jobs.filter(job => job.status === "bloquee").length,
+    },
+  };
+}
+
+export async function createAgentDelegation(input: {
+  name: string;
+  purpose: AgentPurpose;
+  channel: AgentChannel;
+  tone: AgentTone;
+  startsAt: Date;
+  expiresAt: Date;
+  dailyLimit: number;
+  contactCooldownDays: number;
+  ownerId: number;
+}) {
+  const errors = getDelegationPolicyErrors(input);
+  if (Object.keys(errors).length) throw new Error(Object.values(errors)[0]);
+  const db = await requireDb();
+  const result = await db.transaction(async tx => {
+    const created = await tx.insert(agentDelegations).values({ ...input, status: "brouillon", requiresSecondApproval: "non" });
+    const delegationId = Number(created[0].insertId);
+    await tx.insert(agentAuditLogs).values({ delegationId, actorId: input.ownerId, action: "delegation_created", target: input.name, decision: "information", metadata: JSON.stringify({ purpose: input.purpose, channel: input.channel, expiresAt: input.expiresAt, dailyLimit: input.dailyLimit, contactCooldownDays: input.contactCooldownDays }) });
+    return { id: delegationId };
+  });
+  return result;
+}
+
+export async function submitAgentDelegationForApproval(delegationId: number, actorId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, delegationId)).limit(1);
+  const delegation = rows[0];
+  if (!delegation) throw new Error("Délégation introuvable.");
+  if (delegation.status !== "brouillon" && delegation.status !== "suspendue") throw new Error("Seule une délégation brouillon ou suspendue peut être soumise à approbation.");
+  await db.transaction(async tx => {
+    await tx.update(agentDelegations).set({ status: "a_approuver" }).where(eq(agentDelegations.id, delegationId));
+    await tx.insert(agentAuditLogs).values({ delegationId, actorId, action: "delegation_submitted", target: delegation.name, decision: "information" });
+  });
+  return { success: true };
+}
+
+export async function approveAgentDelegation(delegationId: number, actorId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, delegationId)).limit(1);
+  const delegation = rows[0];
+  if (!delegation) throw new Error("Délégation introuvable.");
+  if (delegation.status !== "a_approuver") throw new Error("Cette délégation ne peut pas être approuvée dans son état actuel.");
+  if (delegation.expiresAt <= new Date()) throw new Error("Cette délégation est expirée et ne peut pas être activée.");
+  await db.transaction(async tx => {
+    await tx.update(agentDelegations).set({ status: "active_simulation", approvedById: actorId, approvedAt: new Date(), activatedById: actorId }).where(eq(agentDelegations.id, delegationId));
+    await tx.insert(agentAuditLogs).values({ delegationId, actorId, action: "delegation_approved_simulation", target: delegation.name, decision: "autorise", metadata: JSON.stringify({ mode: "simulation", externalDispatch: false }) });
+  });
+  return { success: true, status: "active_simulation" as const };
+}
+
+export async function suspendAgentDelegation(delegationId: number, actorId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, delegationId)).limit(1);
+  const delegation = rows[0];
+  if (!delegation) throw new Error("Délégation introuvable.");
+  if (delegation.status === "revoquee" || delegation.status === "expiree") throw new Error("Cette délégation ne peut plus être suspendue.");
+  await db.transaction(async tx => {
+    const campaignIds = (await tx.select({ id: agentCampaigns.id }).from(agentCampaigns).where(eq(agentCampaigns.delegationId, delegationId))).map(campaign => campaign.id);
+    await tx.update(agentDelegations).set({ status: "suspendue", suspendedById: actorId }).where(eq(agentDelegations.id, delegationId));
+    await tx.update(agentCampaigns).set({ status: "suspendue", suspendedById: actorId }).where(eq(agentCampaigns.delegationId, delegationId));
+    if (campaignIds.length) await tx.update(agentMessageJobs).set({ status: "annulee", blockedReason: "Délégation suspendue par un responsable habilité." }).where(inArray(agentMessageJobs.campaignId, campaignIds));
+    await tx.insert(agentAuditLogs).values({ delegationId, actorId, action: "delegation_suspended", target: delegation.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
+  });
+  return { success: true };
+}
+
+export async function createAgentCampaignSimulation(input: { delegationId: number; name: string; scheduledFor?: Date | null; preparedById: number }) {
+  const db = await requireDb();
+  const delegationRows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, input.delegationId)).limit(1);
+  const delegation = delegationRows[0];
+  if (!delegation) throw new Error("Délégation introuvable.");
+  if (delegation.status !== "active_simulation") throw new Error("La délégation doit être approuvée en mode simulation avant de préparer une campagne.");
+  if (delegation.expiresAt <= new Date()) throw new Error("La délégation est expirée.");
+
+  const effectiveScheduledFor = input.scheduledFor ?? new Date();
+  const dayStart = new Date(effectiveScheduledFor);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  const scheduledRows = await db.select({ count: sql<number>`count(*)` })
+    .from(agentMessageJobs)
+    .innerJoin(agentCampaigns, eq(agentMessageJobs.campaignId, agentCampaigns.id))
+    .where(and(eq(agentCampaigns.delegationId, delegation.id), gt(agentMessageJobs.scheduledFor, new Date(dayStart.getTime() - 1)), lt(agentMessageJobs.scheduledFor, dayEnd)));
+  const remainingDailyCapacity = Math.max(0, delegation.dailyLimit - Number(scheduledRows[0]?.count ?? 0));
+  const documentsToCheck = await listDocuments(delegation.purpose === "relance_facture" ? "facture" : "devis");
+  const cooldownStart = new Date(Date.now() - delegation.contactCooldownDays * 86_400_000);
+  const recentJobs = await db.select({ clientId: agentMessageJobs.clientId }).from(agentMessageJobs).where(gt(agentMessageJobs.createdAt, cooldownStart));
+  const contactedRecently = new Set(recentJobs.map(job => job.clientId));
+  const matchingDocuments = documentsToCheck.filter(document => isCampaignEligibleForSimulation({ purpose: delegation.purpose, kind: document.kind, status: document.status, balanceDue: document.balanceDue, isOverdue: document.isOverdue }));
+  const eligible = matchingDocuments
+    .filter(document => !contactedRecently.has(document.clientId))
+    .slice(0, remainingDailyCapacity);
+  const createdAt = new Date();
+  const skippedCount = Math.max(0, matchingDocuments.length - eligible.length);
+  return db.transaction(async tx => {
+    const created = await tx.insert(agentCampaigns).values({ delegationId: delegation.id, name: input.name, status: "simulee", scheduledFor: effectiveScheduledFor, eligibleCount: eligible.length, preparedById: input.preparedById });
+    const campaignId = Number(created[0].insertId);
+    for (const document of eligible) {
+      const draft = createAgentMessageDraft({ purpose: delegation.purpose, tone: delegation.tone, documentNumber: document.number, clientName: document.clientName, balanceDue: document.balanceDue, dueDate: document.dueDate, validUntil: document.validUntil });
+      const contentHash = createHash("sha256").update(`${draft.subject}\n${draft.body}`).digest("hex");
+      await tx.insert(agentMessageJobs).values({ campaignId, clientId: document.clientId, documentId: document.id, idempotencyKey: `simulation:${campaignId}:${document.id}`, subject: draft.subject, body: draft.body, contentHash, status: "simulation_prete", scheduledFor: effectiveScheduledFor, policySnapshot: JSON.stringify({ policyVersion: delegation.policyVersion, dailyLimit: delegation.dailyLimit, contactCooldownDays: delegation.contactCooldownDays, channel: delegation.channel, purpose: delegation.purpose, mode: "simulation" }) });
+    }
+    await tx.insert(agentAuditLogs).values({ delegationId: delegation.id, campaignId, actorId: input.preparedById, action: "campaign_simulated", target: input.name, decision: "information", metadata: JSON.stringify({ eligibleCount: eligible.length, skippedCount, remainingDailyCapacity, requiresSecondApproval: requiresSecondApproval(eligible.length), externalDispatch: false }) });
+    return { id: campaignId, eligibleCount: eligible.length, skippedCount, requiresSecondApproval: requiresSecondApproval(eligible.length) };
+  });
+}
+
+export async function submitAgentCampaignForApproval(campaignId: number, actorId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const campaign = rows[0];
+  if (!campaign) throw new Error("Campagne introuvable.");
+  if (campaign.status !== "simulee") throw new Error("Seule une campagne simulée peut être soumise à approbation.");
+  await db.transaction(async tx => {
+    await tx.update(agentCampaigns).set({ status: "a_approuver" }).where(eq(agentCampaigns.id, campaignId));
+    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_submitted", target: campaign.name, decision: "information", metadata: JSON.stringify({ eligibleCount: campaign.eligibleCount, requiresSecondApproval: requiresSecondApproval(campaign.eligibleCount) }) });
+  });
+  return { success: true };
+}
+
+export async function approveAgentCampaign(campaignId: number, actorId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const campaign = rows[0];
+  if (!campaign) throw new Error("Campagne introuvable.");
+  if (campaign.status !== "a_approuver") throw new Error("Cette campagne ne peut pas être approuvée dans son état actuel.");
+  const secondApprovalNeeded = requiresSecondApproval(campaign.eligibleCount);
+  if (!campaign.approvedById) {
+    await db.transaction(async tx => {
+      await tx.update(agentCampaigns).set({ approvedById: actorId, approvedAt: new Date(), status: secondApprovalNeeded ? "a_approuver" : "approuvee" }).where(eq(agentCampaigns.id, campaignId));
+      await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_first_approval", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ secondApprovalNeeded }) });
+    });
+    return { success: true, awaitingSecondApproval: secondApprovalNeeded };
+  }
+  if (!secondApprovalNeeded) throw new Error("Cette campagne a déjà été approuvée.");
+  if (campaign.approvedById === actorId) throw new Error("Un second responsable distinct doit confirmer cette campagne.");
+  await db.transaction(async tx => {
+    await tx.update(agentCampaigns).set({ secondApprovedById: actorId, secondApprovedAt: new Date(), status: "approuvee" }).where(eq(agentCampaigns.id, campaignId));
+    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_second_approval", target: campaign.name, decision: "autorise" });
+  });
+  return { success: true, awaitingSecondApproval: false };
+}
+
+export async function activateAgentCampaignSimulation(campaignId: number, actorId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const campaign = rows[0];
+  if (!campaign) throw new Error("Campagne introuvable.");
+  if (campaign.status !== "approuvee") throw new Error("La campagne doit être entièrement approuvée avant activation simulée.");
+  if (requiresSecondApproval(campaign.eligibleCount) && !campaign.secondApprovedById) throw new Error("Une seconde approbation distincte est requise pour cette campagne.");
+  await db.transaction(async tx => {
+    await tx.update(agentCampaigns).set({ status: "active_simulation", activatedById: actorId }).where(eq(agentCampaigns.id, campaignId));
+    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_activated_simulation", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
+  });
+  return { success: true };
+}
+
+export async function suspendAgentCampaign(campaignId: number, actorId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const campaign = rows[0];
+  if (!campaign) throw new Error("Campagne introuvable.");
+  if (campaign.status === "archivee") throw new Error("Cette campagne est déjà archivée.");
+  await db.transaction(async tx => {
+    await tx.update(agentCampaigns).set({ status: "suspendue", suspendedById: actorId }).where(eq(agentCampaigns.id, campaignId));
+    await tx.update(agentMessageJobs).set({ status: "annulee", blockedReason: "Campagne suspendue par un responsable habilité." }).where(eq(agentMessageJobs.campaignId, campaignId));
+    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_suspended", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
+  });
+  return { success: true };
+}
+
+export async function getAgentCopilotContext() {
+  const [profitability, receivables] = await Promise.all([listProjectProfitability(), getReceivablesDashboard()]);
+  return {
+    projectsBelowTarget: profitability.filter(project => project.isMarginBelowTarget).slice(0, 10).map(project => ({ projectId: project.id, name: project.name, client: project.clientName, margin: project.margin, marginRate: project.marginRate, minimumMarginRate: project.minimumMarginRate, variance: project.marginVariance, revenueCollected: project.revenueCollected, costs: project.costTotal })),
+    receivables: receivables.invoices.filter(invoice => invoice.isPaymentPromiseOverdue || invoice.isOverdue).slice(0, 12).map(invoice => ({ documentId: invoice.id, number: invoice.number, client: invoice.clientName, balanceDue: invoice.balanceDue, daysOverdue: invoice.daysOverdue, promiseOverdue: invoice.isPaymentPromiseOverdue, promiseDueSoon: invoice.isPaymentPromiseDueSoon, promisedDate: invoice.paymentPromise?.promisedDate ?? null })),
+    summary: receivables.summary,
   };
 }
 

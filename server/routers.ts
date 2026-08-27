@@ -110,6 +110,42 @@ const reminderResponseSchema = {
   },
 } as const;
 
+const agentCopilotResponseSchema = {
+  name: "lucepress_margin_collection_copilot",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+      marginAlerts: { type: "array", items: { type: "string" } },
+      collectionPriorities: { type: "array", items: { type: "string" } },
+      suggestedActions: { type: "array", items: { type: "string" } },
+      dataToVerify: { type: "array", items: { type: "string" } },
+      sourceReferences: { type: "array", items: { type: "string" } },
+    },
+    required: ["summary", "marginAlerts", "collectionPriorities", "suggestedActions", "dataToVerify", "sourceReferences"],
+    additionalProperties: false,
+  },
+} as const;
+
+const agentOperatorProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const access = await db.getAgentOperatorAccess(ctx.user.id, ctx.user.role);
+  if (!access) throw new TRPCError({ code: "FORBIDDEN", message: "Votre compte ne possède pas d’habilitation active pour administrer l’agent." });
+  return next({ ctx: { ...ctx, agentAccess: access } });
+});
+
+function requireAgentApproval(access: { canApprove: boolean }) {
+  if (!access.canApprove) throw new TRPCError({ code: "FORBIDDEN", message: "Votre habilitation ne permet pas d’approuver cette action de l’agent." });
+}
+
+function requireAgentActivation(access: { canActivate: boolean }) {
+  if (!access.canActivate) throw new TRPCError({ code: "FORBIDDEN", message: "Votre habilitation ne permet pas d’activer cette simulation." });
+}
+
+function agentMutationError(error: unknown, fallback: string) {
+  return new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : fallback });
+}
+
 const clientHistorySummarySchema = {
   name: "lucepress_client_history_summary",
   strict: true,
@@ -218,6 +254,94 @@ export const appRouter = router({
       overview: protectedProcedure.query(({ ctx }) => db.getClientPortalOverview(ctx.user.email)),
       invoice: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => db.getClientPortalInvoice(ctx.user.email, input.id)),
       createPaymentPromise: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), promisedDate: dateText, note: z.string().trim().max(500).optional() })).mutation(({ ctx, input }) => db.createClientPaymentPromise({ ...input, email: ctx.user.email, createdById: ctx.user.id })),
+    }),
+    agent: router({
+      center: agentOperatorProcedure.query(() => db.listAgentDelegationCenter()),
+      operators: adminProcedure.query(() => db.listAgentOperators()),
+      upsertOperatorGrant: adminProcedure
+        .input(z.object({ userId: z.number().int().positive(), role: z.enum(["directeur_general", "responsable_commercial"]), canApprove: z.boolean().default(true), canActivate: z.boolean().default(false), scope: z.enum(["global", "commercial"]).default("commercial"), status: z.enum(["active", "suspendue", "revoquee"]).default("active"), expiresAt: z.coerce.date().nullable().optional() }))
+        .mutation(async ({ ctx, input }) => {
+          try { return await db.upsertAgentOperatorGrant({ ...input, grantedById: ctx.user.id }); }
+          catch (error) { throw agentMutationError(error, "L’habilitation de l’opérateur ne peut pas être enregistrée."); }
+        }),
+      createDelegation: agentOperatorProcedure
+        .input(z.object({ name: z.string().trim().min(3).max(180), purpose: z.enum(["relance_facture", "suivi_devis"]), channel: z.enum(["email", "whatsapp"]), tone: z.enum(["courtois", "professionnel", "ferme", "commercial"]).default("professionnel"), startsAt: z.coerce.date(), expiresAt: z.coerce.date(), dailyLimit: z.number().int().min(1).max(60).default(60), contactCooldownDays: z.number().int().min(1).max(30).default(7) }))
+        .mutation(async ({ ctx, input }) => {
+          try { return await db.createAgentDelegation({ ...input, ownerId: ctx.user.id }); }
+          catch (error) { throw agentMutationError(error, "La délégation de l’agent ne peut pas être créée."); }
+        }),
+      submitDelegation: agentOperatorProcedure
+        .input(z.object({ delegationId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          requireAgentApproval(ctx.agentAccess);
+          try { return await db.submitAgentDelegationForApproval(input.delegationId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "La délégation ne peut pas être soumise à approbation."); }
+        }),
+      approveDelegation: agentOperatorProcedure
+        .input(z.object({ delegationId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          requireAgentApproval(ctx.agentAccess);
+          try { return await db.approveAgentDelegation(input.delegationId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "La délégation ne peut pas être approuvée."); }
+        }),
+      suspendDelegation: agentOperatorProcedure
+        .input(z.object({ delegationId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try { return await db.suspendAgentDelegation(input.delegationId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "La délégation ne peut pas être suspendue."); }
+        }),
+      simulateCampaign: agentOperatorProcedure
+        .input(z.object({ delegationId: z.number().int().positive(), name: z.string().trim().min(3).max(180), scheduledFor: z.coerce.date().nullable().optional() }))
+        .mutation(async ({ ctx, input }) => {
+          try { return await db.createAgentCampaignSimulation({ ...input, preparedById: ctx.user.id }); }
+          catch (error) { throw agentMutationError(error, "La campagne ne peut pas être simulée."); }
+        }),
+      submitCampaign: agentOperatorProcedure
+        .input(z.object({ campaignId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          requireAgentApproval(ctx.agentAccess);
+          try { return await db.submitAgentCampaignForApproval(input.campaignId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "La campagne ne peut pas être soumise à approbation."); }
+        }),
+      approveCampaign: agentOperatorProcedure
+        .input(z.object({ campaignId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          requireAgentApproval(ctx.agentAccess);
+          try { return await db.approveAgentCampaign(input.campaignId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "La campagne ne peut pas être approuvée."); }
+        }),
+      activateCampaignSimulation: agentOperatorProcedure
+        .input(z.object({ campaignId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          requireAgentActivation(ctx.agentAccess);
+          try { return await db.activateAgentCampaignSimulation(input.campaignId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "La campagne simulée ne peut pas être activée."); }
+        }),
+      suspendCampaign: agentOperatorProcedure
+        .input(z.object({ campaignId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try { return await db.suspendAgentCampaign(input.campaignId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "La campagne ne peut pas être suspendue."); }
+        }),
+      copilotBriefing: agentOperatorProcedure
+        .mutation(async () => {
+          const context = await db.getAgentCopilotContext();
+          const models = await listLLMModels();
+          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const result = await invokeLLM({
+            model,
+            messages: [
+              { role: "system", content: "Tu es le Copilote de marge et recouvrement de Lucepress, entreprise guinéenne de BTP, forage et services durables. Analyse seulement les faits du contexte JSON fourni. Rédige en français une aide interne claire, brève et structurée. Ne fabrique aucun montant, client, échéance, statut, promesse, règle ou action réalisée. Les chiffres restent des références à vérifier dans l’application. Priorise les promesses échues, les retards, puis les marges réalisées sous seuil. Propose uniquement des contrôles ou des brouillons de relance à faire approuver. Ne prétends jamais qu’un message a été envoyé, qu’un paiement a été reçu ou qu’une modification a été appliquée. Signale explicitement les données insuffisantes." },
+              { role: "user", content: JSON.stringify(context) },
+            ],
+            response_format: { type: "json_schema", json_schema: agentCopilotResponseSchema },
+          });
+          const content = result.choices[0]?.message.content;
+          if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA est indisponible. Réessayez dans un instant." });
+          try { return { briefing: JSON.parse(content) as { summary: string; marginAlerts: string[]; collectionPriorities: string[]; suggestedActions: string[]; dataToVerify: string[]; sourceReferences: string[] }, requiresReview: true, model }; }
+          catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA ne peut pas être lu. Réessayez dans un instant." }); }
+        }),
     }),
     integrations: router({
       list: adminProcedure.query(() => db.listIntegrations()),

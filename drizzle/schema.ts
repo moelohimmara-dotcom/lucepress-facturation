@@ -450,6 +450,135 @@ export const integrationWebhookEvents = mysqlTable(
   table => [unique("integration_webhook_events_connection_external_unique").on(table.connectionId, table.externalEventId), index("integration_webhook_events_connection_received_idx").on(table.connectionId, table.receivedAt), index("integration_webhook_events_signature_idx").on(table.signatureStatus, table.receivedAt)],
 );
 
+/** Attribution nominative, limitée et révocable des responsabilités de l’agent. */
+export const agentOperatorGrants = mysqlTable(
+  "agent_operator_grants",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    role: mysqlEnum("role", ["directeur_general", "responsable_commercial"]).notNull(),
+    canApprove: mysqlEnum("canApprove", ["oui", "non"]).default("oui").notNull(),
+    canActivate: mysqlEnum("canActivate", ["oui", "non"]).default("non").notNull(),
+    scope: mysqlEnum("scope", ["global", "commercial"]).default("commercial").notNull(),
+    status: mysqlEnum("status", ["active", "suspendue", "revoquee"]).default("active").notNull(),
+    expiresAt: timestamp("expiresAt"),
+    grantedById: int("grantedById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    unique("agent_operator_grants_user_role_unique").on(table.userId, table.role),
+    index("agent_operator_grants_user_status_idx").on(table.userId, table.status),
+  ],
+);
+
+/** Politique bornée dans laquelle l’agent peut seulement préparer ou simuler des messages. */
+export const agentDelegations = mysqlTable(
+  "agent_delegations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 180 }).notNull(),
+    purpose: mysqlEnum("purpose", ["relance_facture", "suivi_devis"]).notNull(),
+    channel: mysqlEnum("channel", ["email", "whatsapp"]).notNull(),
+    tone: mysqlEnum("tone", ["courtois", "professionnel", "ferme", "commercial"]).default("professionnel").notNull(),
+    status: mysqlEnum("status", ["brouillon", "a_approuver", "active_simulation", "suspendue", "expiree", "revoquee"]).default("brouillon").notNull(),
+    startsAt: timestamp("startsAt").defaultNow().notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    dailyLimit: int("dailyLimit").default(60).notNull(),
+    contactCooldownDays: int("contactCooldownDays").default(7).notNull(),
+    requiresSecondApproval: mysqlEnum("requiresSecondApproval", ["oui", "non"]).default("non").notNull(),
+    scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
+    policyVersion: int("policyVersion").default(1).notNull(),
+    ownerId: int("ownerId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    approvedById: int("approvedById").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approvedAt"),
+    secondApprovedById: int("secondApprovedById").references(() => users.id, { onDelete: "set null" }),
+    secondApprovedAt: timestamp("secondApprovedAt"),
+    activatedById: int("activatedById").references(() => users.id, { onDelete: "set null" }),
+    suspendedById: int("suspendedById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("agent_delegations_owner_status_idx").on(table.ownerId, table.status),
+    index("agent_delegations_status_expiry_idx").on(table.status, table.expiresAt),
+    index("agent_delegations_schedule_uid_idx").on(table.scheduleCronTaskUid),
+  ],
+);
+
+/** Campagne rattachée à une délégation, conçue pour rester simulée tant que les canaux ne sont pas activés. */
+export const agentCampaigns = mysqlTable(
+  "agent_campaigns",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    delegationId: int("delegationId").notNull().references(() => agentDelegations.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 180 }).notNull(),
+    status: mysqlEnum("status", ["brouillon", "simulee", "a_approuver", "approuvee", "active_simulation", "suspendue", "archivee"]).default("brouillon").notNull(),
+    scheduledFor: timestamp("scheduledFor"),
+    eligibleCount: int("eligibleCount").default(0).notNull(),
+    preparedById: int("preparedById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    approvedById: int("approvedById").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approvedAt"),
+    secondApprovedById: int("secondApprovedById").references(() => users.id, { onDelete: "set null" }),
+    secondApprovedAt: timestamp("secondApprovedAt"),
+    activatedById: int("activatedById").references(() => users.id, { onDelete: "set null" }),
+    suspendedById: int("suspendedById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("agent_campaigns_delegation_status_idx").on(table.delegationId, table.status),
+    index("agent_campaigns_scheduled_status_idx").on(table.scheduledFor, table.status),
+  ],
+);
+
+/** Éléments de la simulation, sans contenu transmis à un fournisseur externe. */
+export const agentMessageJobs = mysqlTable(
+  "agent_message_jobs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    campaignId: int("campaignId").notNull().references(() => agentCampaigns.id, { onDelete: "cascade" }),
+    clientId: int("clientId").notNull().references(() => clients.id, { onDelete: "restrict" }),
+    documentId: int("documentId").notNull().references(() => documents.id, { onDelete: "restrict" }),
+    idempotencyKey: varchar("idempotencyKey", { length: 255 }).notNull(),
+    subject: varchar("subject", { length: 255 }).notNull(),
+    body: text("body").notNull(),
+    contentHash: varchar("contentHash", { length: 128 }).notNull(),
+    status: mysqlEnum("status", ["simulation_prete", "bloquee", "annulee"]).default("simulation_prete").notNull(),
+    blockedReason: varchar("blockedReason", { length: 500 }),
+    scheduledFor: timestamp("scheduledFor"),
+    policySnapshot: text("policySnapshot").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    unique("agent_message_jobs_idempotency_unique").on(table.idempotencyKey),
+    index("agent_message_jobs_campaign_status_idx").on(table.campaignId, table.status),
+    index("agent_message_jobs_document_idx").on(table.documentId),
+  ],
+);
+
+/** Journal inviolable du cycle de décision de l’agent et de ses responsables. */
+export const agentAuditLogs = mysqlTable(
+  "agent_audit_logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    delegationId: int("delegationId").references(() => agentDelegations.id, { onDelete: "set null" }),
+    campaignId: int("campaignId").references(() => agentCampaigns.id, { onDelete: "set null" }),
+    actorId: int("actorId").references(() => users.id, { onDelete: "set null" }),
+    action: varchar("action", { length: 100 }).notNull(),
+    target: varchar("target", { length: 255 }),
+    decision: mysqlEnum("decision", ["autorise", "refuse", "information"]).default("information").notNull(),
+    metadata: text("metadata"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("agent_audit_logs_delegation_date_idx").on(table.delegationId, table.createdAt),
+    index("agent_audit_logs_campaign_date_idx").on(table.campaignId, table.createdAt),
+    index("agent_audit_logs_actor_date_idx").on(table.actorId, table.createdAt),
+  ],
+);
+
 export const documentSequences = mysqlTable(
   "document_sequences",
   {

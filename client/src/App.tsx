@@ -9,6 +9,7 @@ import DocumentEditRoute from "./pages/DocumentEditRoute";
 import DocumentPreviewPage from "./pages/DocumentPreviewPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import CatalogPage from "./pages/CatalogPage";
+import AgentDelegationsPage from "./pages/AgentDelegationsPage";
 import Home from "./pages/Home";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import ClientPortalPage from "./pages/ClientPortalPage";
@@ -31,6 +32,7 @@ function Router() {
       <Route path={"/chantiers"} component={() => <CatalogPage kind="chantiers" />} />
       <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
       <Route path="/integrations" component={IntegrationsPage} />
+      <Route path="/agent-ia" component={AgentDelegationsPage} />
       <Route path="/couts-chantier" component={ProjectCostsPage} />
       <Route path="/creances" component={ReceivablesPage} />
       <Route path="/portail-client" component={ClientPortalPage} />

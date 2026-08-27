@@ -61,6 +61,7 @@ const menuItems = [
   { icon: WalletCards, label: "Créances", path: "/creances" },
   { icon: Wrench, label: "Prestations", path: "/prestations" },
   { icon: Cable, label: "Intégrations", path: "/integrations" },
+  { icon: Bot, label: "Agent IA", path: "/agent-ia" },
   { icon: Settings, label: "Paramètres", path: "/parametres" },
   { icon: Mail, label: "Relances", path: "/relances" },
 ];

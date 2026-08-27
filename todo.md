@@ -199,3 +199,20 @@
 - [x] Exporter le comparatif détaillé marge prévue / marge réalisée aux formats CSV et PDF.
 - [x] Afficher les promesses de paiement arrivant à échéance sous 7 jours dans le cockpit.
 - [x] Tester les seuils, les promesses à venir et les exports financiers.
+- [x] Définir les rôles métier et niveaux d’autonomie de l’agent IA Lucepress.
+- [x] Établir les règles d’orchestration, les outils autorisés et les validations humaines obligatoires.
+- [x] Proposer une feuille de route progressive et sécurisée pour intégrer l’agent IA.
+- [x] Formaliser l’orchestrateur IA unique retenu, ses contrats d’outils et sa politique de refus.
+- [x] Formaliser le mandat du Copilote de marge et recouvrement et la validation administrateur par défaut.
+- [x] Définir les cas d’usage autorisés de messages et relances programmés par l’agent.
+- [x] Concevoir les autorisations déléguées, limites d’envoi et contrôles de sécurité pour les responsables habilités.
+- [x] Définir les champs de paramétrage, le circuit d’approbation et l’audit de la messagerie automatisée.
+- [x] Formaliser le suivi de devis, le plafond de 60 messages/jour et la durée de délégation de 90 jours.
+- [x] Préciser les habilitations du directeur général et du responsable commercial, ainsi que les conditions d’activation e-mail et WhatsApp.
+- [x] Créer les tables et migrations des délégations, campagnes, tâches simulées et journaux de l’agent.
+- [x] Implémenter les politiques serveur : limites quotidiennes, validité 90 jours, double approbation et suspension.
+- [x] Ajouter les procédures tRPC sécurisées de gestion des habilitations, campagnes, simulation et audit.
+- [x] Créer le centre responsive de délégations et campagnes avec aperçu, simulation et arrêt d’urgence.
+- [x] Ajouter le Copilote IA de marge et recouvrement en lecture seule avec sorties structurées et relecture obligatoire.
+- [x] Conserver e-mail et WhatsApp Business en état préparatoire, sans transmission externe ni secret exposé.
+- [x] Tester les règles de délégation, autorisations, simulation, audit, Copilote IA et parcours responsive.
