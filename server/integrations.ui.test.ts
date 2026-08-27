@@ -87,7 +87,7 @@ describe("centre d’intégrations", () => {
   it("affiche les fournisseurs approuvés et les garanties de sécurité", () => {
     render(createElement(IntegrationsPage));
     expect(screen.getByRole("heading", { name: "Centre d’intégrations" })).toBeTruthy();
-    expect(screen.getByText("WhatsApp Business")).toBeTruthy();
+    expect(screen.getAllByText("WhatsApp Business").length).toBeGreaterThan(0);
     expect(screen.getByText("Workspace via MCP")).toBeTruthy();
     expect(screen.getByText(/Aucun secret n’est affiché/)).toBeTruthy();
   });
@@ -107,5 +107,17 @@ describe("centre d’intégrations", () => {
     expect(state.startGoogleOauth).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Approuver" }));
     expect(state.decideApproval).toHaveBeenCalledWith({ jobId: 31, decision: "approve" });
+  });
+
+  it("permet de modifier, approuver et réinitialiser une demande de démonstration locale", () => {
+    render(createElement(IntegrationsPage));
+    expect(screen.getByText("Simulation locale · aucun envoi externe")).toBeTruthy();
+    const operation = screen.getByLabelText("Opération démo demo-qbo-invoice") as HTMLInputElement;
+    fireEvent.change(operation, { target: { value: "Synchroniser une facture de test" } });
+    expect(operation.value).toBe("Synchroniser une facture de test");
+    fireEvent.click(screen.getAllByRole("button", { name: "Approuver la démo" })[0]);
+    expect(screen.queryByLabelText("Opération démo demo-qbo-invoice")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Réinitialiser la démo" }));
+    expect(screen.getByLabelText("Opération démo demo-qbo-invoice")).toBeTruthy();
   });
 });

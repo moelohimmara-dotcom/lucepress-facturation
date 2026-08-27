@@ -143,4 +143,7 @@
 - [x] Ajouter une route de callback OAuth Google enregistrée mais désactivée tant que le secret client est absent.
 - [x] Ajouter un endpoint WhatsApp enregistré mais désactivé tant que les secrets Meta sont absents.
 - [x] Documenter les scénarios précis de validation OAuth et webhook à exécuter lors de l’activation.
+- [x] Ajouter des demandes d’approbation de démonstration clairement identifiées et modifiables sans créer d’écriture externe.
+- [x] Afficher un état de simulation explicite et permettre de réinitialiser les demandes de démonstration.
+- [x] Tester les décisions et la réinitialisation de la file de démonstration.
 - [x] Documenter le mode préparatoire désactivé et les secrets nécessaires à l’activation ultérieure des flux externes.
