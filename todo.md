@@ -146,4 +146,8 @@
 - [x] Ajouter des demandes d’approbation de démonstration clairement identifiées et modifiables sans créer d’écriture externe.
 - [x] Afficher un état de simulation explicite et permettre de réinitialiser les demandes de démonstration.
 - [x] Tester les décisions et la réinitialisation de la file de démonstration.
+- [x] Ajouter une modale de détail pour examiner une demande fictive avant toute décision.
+- [x] Ajouter des confirmations visuelles animées après approbation ou refus de la simulation.
+- [x] Ajouter une recherche, un filtre et un tri par fournisseur dans la file d’approbations.
+- [x] Tester les interactions de détail, de décision et d’organisation de la file.
 - [x] Documenter le mode préparatoire désactivé et les secrets nécessaires à l’activation ultérieure des flux externes.

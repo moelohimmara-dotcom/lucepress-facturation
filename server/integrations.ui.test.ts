@@ -112,10 +112,26 @@ describe("centre d’intégrations", () => {
   it("permet de modifier, approuver et réinitialiser une demande de démonstration locale", () => {
     render(createElement(IntegrationsPage));
     expect(screen.getByText("Simulation locale · aucun envoi externe")).toBeTruthy();
+    const search = screen.getByLabelText("Rechercher dans la file") as HTMLInputElement;
+    const providerFilter = screen.getByLabelText("Filtrer par fournisseur") as HTMLSelectElement;
+    const sort = screen.getByLabelText("Trier la file") as HTMLSelectElement;
+    fireEvent.change(sort, { target: { value: "provider-asc" } });
+    expect(sort.value).toBe("provider-asc");
+    fireEvent.change(search, { target: { value: "Procore" } });
+    expect(screen.queryByLabelText("Opération démo demo-qbo-invoice")).toBeNull();
+    expect((screen.getByLabelText("Opération démo demo-procore-log") as HTMLInputElement).value).toBe("Synchroniser un rapport journalier");
+    fireEvent.change(search, { target: { value: "" } });
+    fireEvent.change(providerFilter, { target: { value: "QuickBooks Online" } });
+    expect(screen.getByLabelText("Opération démo demo-qbo-invoice")).toBeTruthy();
+    fireEvent.change(providerFilter, { target: { value: "all" } });
     const operation = screen.getByLabelText("Opération démo demo-qbo-invoice") as HTMLInputElement;
     fireEvent.change(operation, { target: { value: "Synchroniser une facture de test" } });
     expect(operation.value).toBe("Synchroniser une facture de test");
-    fireEvent.click(screen.getAllByRole("button", { name: "Approuver la démo" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir les détails" })[1]);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByText("Synchroniser une facture de test")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Approuver la démo" }));
+    expect(screen.getByRole("status").textContent).toContain("Simulation approuvée");
     expect(screen.queryByLabelText("Opération démo demo-qbo-invoice")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Réinitialiser la démo" }));
     expect(screen.getByLabelText("Opération démo demo-qbo-invoice")).toBeTruthy();
