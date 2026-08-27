@@ -66,6 +66,23 @@ export const projects = mysqlTable(
   ],
 );
 
+export const projectCosts = mysqlTable(
+  "project_costs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectId: int("projectId")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    category: mysqlEnum("category", ["materiaux", "main_oeuvre", "transport", "equipement", "sous_traitance", "autre"]).notNull(),
+    description: varchar("description", { length: 500 }).notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    incurredAt: date("incurredAt").notNull(),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("project_costs_project_date_idx").on(table.projectId, table.incurredAt), index("project_costs_category_idx").on(table.category)],
+);
+
 export const services = mysqlTable(
   "services",
   {
@@ -416,6 +433,7 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Client = typeof clients.$inferSelect;
 export type Project = typeof projects.$inferSelect;
+export type ProjectCost = typeof projectCosts.$inferSelect;
 export type Service = typeof services.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentLine = typeof documentLines.$inferSelect;

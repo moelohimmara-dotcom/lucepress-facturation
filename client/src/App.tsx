@@ -11,6 +11,9 @@ import DocumentsPage from "./pages/DocumentsPage";
 import CatalogPage from "./pages/CatalogPage";
 import Home from "./pages/Home";
 import IntegrationsPage from "./pages/IntegrationsPage";
+import ClientPortalPage from "./pages/ClientPortalPage";
+import ProjectCostsPage from "./pages/ProjectCostsPage";
+import ReceivablesPage from "./pages/ReceivablesPage";
 import SettingsPage from "./pages/SettingsPage";
 import RemindersPage from "./pages/RemindersPage";
 
@@ -26,7 +29,10 @@ function Router() {
       <Route path={"/clients"} component={() => <CatalogPage kind="clients" />} />
       <Route path={"/chantiers"} component={() => <CatalogPage kind="chantiers" />} />
       <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
-      <Route path={"/integrations"} component={IntegrationsPage} />
+      <Route path="/integrations" component={IntegrationsPage} />
+      <Route path="/couts-chantier" component={ProjectCostsPage} />
+      <Route path="/creances" component={ReceivablesPage} />
+      <Route path="/portail-client" component={ClientPortalPage} />
       <Route path={"/parametres"} component={SettingsPage} />
       <Route path={"/relances"} component={RemindersPage} />
       <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />

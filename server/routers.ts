@@ -8,7 +8,7 @@ import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { COOKIE_NAME } from "@shared/const";
 
 const optionalText = z.string().trim().max(2000).optional();
@@ -200,6 +200,17 @@ export const appRouter = router({
       create: adminProcedure
         .input(z.object({ clientId: z.number().int().positive(), name: z.string().trim().min(2).max(180), reference: z.string().trim().max(80).optional(), type: z.enum(["btp", "forage", "mixte"]), location: z.string().trim().max(255).optional(), description: optionalText }))
         .mutation(({ input }) => db.createProject(input)),
+      costs: router({
+        list: adminProcedure.input(z.object({ projectId: z.number().int().positive().optional() }).optional()).query(({ input }) => db.listProjectCosts(input?.projectId)),
+        create: adminProcedure.input(z.object({ projectId: z.number().int().positive(), category: z.enum(["materiaux", "main_oeuvre", "transport", "equipement", "sous_traitance", "autre"]), description: z.string().trim().min(3).max(500), amount: z.number().int().positive().max(9_000_000_000), incurredAt: dateText })).mutation(({ ctx, input }) => db.createProjectCost({ ...input, createdById: ctx.user.id })),
+        delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCost(input.id)),
+        profitability: adminProcedure.query(() => db.listProjectProfitability()),
+      }),
+    }),
+    receivables: adminProcedure.query(() => db.getReceivablesDashboard()),
+    clientPortal: router({
+      overview: protectedProcedure.query(({ ctx }) => db.getClientPortalOverview(ctx.user.email)),
+      invoice: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => db.getClientPortalInvoice(ctx.user.email, input.id)),
     }),
     integrations: router({
       list: adminProcedure.query(() => db.listIntegrations()),

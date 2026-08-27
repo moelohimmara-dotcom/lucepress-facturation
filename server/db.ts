@@ -17,6 +17,7 @@ import {
   integrationWebhookEvents,
   InsertUser,
   payments,
+  projectCosts,
   projects,
   servicePriceRevisions,
   services,
@@ -36,6 +37,8 @@ import { buildGoogleWorkspaceAuthorizationUrl, normalizeGoogleWorkspaceScopes } 
 import { resolveIntegrationAdapter } from "./integrations/adapterRegistry";
 import { assertOpaqueIntegrationSecretReference, createPreparedIntegrationConnectionValues } from "./integrations/connectionSecurity";
 import { getIntegrationSecretConfiguration, requireIntegrationSecret } from "./integrations/secretConfiguration";
+import { calculateProjectMargin } from "../shared/projectFinancials";
+import { summarizeReceivables } from "../shared/receivables";
 import { ENV } from "./_core/env";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -297,6 +300,50 @@ export async function createProject(input: {
     description: input.description || null,
   });
   return { id: Number(result[0].insertId) };
+}
+
+export type ProjectCostInput = {
+  projectId: number;
+  category: "materiaux" | "main_oeuvre" | "transport" | "equipement" | "sous_traitance" | "autre";
+  description: string;
+  amount: number;
+  incurredAt: string;
+  createdById: number;
+};
+
+export async function listProjectCosts(projectId?: number) {
+  const db = await requireDb();
+  const query = db.select({
+    id: projectCosts.id, projectId: projectCosts.projectId, projectName: projects.name, clientName: clients.companyName,
+    category: projectCosts.category, description: projectCosts.description, amount: projectCosts.amount, incurredAt: projectCosts.incurredAt, createdAt: projectCosts.createdAt,
+  }).from(projectCosts).innerJoin(projects, eq(projectCosts.projectId, projects.id)).innerJoin(clients, eq(projects.clientId, clients.id));
+  return projectId ? query.where(eq(projectCosts.projectId, projectId)).orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt)) : query.orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt));
+}
+
+export async function createProjectCost(input: ProjectCostInput) {
+  const db = await requireDb();
+  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
+  if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
+  const result = await db.insert(projectCosts).values({ ...input, incurredAt: new Date(input.incurredAt) });
+  return { id: Number(result[0].insertId) };
+}
+
+export async function deleteProjectCost(id: number) {
+  const db = await requireDb();
+  await db.delete(projectCosts).where(eq(projectCosts.id, id));
+  return { success: true };
+}
+
+export async function listProjectProfitability() {
+  const db = await requireDb();
+  const [projectRows, costRows, paymentRows] = await Promise.all([
+    db.select({ id: projects.id, name: projects.name, reference: projects.reference, status: projects.status, clientName: clients.companyName }).from(projects).innerJoin(clients, eq(projects.clientId, clients.id)).orderBy(desc(projects.createdAt)),
+    db.select({ projectId: projectCosts.projectId, costTotal: sql<number>`coalesce(sum(${projectCosts.amount}), 0)` }).from(projectCosts).groupBy(projectCosts.projectId),
+    db.select({ projectId: documents.projectId, revenueCollected: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(documents).innerJoin(payments, eq(payments.documentId, documents.id)).where(and(eq(documents.kind, "facture"), sql`${documents.projectId} is not null`, sql`${documents.status} <> 'annule'`)).groupBy(documents.projectId),
+  ]);
+  const costsByProject = new Map(costRows.map(row => [row.projectId, Number(row.costTotal)]));
+  const revenueByProject = new Map(paymentRows.filter(row => row.projectId !== null).map(row => [row.projectId as number, Number(row.revenueCollected)]));
+  return projectRows.map(project => ({ ...project, ...calculateProjectMargin({ revenueCollected: revenueByProject.get(project.id) ?? 0, costTotal: costsByProject.get(project.id) ?? 0 }) }));
 }
 
 export async function listServices() {
@@ -680,6 +727,34 @@ export async function listDocuments(kind?: DocumentKind) {
     return { ...row, status, paidAmount, balanceDue: row.kind === "facture" ? balance.balanceDue : 0, isOverdue: row.kind === "facture" && isInvoiceOverdue(status, row.dueDate) };
   });
   return kind ? enriched.filter(row => row.kind === kind) : enriched;
+}
+
+export async function getReceivablesDashboard() {
+  const invoices = await listDocuments("facture");
+  return summarizeReceivables(invoices);
+}
+
+async function findClientByPortalEmail(email?: string | null) {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) return null;
+  const db = await requireDb();
+  const result = await db.select({ id: clients.id, companyName: clients.companyName, contactName: clients.contactName, email: clients.email }).from(clients).where(sql`lower(${clients.email}) = ${normalized}`).limit(1);
+  return result[0] ?? null;
+}
+
+export async function getClientPortalOverview(email?: string | null) {
+  const client = await findClientByPortalEmail(email);
+  if (!client) return { client: null, invoices: [] };
+  const invoices = (await listDocuments("facture")).filter(invoice => invoice.clientId === client.id);
+  return { client, invoices };
+}
+
+export async function getClientPortalInvoice(email: string | null | undefined, invoiceId: number) {
+  const client = await findClientByPortalEmail(email);
+  if (!client) return null;
+  const invoice = await getDocumentById(invoiceId);
+  if (!invoice || invoice.kind !== "facture" || invoice.clientId !== client.id) return null;
+  return invoice;
 }
 
 export async function getDocumentById(id: number) {

@@ -174,3 +174,9 @@
 - [x] Importer et restaurer de manière contrôlée l’historique des simulations depuis une archive CSV.
 - [x] Tester le préréglage de 30 jours, l’archive horodatée et la restauration locale.
 - [x] Analyser les fonctionnalités prioritaires des applications de facturation actuelles pour proposer une feuille de route adaptée à Lucepres.
+- [x] Créer les tables de coûts de chantier et les calculs de marge à partir des factures réglées.
+- [x] Ajouter des procédures sécurisées pour enregistrer, consulter et supprimer les coûts de chantier.
+- [x] Ajouter un tableau de créances avec les indicateurs d’encours, de retards et de factures impayées.
+- [x] Créer un portail client de consultation restreinte aux factures de son compte et à leurs PDF.
+- [x] Ajouter les routes et liens de navigation vers les coûts, créances et le portail client.
+- [x] Tester le calcul des marges, les droits d’accès client et les indicateurs de créances.
