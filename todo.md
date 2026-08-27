@@ -256,3 +256,7 @@
 - [x] Ajouter un filtre de file de créances par responsable attribué.
 - [x] Créer une vue calendrier interactive dédiée à toutes les dates de rappel de créances.
 - [x] Tester les actions rapides, le filtrage par responsable et le calendrier de rappels sur bureau et mobile.
+- [x] Permettre le déplacement par glisser-déposer d’un rappel vers une nouvelle date de calendrier.
+- [x] Afficher le nombre de rappels ouverts pour chaque responsable de recouvrement.
+- [x] Ajouter une alerte préventive visible la veille d’un rappel attribué.
+- [x] Tester les déplacements, les agrégats par responsable et les alertes de veille sur bureau et mobile.

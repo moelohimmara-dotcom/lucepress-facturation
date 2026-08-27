@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { collectionFollowUpLabels, collectionMonthBounds, getCollectionReminderSignal, getCollectionStatusDistribution, isCollectionFollowUpStatus, isCollectionReminderToday, isCollectionReportMonth, normalizeCollectionReminderDate, validateCollectionReminder } from "../shared/collectionFollowUp";
+import { collectionFollowUpLabels, collectionMonthBounds, getCollectionReminderSignal, getCollectionStatusDistribution, isCollectionFollowUpStatus, isCollectionReminderToday, isCollectionReminderTomorrow, isCollectionReportMonth, normalizeCollectionReminderDate, validateCollectionReminder } from "../shared/collectionFollowUp";
+import { buildCollectionReminderLoad } from "../shared/collectionReminderLoad";
 
 describe("règles de suivi des créances", () => {
   it("centralise les statuts de traitement autorisés et leurs libellés français", () => {
@@ -38,5 +39,19 @@ describe("règles de suivi des créances", () => {
     expect(getCollectionReminderSignal("2026-08-30", today)).toBe("proche");
     expect(getCollectionReminderSignal("2026-08-31", today)).toBeNull();
     expect(isCollectionReminderToday("2026-08-27", today)).toBe(true);
+    expect(isCollectionReminderTomorrow("2026-08-28", today)).toBe(true);
+  });
+
+  it("compte les rappels ouverts par responsable, y compris ceux non attribués", () => {
+    expect(buildCollectionReminderLoad([
+      { collectionStatus: "a_rappeler", collectionReminderDate: "2026-08-28", collectionOwnerId: 7 },
+      { collectionStatus: "a_rappeler", collectionReminderDate: "2026-08-29", collectionOwnerId: 7 },
+      { collectionStatus: "a_rappeler", collectionReminderDate: "2026-08-30", collectionOwnerId: null },
+      { collectionStatus: "contacte", collectionReminderDate: "2026-08-30", collectionOwnerId: 8 },
+    ], [{ id: 7, name: "Awa Camara" }, { id: 8, name: "Moussa Touré" }])).toEqual([
+      { ownerId: 7, ownerName: "Awa Camara", reminderCount: 2 },
+      { ownerId: null, ownerName: "Sans responsable", reminderCount: 1 },
+      { ownerId: 8, ownerName: "Moussa Touré", reminderCount: 0 },
+    ]);
   });
 });

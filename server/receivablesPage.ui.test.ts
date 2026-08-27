@@ -49,4 +49,10 @@ describe("interface de recouvrement Lucepress", () => {
     expect(source).toContain("Marquer traité");
     expect(source).toContain("Rappel marqué comme traité.");
   });
+
+  it("affiche le compteur de rappels ouverts de chaque responsable", () => {
+    expect(source).toContain("Rappels ouverts par responsable");
+    expect(source).toContain("buildCollectionReminderLoad");
+    expect(source).toContain("Le compteur inclut toutes les créances");
+  });
 });

@@ -33,6 +33,15 @@ export function isCollectionReminderToday(value: Date | string | null | undefine
   return getCollectionReminderSignal(value, now) === "aujourdhui";
 }
 
+export function isCollectionReminderTomorrow(value: Date | string | null | undefined, now = new Date()) {
+  if (!value) return false;
+  const reminder = new Date(value);
+  if (Number.isNaN(reminder.getTime())) return false;
+  const reminderDay = Date.UTC(reminder.getUTCFullYear(), reminder.getUTCMonth(), reminder.getUTCDate());
+  const todayDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((reminderDay - todayDay) / 86_400_000) === 1;
+}
+
 export function isCollectionFollowUpStatus(value: string): value is CollectionFollowUpStatus {
   return (COLLECTION_FOLLOW_UP_STATUSES as readonly string[]).includes(value);
 }
