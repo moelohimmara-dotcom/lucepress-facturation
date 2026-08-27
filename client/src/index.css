@@ -82,6 +82,37 @@
   --sidebar-ring: oklch(0.73 0.125 89);
 }
 
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.185 0.022 164);
+  --foreground: oklch(0.94 0.013 90);
+  --card: oklch(0.235 0.024 164);
+  --card-foreground: oklch(0.94 0.013 90);
+  --popover: oklch(0.25 0.024 164);
+  --popover-foreground: oklch(0.95 0.012 90);
+  --primary: oklch(0.76 0.11 157);
+  --primary-foreground: oklch(0.19 0.035 164);
+  --secondary: oklch(0.3 0.025 163);
+  --secondary-foreground: oklch(0.93 0.012 90);
+  --muted: oklch(0.275 0.02 164);
+  --muted-foreground: oklch(0.73 0.02 158);
+  --accent: oklch(0.41 0.06 160);
+  --accent-foreground: oklch(0.96 0.013 90);
+  --destructive: oklch(0.66 0.17 28);
+  --destructive-foreground: oklch(0.18 0.025 164);
+  --border: oklch(0.36 0.026 163);
+  --input: oklch(0.36 0.026 163);
+  --ring: oklch(0.76 0.11 157);
+  --sidebar: oklch(0.15 0.037 164);
+  --sidebar-foreground: oklch(0.94 0.013 90);
+  --sidebar-primary: oklch(0.76 0.11 157);
+  --sidebar-primary-foreground: oklch(0.18 0.035 164);
+  --sidebar-accent: oklch(0.245 0.047 163);
+  --sidebar-accent-foreground: oklch(0.96 0.013 90);
+  --sidebar-border: oklch(0.42 0.04 163 / 55%);
+  --sidebar-ring: oklch(0.76 0.11 157);
+}
+
 @layer base {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground font-sans antialiased; background-image: radial-gradient(circle at 76% -12%, oklch(0.88 0.058 89 / 34%), transparent 32rem), radial-gradient(circle at 4% 100%, oklch(0.84 0.057 157 / 16%), transparent 28rem); }
@@ -100,10 +131,15 @@
   .lucepress-value { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.04em; }
   .lucepress-field { border-color: oklch(0.84 0.03 83); background: oklch(0.987 0.007 88); box-shadow: 0 1px 0 oklch(1 0 0 / 70%) inset; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out); }
   .lucepress-field:focus { border-color: oklch(0.52 0.11 164); background: oklch(1 0 0); box-shadow: 0 0 0 4px oklch(0.52 0.11 164 / 13%); outline: none; }
-  .lucepress-control > input, .lucepress-control > select { border-color: oklch(0.84 0.03 83); background: oklch(0.987 0.007 88); box-shadow: 0 1px 0 oklch(1 0 0 / 70%) inset; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out); }
-  .lucepress-control > input:focus, .lucepress-control > select:focus { border-color: oklch(0.52 0.11 164); background: oklch(1 0 0); box-shadow: 0 0 0 4px oklch(0.52 0.11 164 / 13%); outline: none; }
+  .lucepress-control > input, .lucepress-control > select, .lucepress-control > textarea { border-color: oklch(0.84 0.03 83); background: oklch(0.987 0.007 88); box-shadow: 0 1px 0 oklch(1 0 0 / 70%) inset; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+  .lucepress-control > input:focus, .lucepress-control > select:focus, .lucepress-control > textarea:focus { border-color: oklch(0.52 0.11 164); background: oklch(1 0 0); box-shadow: 0 0 0 4px oklch(0.52 0.11 164 / 13%); outline: none; }
   li.flex.gap-2 { display: block; position: relative; padding-left: 1.5rem; }
   li.flex.gap-2 > svg { left: 0; position: absolute; top: 0.2rem; }
+  .dark body { background-image: radial-gradient(circle at 75% -8%, oklch(0.38 0.07 157 / 26%), transparent 32rem), radial-gradient(circle at 5% 100%, oklch(0.33 0.05 210 / 18%), transparent 28rem); }
+  .dark .lucepress-panel { border-color: oklch(0.39 0.026 163); background: linear-gradient(145deg, oklch(0.265 0.025 164 / 96%), oklch(0.215 0.024 164 / 90%)); box-shadow: 0 22px 58px -40px oklch(0.03 0.01 164 / 85%), 0 1px 0 oklch(0.8 0.03 160 / 7%) inset; }
+  .dark .lucepress-kicker { color: oklch(0.78 0.1 157); }
+  .dark .lucepress-field, .dark .lucepress-control > input, .dark .lucepress-control > select, .dark .lucepress-control > textarea { border-color: oklch(0.4 0.026 163); background: oklch(0.205 0.02 164); box-shadow: 0 1px 0 oklch(0.82 0.03 157 / 5%) inset; }
+  .dark .lucepress-field:focus, .dark .lucepress-control > input:focus, .dark .lucepress-control > select:focus, .dark .lucepress-control > textarea:focus { border-color: oklch(0.76 0.11 157); background: oklch(0.23 0.022 164); box-shadow: 0 0 0 4px oklch(0.76 0.11 157 / 14%); }
   .lucepress-ornament::after { content: ""; position: absolute; right: -2.5rem; top: -2.5rem; width: 9rem; height: 9rem; border: 1px solid oklch(0.73 0.125 89 / 22%); border-radius: 999px; box-shadow: 0 0 0 1.35rem oklch(0.73 0.125 89 / 5%); pointer-events: none; }
   @media (prefers-reduced-motion: no-preference) { .card-shadow, .lucepress-panel { transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), border-color 180ms var(--ease-out); } .card-shadow:hover { box-shadow: 0 28px 62px -40px oklch(0.18 0.06 164 / 58%), 0 1px 0 oklch(1 0 0 / 76%) inset; } }
   @media print { body { background: #fff !important; } body > *:not(#root) { display: none !important; } #root > * > *:not(#lucepress-print-document) { display: none !important; } #lucepress-print-document { display: block !important; box-shadow: none !important; } }

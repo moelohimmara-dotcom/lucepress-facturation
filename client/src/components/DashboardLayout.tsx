@@ -22,10 +22,12 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
+import { useTheme } from "@/contexts/ThemeContext";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import {
   Bot,
+  CalendarDays,
   CalendarClock,
   Cable,
   CircleHelp,
@@ -39,10 +41,12 @@ import {
   ScrollText,
   Maximize2,
   Minimize2,
+  Moon,
   PanelLeft,
   ReceiptText,
   Settings,
   Sparkles,
+  Sun,
   UsersRound,
   WalletCards,
   Wrench,
@@ -66,6 +70,7 @@ const navigationGroups = [
     { icon: CircleDollarSign, label: "Coûts & marges", path: "/couts-chantier" },
     { icon: WalletCards, label: "Créances", path: "/creances" },
     { icon: Mail, label: "Relances", path: "/relances" },
+    { icon: CalendarDays, label: "Calendrier", path: "/calendrier" },
   ] },
   { label: "Agent & automatisations", items: [
     { icon: Bot, label: "Agent IA", path: "/agent-ia" },
@@ -126,6 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH, setSidebarWidth }: { children: React.ReactNode; sidebarWidth?: number; setSidebarWidth: (width: number) => void }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -229,7 +235,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
                 <PanelLeft className="h-4 w-4" />
               </button>
               {!isCollapsed && <div className="min-w-0 flex-1"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">{LUCEPRES_PUBLIC_PROFILE.displayName}</p>{!isCompact && <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">Solutions durables · opérations</p>}</div>}
-              {!isCollapsed && <div className="flex shrink-0 items-center gap-1"><button data-testid="sidebar-density-toggle" onClick={toggleDensity} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={isCompact ? "Passer au mode normal" : "Passer au mode compact"} title={isCompact ? "Passer au mode normal" : "Passer au mode compact"}>{isCompact ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button><Popover open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}><PopoverTrigger asChild><button data-testid="sidebar-help-trigger" className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Afficher l’aide de navigation" title="Afficher l’aide de navigation"><CircleHelp className="h-4 w-4" /></button></PopoverTrigger><PopoverContent data-testid="sidebar-help" align={isMobile ? "start" : "center"} side={isMobile ? "bottom" : "right"} sideOffset={10} className="w-72 rounded-xl border-sidebar-primary/30 bg-sidebar p-3 text-sidebar-foreground shadow-xl"><div className="flex items-start gap-2"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div className="min-w-0 flex-1"><p className="text-xs font-extrabold">Navigation rapide</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/70">Utilisez le bouton voisin pour choisir le mode compact ou normal. Les raccourcis <kbd>Alt + 1</kbd>, <kbd>Alt + 2</kbd> et <kbd>Alt + 3</kbd> ouvrent Clients, Chantiers et l’assistant IA.</p></div><button onClick={dismissSidebarHelp} className="-mt-1 -mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/65 hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Fermer l’aide de navigation"><X className="h-3.5 w-3.5" /></button></div></PopoverContent></Popover></div>}
+              {!isCollapsed && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={toggleTheme} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"} title={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button><button data-testid="sidebar-density-toggle" onClick={toggleDensity} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={isCompact ? "Passer au mode normal" : "Passer au mode compact"} title={isCompact ? "Passer au mode normal" : "Passer au mode compact"}>{isCompact ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button><Popover open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}><PopoverTrigger asChild><button data-testid="sidebar-help-trigger" className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Afficher l’aide de navigation" title="Afficher l’aide de navigation"><CircleHelp className="h-4 w-4" /></button></PopoverTrigger><PopoverContent data-testid="sidebar-help" align={isMobile ? "start" : "center"} side={isMobile ? "bottom" : "right"} sideOffset={10} className="w-72 rounded-xl border-sidebar-primary/30 bg-sidebar p-3 text-sidebar-foreground shadow-xl"><div className="flex items-start gap-2"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div className="min-w-0 flex-1"><p className="text-xs font-extrabold">Navigation rapide</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/70">Utilisez le bouton voisin pour choisir le mode compact ou normal. Les raccourcis <kbd>Alt + 1</kbd>, <kbd>Alt + 2</kbd> et <kbd>Alt + 3</kbd> ouvrent Clients, Chantiers et l’assistant IA.</p></div><button onClick={dismissSidebarHelp} className="-mt-1 -mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/65 hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Fermer l’aide de navigation"><X className="h-3.5 w-3.5" /></button></div></PopoverContent></Popover></div>}
             </div>
           </SidebarHeader>
           <SidebarContent className={`relative min-h-0 gap-0 overflow-y-auto ${isCompact ? "px-1 py-2" : "px-2 py-3"}`}>
@@ -261,7 +267,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
         <div className={`absolute right-0 top-0 z-50 h-full w-1 cursor-col-resize transition-colors hover:bg-sidebar-primary/40 ${isCollapsed ? "hidden" : ""}`} onMouseDown={() => setIsResizing(true)} />
       </div>
       <SidebarInset className="bg-background">
-        {isMobile && <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur"><div className="flex items-center gap-3"><SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card" /><div><p className="font-editorial text-lg font-semibold leading-none">{LUCEPRES_PUBLIC_PROFILE.displayName}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{activeMenuItem?.label ?? "Gestion"}</p></div></div><Bot className="h-5 w-5 text-primary" /></header>}
+        {isMobile && <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur"><div className="flex items-center gap-3"><SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card" /><div><p className="font-editorial text-lg font-semibold leading-none">{LUCEPRES_PUBLIC_PROFILE.displayName}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{activeMenuItem?.label ?? "Gestion"}</p></div></div><button type="button" onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button></header>}
         <main className="min-h-screen flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </SidebarInset>
     </>

@@ -13,6 +13,7 @@ import AgentDelegationsPage from "./pages/AgentDelegationsPage";
 import AgentCampaignSchedulerPage from "./pages/AgentCampaignSchedulerPage";
 import AgentAuditPage from "./pages/AgentAuditPage";
 import AgentTestEmailPage from "./pages/AgentTestEmailPage";
+import CalendarPage from "./pages/CalendarPage";
 import Home from "./pages/Home";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import ClientPortalPage from "./pages/ClientPortalPage";
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/agent-ia/planification" component={AgentCampaignSchedulerPage} />
       <Route path="/agent-ia/audit" component={AgentAuditPage} />
       <Route path="/agent-ia/e-mails-test" component={AgentTestEmailPage} />
+      <Route path="/calendrier" component={CalendarPage} />
       <Route path="/couts-chantier" component={ProjectCostsPage} />
       <Route path="/creances" component={ReceivablesPage} />
       <Route path="/portail-client" component={ClientPortalPage} />
@@ -63,7 +65,7 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider
         defaultTheme="light"
-        // switchable
+        switchable
       >
         <TooltipProvider>
           <Toaster />

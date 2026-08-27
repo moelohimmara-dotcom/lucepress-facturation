@@ -227,3 +227,8 @@
 - [x] Refondre le cockpit, les modules de coûts/créances et les espaces de supervision de l’agent.
 - [x] Harmoniser les listes, formulaires, états vides, chargements et modales des parcours métier.
 - [x] Vérifier le rendu desktop/mobile, le contraste, l’accessibilité et les tests après la refonte.
+- [x] Ajouter un thème sombre optionnel, accessible et mémorisé pour chaque utilisateur.
+- [x] Appliquer la nouvelle identité éditoriale aux pages Clients et Chantiers.
+- [x] Agréger les échéances de devis et les relances programmées dans une source calendrier sécurisée.
+- [x] Créer une vue calendrier interactive avec navigation, filtres et accès aux éléments associés.
+- [x] Tester les thèmes, le calendrier, les pages modernisées et leurs parcours responsive.
