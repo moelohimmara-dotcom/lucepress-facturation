@@ -81,8 +81,10 @@ describe("sidebar Lucepress sur format contraint", () => {
     vi.unstubAllGlobals();
   });
 
-  it("affiche une visite guidée à la première utilisation hors de la navigation et mémorise sa complétion", () => {
+  it("ouvre à la demande une visite guidée indépendante de la navigation et mémorise sa complétion", () => {
     render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    expect(screen.queryByTestId("sidebar-help")).toBeNull();
+    fireEvent.click(screen.getByTestId("sidebar-help-trigger"));
     expect(screen.getByTestId("sidebar-help")).toBeTruthy();
     expect(within(screen.getByTestId("sidebar-content")).queryByTestId("sidebar-help")).toBeNull();
     expect(screen.getByText("Votre cockpit, au bon endroit.")).toBeTruthy();

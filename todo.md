@@ -260,3 +260,8 @@
 - [x] Afficher le nombre de rappels ouverts pour chaque responsable de recouvrement.
 - [x] Ajouter une alerte préventive visible la veille d’un rappel attribué.
 - [x] Tester les déplacements, les agrégats par responsable et les alertes de veille sur bureau et mobile.
+- [x] Auditer et simplifier les parcours de première prise en main pour les profils novices et expérimentés.
+- [x] Créer une checklist de démarrage persistante, contextuelle et relançable depuis l’application.
+- [x] Ajouter des points d’entrée explicites vers les premières actions métier : client, devis et suivi du recouvrement.
+- [x] Ajouter une aide brève et accessible à chaque étape pour réduire les hésitations sans surcharger l’interface.
+- [x] Tester l’onboarding, les préférences mémorisées, l’accessibilité clavier et les rendus responsive.

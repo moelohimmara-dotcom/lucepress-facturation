@@ -11,4 +11,13 @@ describe("alerte préventive de rappel du cockpit", () => {
     expect(source).toContain("tomorrowReminderLoads");
     expect(source).toContain("Voir la file");
   });
+
+  it("propose un démarrage guidé court, fondé sur les premiers jalons métier", () => {
+    expect(source).toContain("Vos repères en trois minutes");
+    expect(source).toContain("gettingStartedTasks");
+    expect(source).toContain("isGettingStartedTaskComplete");
+    expect(source).toContain("Guide de démarrage");
+    expect(source).toContain("Ajouter le premier client");
+    expect(source).toContain("Créer un devis avec l’IA");
+  });
 });

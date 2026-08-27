@@ -146,7 +146,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const [isResizing, setIsResizing] = useState(false);
   const [hasMoreNavigation, setHasMoreNavigation] = useState(false);
   const [densityPreference, setDensityPreference] = useState<SidebarDensityPreference>(() => getSidebarDensityPreference(localStorage.getItem(COMPACT_MODE_KEY)));
-  const [showSidebarHelp, setShowSidebarHelp] = useState(() => localStorage.getItem(SIDEBAR_GUIDANCE_SEEN_KEY) !== "true");
+  const [showSidebarHelp, setShowSidebarHelp] = useState(false);
   const [guidanceStep, setGuidanceStep] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -283,7 +283,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
         <div className={`absolute right-0 top-0 z-50 h-full w-1 cursor-col-resize transition-colors hover:bg-sidebar-primary/40 ${isCollapsed ? "hidden" : ""}`} onMouseDown={() => setIsResizing(true)} />
       </div>
       <SidebarInset className="bg-background">
-        {isMobile && <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur"><div className="flex items-center gap-3"><SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card" /><div><p className="font-editorial text-lg font-semibold leading-none">{LUCEPRES_PUBLIC_PROFILE.displayName}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{activeMenuItem?.label ?? "Gestion"}</p></div></div><button type="button" onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button></header>}
+        {isMobile && <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur"><div className="flex items-center gap-3"><SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card" /><div><p className="font-editorial text-lg font-semibold leading-none">{LUCEPRES_PUBLIC_PROFILE.displayName}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{activeMenuItem?.label ?? "Gestion"}</p></div></div><div className="flex items-center gap-2"><button type="button" onClick={() => { setGuidanceStep(0); setShowSidebarHelp(true); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label="Ouvrir le guide d’accueil"><CircleHelp className="h-4 w-4" /></button><button type="button" onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button></div></header>}
         <main className="min-h-screen flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </SidebarInset>
       <Dialog open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}>
