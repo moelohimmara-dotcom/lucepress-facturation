@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   startGoogleOauth: vi.fn(),
   decideApproval: vi.fn(),
   invalidate: vi.fn(),
+  downloadApprovalReportPdf: vi.fn(),
   integrations: [
     {
       id: 1,
@@ -58,9 +59,10 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@/components/DashboardLayout", () => ({ default: ({ children }: { children: unknown }) => createElement("div", null, children) }));
-vi.mock("@/components/ui/button", () => ({ Button: ({ children, ...props }: any) => createElement("button", props, children) }));
+vi.mock("@/components/ui/button", () => ({ Button: ({ children, ...props }: any) => createElement("button", props, children), buttonVariants: () => "" }));
 vi.mock("@/components/ui/badge", () => ({ Badge: ({ children, ...props }: any) => createElement("span", props, children) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/approvalReport", () => ({ downloadApprovalReportPdf: state.downloadApprovalReportPdf }));
 vi.mock("@/lib/trpc", () => ({ trpc: {
   useUtils: () => ({ billing: { integrations: { list: { invalidate: state.invalidate }, audit: { invalidate: state.invalidate }, operationsDashboard: { invalidate: state.invalidate }, pendingApprovals: { invalidate: state.invalidate }, googleOauthSessions: { invalidate: state.invalidate } } } }),
   billing: {
@@ -81,7 +83,7 @@ vi.mock("@/lib/trpc", () => ({ trpc: {
 
 import IntegrationsPage from "../client/src/pages/IntegrationsPage";
 
-afterEach(() => { cleanup(); state.prepare.mockClear(); state.disable.mockClear(); state.startGoogleOauth.mockClear(); state.decideApproval.mockClear(); });
+afterEach(() => { cleanup(); state.prepare.mockClear(); state.disable.mockClear(); state.startGoogleOauth.mockClear(); state.decideApproval.mockClear(); state.downloadApprovalReportPdf.mockClear(); });
 beforeEach(() => {
   window.localStorage.clear();
   Object.assign(URL, { createObjectURL: vi.fn(() => "blob:lucepress-test"), revokeObjectURL: vi.fn() });
@@ -161,5 +163,19 @@ describe("centre d’intégrations", () => {
     fireEvent.change(screen.getByLabelText("Filtrer par statut de décision"), { target: { value: "pending" } });
     expect(screen.getByLabelText("Opération démo demo-qbo-invoice")).toBeTruthy();
     anchorClick.mockRestore();
+  });
+
+  it("filtre les décisions par date, génère le PDF et purge uniquement l’historique local", async () => {
+    render(createElement(IntegrationsPage));
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir les détails" })[2]);
+    fireEvent.click(screen.getByRole("button", { name: "Approuver la démo" }));
+    const decisionDate = new Date().toLocaleDateString("en-CA");
+    fireEvent.change(screen.getByLabelText("Filtrer par date de décision"), { target: { value: decisionDate } });
+    expect(screen.getByText("Approuvée")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Exporter la file filtrée en PDF" }));
+    expect(state.downloadApprovalReportPdf).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Purger" }));
+    fireEvent.click(screen.getByRole("button", { name: "Purger l’historique" }));
+    await waitFor(() => expect(screen.getByText("Aucune décision locale ne correspond à ces filtres.")).toBeTruthy());
   });
 });

@@ -158,3 +158,7 @@
 - [x] Afficher directement les simulations approuvées ou refusées lorsque leur statut est filtré.
 - [x] Restreindre l’export CSV aux éléments réellement visibles dans la vue filtrée.
 - [x] Ajouter les états vides et les tests UI des filtres approuvés et refusés.
+- [x] Ajouter une purge manuelle et locale de l’historique des simulations.
+- [x] Ajouter un filtre par date de décision aux actions approuvées ou refusées.
+- [x] Générer un rapport PDF visuel de la vue filtrée des approbations.
+- [x] Tester la purge, le filtre de date et l’export PDF local.
