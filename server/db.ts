@@ -17,6 +17,8 @@ import {
   integrationWebhookEvents,
   InsertUser,
   payments,
+  paymentPromises,
+  projectCostAttachments,
   projectCosts,
   projects,
   servicePriceRevisions,
@@ -331,6 +333,29 @@ export async function createProjectCost(input: ProjectCostInput) {
 export async function deleteProjectCost(id: number) {
   const db = await requireDb();
   await db.delete(projectCosts).where(eq(projectCosts.id, id));
+  return { success: true };
+}
+
+export async function getProjectCostById(id: number) {
+  const db = await requireDb();
+  const result = await db.select({ id: projectCosts.id, projectId: projectCosts.projectId }).from(projectCosts).where(eq(projectCosts.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function listProjectCostAttachments(projectCostId: number) {
+  const db = await requireDb();
+  return db.select({ id: projectCostAttachments.id, projectCostId: projectCostAttachments.projectCostId, fileName: projectCostAttachments.fileName, contentType: projectCostAttachments.contentType, size: projectCostAttachments.size, storageUrl: projectCostAttachments.storageUrl, createdAt: projectCostAttachments.createdAt }).from(projectCostAttachments).where(eq(projectCostAttachments.projectCostId, projectCostId)).orderBy(desc(projectCostAttachments.createdAt));
+}
+
+export async function createProjectCostAttachment(input: { projectCostId: number; fileName: string; contentType: string; size: number; storageKey: string; storageUrl: string; createdById: number }) {
+  const db = await requireDb();
+  const result = await db.insert(projectCostAttachments).values(input);
+  return { id: Number(result[0].insertId) };
+}
+
+export async function deleteProjectCostAttachment(id: number) {
+  const db = await requireDb();
+  await db.delete(projectCostAttachments).where(eq(projectCostAttachments.id, id));
   return { success: true };
 }
 
@@ -730,8 +755,15 @@ export async function listDocuments(kind?: DocumentKind) {
 }
 
 export async function getReceivablesDashboard() {
-  const invoices = await listDocuments("facture");
-  return summarizeReceivables(invoices);
+  const [invoices, promises] = await Promise.all([listDocuments("facture"), listPaymentPromises()]);
+  const promisedByDocument = new Map(promises.map(promise => [promise.documentId, promise]));
+  return summarizeReceivables(invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })));
+}
+
+export async function listPaymentPromises(documentIds?: number[]) {
+  const db = await requireDb();
+  const base = db.select({ id: paymentPromises.id, documentId: paymentPromises.documentId, promisedDate: paymentPromises.promisedDate, note: paymentPromises.note, updatedAt: paymentPromises.updatedAt }).from(paymentPromises);
+  return documentIds?.length ? base.where(inArray(paymentPromises.documentId, documentIds)) : base.orderBy(desc(paymentPromises.updatedAt));
 }
 
 async function findClientByPortalEmail(email?: string | null) {
@@ -746,7 +778,9 @@ export async function getClientPortalOverview(email?: string | null) {
   const client = await findClientByPortalEmail(email);
   if (!client) return { client: null, invoices: [] };
   const invoices = (await listDocuments("facture")).filter(invoice => invoice.clientId === client.id);
-  return { client, invoices };
+  const promises = await listPaymentPromises(invoices.map(invoice => invoice.id));
+  const promisedByDocument = new Map(promises.map(promise => [promise.documentId, promise]));
+  return { client, invoices: invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })) };
 }
 
 export async function getClientPortalInvoice(email: string | null | undefined, invoiceId: number) {
@@ -754,7 +788,21 @@ export async function getClientPortalInvoice(email: string | null | undefined, i
   if (!client) return null;
   const invoice = await getDocumentById(invoiceId);
   if (!invoice || invoice.kind !== "facture" || invoice.clientId !== client.id) return null;
-  return invoice;
+  const promise = await listPaymentPromises([invoiceId]);
+  return { ...invoice, paymentPromise: promise[0] ?? null };
+}
+
+export async function createClientPaymentPromise(input: { email?: string | null; documentId: number; promisedDate: string; note?: string; createdById: number }) {
+  const client = await findClientByPortalEmail(input.email);
+  if (!client) throw new Error("Votre compte n’est associé à aucun dossier client.");
+  const invoice = await getDocumentById(input.documentId);
+  if (!invoice || invoice.kind !== "facture" || invoice.clientId !== client.id || invoice.balanceDue <= 0) throw new Error("Cette facture ne peut pas recevoir de promesse de paiement.");
+  const promisedDate = new Date(input.promisedDate);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (Number.isNaN(promisedDate.getTime()) || promisedDate < today) throw new Error("La date prévue doit être aujourd’hui ou ultérieure.");
+  const db = await requireDb();
+  await db.insert(paymentPromises).values({ documentId: input.documentId, promisedDate, note: input.note?.trim() || null, createdById: input.createdById }).onDuplicateKeyUpdate({ set: { promisedDate, note: input.note?.trim() || null, createdById: input.createdById, updatedAt: new Date() } });
+  return { success: true };
 }
 
 export async function getDocumentById(id: number) {

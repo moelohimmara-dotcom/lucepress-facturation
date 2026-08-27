@@ -180,3 +180,12 @@
 - [x] Créer un portail client de consultation restreinte aux factures de son compte et à leurs PDF.
 - [x] Ajouter les routes et liens de navigation vers les coûts, créances et le portail client.
 - [x] Tester le calcul des marges, les droits d’accès client et les indicateurs de créances.
+- [x] Créer les données de promesse de paiement associées aux factures impayées.
+- [x] Créer les métadonnées sécurisées de justificatifs associées aux coûts de chantier.
+- [x] Ajouter les procédures protégées de promesse client et de gestion des justificatifs de coûts.
+- [x] Ajouter les filtres de période au tableau de créances.
+- [x] Ajouter le bouton de promesse de paiement au portail client.
+- [x] Ajouter l’ajout, la consultation et la suppression de justificatifs dans les coûts chantier.
+- [x] Revoir la Vue d’ensemble avec les alertes prioritaires de créances et de marge.
+- [x] Tester les autorisations, validations, filtres et parcours de pièces jointes.
+- [x] Garantir que le lien Vue d’ensemble mène toujours au cockpit racine, même après navigation interne.

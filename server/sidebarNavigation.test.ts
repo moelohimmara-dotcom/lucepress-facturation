@@ -8,6 +8,10 @@ describe("préférences de navigation latérale", () => {
     expect(getRestorableRoute("/", "/inconnue", ["/", "/clients"])).toBeNull();
   });
 
+  it("préserve le chemin dédié du cockpit lorsqu’il est choisi explicitement", () => {
+    expect(getRestorableRoute("/tableau-de-bord", "/clients", ["/", "/tableau-de-bord", "/clients"])).toBeNull();
+  });
+
   it("active le mode compact sur largeur intermédiaire ou à la demande", () => {
     expect(isCompactSidebar(null, 1024)).toBe(true);
     expect(isCompactSidebar(null, 1280)).toBe(false);

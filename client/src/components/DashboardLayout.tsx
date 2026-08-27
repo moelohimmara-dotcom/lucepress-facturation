@@ -52,7 +52,7 @@ import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Vue d’ensemble", path: "/" },
+  { icon: LayoutDashboard, label: "Vue d’ensemble", path: "/tableau-de-bord" },
   { icon: FileText, label: "Devis", path: "/devis" },
   { icon: ReceiptText, label: "Factures", path: "/factures" },
   { icon: UsersRound, label: "Clients", path: "/clients" },

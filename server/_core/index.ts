@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { registerClientAttachmentRoutes } from "../clientAttachments";
+import { registerProjectCostAttachmentRoutes } from "../projectCostAttachments";
 import { registerIntegrationExternalRoutes } from "../integrations/externalRoutes";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -39,6 +40,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerClientAttachmentRoutes(app);
+  registerProjectCostAttachmentRoutes(app);
   registerIntegrationExternalRoutes(app);
   // tRPC API
   app.use(

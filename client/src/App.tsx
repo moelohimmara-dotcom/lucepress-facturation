@@ -21,7 +21,8 @@ function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
+      <Route path="/" component={Home} />
+      <Route path="/tableau-de-bord" component={Home} />
       <Route path={"/devis"} component={() => <DocumentsPage kind="devis" />} />
       <Route path={"/factures"} component={() => <DocumentsPage kind="facture" />} />
       <Route path={"/devis/nouveau"} component={() => <DocumentEditorPage kind="devis" mode="create" />} />

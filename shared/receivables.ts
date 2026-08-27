@@ -11,6 +11,7 @@ export type ReceivableDocument = {
   paidAmount: number;
   balanceDue: number;
   isOverdue: boolean;
+  paymentPromise?: { id: number; documentId: number; promisedDate: Date | string; note: string | null; updatedAt: Date | string } | null;
 };
 
 function startOfDay(value: Date) {

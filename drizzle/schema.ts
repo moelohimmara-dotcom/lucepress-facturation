@@ -83,6 +83,22 @@ export const projectCosts = mysqlTable(
   table => [index("project_costs_project_date_idx").on(table.projectId, table.incurredAt), index("project_costs_category_idx").on(table.category)],
 );
 
+export const projectCostAttachments = mysqlTable(
+  "project_cost_attachments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectCostId: int("projectCostId").notNull().references(() => projectCosts.id, { onDelete: "cascade" }),
+    fileName: varchar("fileName", { length: 255 }).notNull(),
+    contentType: varchar("contentType", { length: 120 }).notNull(),
+    size: int("size").notNull(),
+    storageKey: varchar("storageKey", { length: 512 }).notNull(),
+    storageUrl: varchar("storageUrl", { length: 512 }).notNull(),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("project_cost_attachments_cost_idx").on(table.projectCostId)],
+);
+
 export const services = mysqlTable(
   "services",
   {
@@ -220,6 +236,20 @@ export const payments = mysqlTable(
     index("payments_documentId_idx").on(table.documentId),
     index("payments_paidAt_idx").on(table.paidAt),
   ],
+);
+
+export const paymentPromises = mysqlTable(
+  "payment_promises",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    documentId: int("documentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
+    promisedDate: date("promisedDate").notNull(),
+    note: varchar("note", { length: 500 }),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [unique("payment_promises_document_unique").on(table.documentId), index("payment_promises_date_idx").on(table.promisedDate)],
 );
 
 export const companySettings = mysqlTable("company_settings", {
