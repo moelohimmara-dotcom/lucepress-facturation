@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 // =============================================================================
@@ -150,7 +151,34 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+const plugins = [
+  react(),
+  tailwindcss(),
+  jsxLocPlugin(),
+  vitePluginManusRuntime(),
+  vitePluginManusDebugCollector(),
+  VitePWA({
+    registerType: "autoUpdate",
+    includeAssets: ["manus-storage/lucepress-emblem_bfa24e8e.png"],
+    manifest: {
+      name: "Lucepres — Devis & Factures",
+      short_name: "Lucepres",
+      description: "Gestion commerciale BTP, hydraulique et services — devis, factures, chantiers",
+      theme_color: "#113b35",
+      background_color: "#f6faf8",
+      display: "standalone",
+      icons: [{ src: "manus-storage/lucepress-emblem_bfa24e8e.png", sizes: "512x512", type: "image/png" }],
+    },
+    workbox: {
+      globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
+      runtimeCaching: [
+        { urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i, handler: "CacheFirst", options: { cacheName: "google-fonts-cache", expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } } },
+        { urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i, handler: "CacheFirst", options: { cacheName: "gfonts-cache", expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } } },
+        { urlPattern: /\/api\/trpc\/.*/i, handler: "NetworkFirst", options: { cacheName: "api-cache", networkTimeoutSeconds: 3, expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 } } },
+      ],
+    },
+  }),
+];
 
 export default defineConfig({
   plugins,

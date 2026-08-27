@@ -18,12 +18,12 @@ export default function Home() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [showGettingStarted, setShowGettingStarted] = useState(() => localStorage.getItem("lucepress-getting-started-collapsed") !== "true");
   const [hasReviewedReceivables, setHasReviewedReceivables] = useState(() => localStorage.getItem("lucepress-getting-started-receivables") === "true");
-  const { data: dashboard, isLoading } = trpc.billing.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
-  const { data: documents = [] } = trpc.billing.documents.list.useQuery(undefined, { refetchInterval: 15_000 });
-  const { data: clients = [] } = trpc.billing.clients.list.useQuery();
-  const { data: receivables } = trpc.billing.receivables.useQuery(undefined, { refetchInterval: 15_000 });
-  const { data: assignees = [] } = trpc.billing.collection.assignees.useQuery();
-  const { data: profitability = [] } = trpc.billing.projects.costs.profitability.useQuery(undefined, { refetchInterval: 15_000 });
+  const { data: dashboard, isLoading } = trpc.billing.dashboard.useQuery(undefined, { refetchInterval: 60_000 });
+  const { data: documents = [] } = trpc.billing.documents.list.useQuery(undefined, { refetchInterval: 60_000 });
+  const { data: clients = [] } = trpc.billing.clients.list.useQuery(undefined, { staleTime: 60_000 });
+  const { data: receivables } = trpc.billing.receivables.useQuery(undefined, { refetchInterval: 60_000 });
+  const { data: assignees = [] } = trpc.billing.collection.assignees.useQuery(undefined, { staleTime: 60_000 });
+  const { data: profitability = [] } = trpc.billing.projects.costs.profitability.useQuery(undefined, { refetchInterval: 60_000 });
   const overdueInvoices = useMemo(() => selectDashboardDocuments(documents, "overdue"), [documents]);
   const pendingQuotes = useMemo(() => selectDashboardDocuments(documents, "pending_quotes"), [documents]);
   const totalMargin = useMemo(() => profitability.reduce((sum, project) => sum + project.margin, 0), [profitability]);
