@@ -47,7 +47,7 @@ import { assertOpaqueIntegrationSecretReference, createPreparedIntegrationConnec
 import { getIntegrationSecretConfiguration, requireIntegrationSecret } from "./integrations/secretConfiguration";
 import { calculateProjectMargin } from "../shared/projectFinancials";
 import { summarizeReceivables } from "../shared/receivables";
-import { collectionFollowUpLabels, collectionMonthBounds, isCollectionReportMonth, type CollectionFollowUpStatus } from "../shared/collectionFollowUp";
+import { collectionFollowUpLabels, collectionMonthBounds, isCollectionReportMonth, normalizeCollectionReminderDate, validateCollectionReminder, type CollectionFollowUpStatus } from "../shared/collectionFollowUp";
 import { createAgentMessageDraft, getDelegationPolicyErrors, isCampaignEligibleForSimulation, requiresSecondApproval, type AgentChannel, type AgentPurpose, type AgentTone } from "../shared/agentDelegationPolicy";
 import { ENV } from "./_core/env";
 import { createHash, randomBytes } from "node:crypto";
@@ -193,7 +193,7 @@ export async function createClientAttachment(input: { clientId: number; fileName
   return { id: Number(result[0].insertId) };
 }
 
-export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement"; title: string; description?: string; createdById: number }) {
+export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement" | "date_rappel_recouvrement"; title: string; description?: string; createdById: number }) {
   const db = await requireDb();
   const result = await db.insert(clientActivities).values({ ...input, documentId: input.documentId ?? null, description: input.description ?? null });
   return { id: Number(result[0].insertId) };
@@ -1116,6 +1116,7 @@ export async function listDocuments(kind?: DocumentKind) {
       taxTotal: documents.taxTotal,
       isAiDraft: documents.isAiDraft,
       collectionStatus: documents.collectionStatus,
+      collectionReminderDate: documents.collectionReminderDate,
       collectionOwnerId: documents.collectionOwnerId,
       clientId: clients.id,
       clientName: clients.companyName,
@@ -1144,10 +1145,16 @@ export async function getReceivablesDashboard() {
   return summarizeReceivables(invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })));
 }
 
-export async function updateCollectionFollowUp(input: { documentId: number; collectionStatus?: CollectionFollowUpStatus; collectionOwnerId?: number | null; updatedById: number }) {
-  if (!input.collectionStatus && input.collectionOwnerId === undefined) throw new Error("Aucune mise à jour de suivi n’a été demandée.");
+export async function updateCollectionFollowUp(input: { documentId: number; collectionStatus?: CollectionFollowUpStatus; collectionReminderDate?: string | null; collectionOwnerId?: number | null; updatedById: number }) {
+  if (!input.collectionStatus && input.collectionReminderDate === undefined && input.collectionOwnerId === undefined) throw new Error("Aucune mise à jour de suivi n’a été demandée.");
   const invoice = await getDocumentById(input.documentId);
   if (!invoice || invoice.kind !== "facture" || invoice.balanceDue <= 0) throw new Error("Le suivi concerne uniquement une facture avec un solde impayé.");
+  const effectiveStatus = input.collectionStatus ?? invoice.collectionStatus ?? "a_traiter";
+  const storedReminderDate = invoice.collectionReminderDate ? new Date(invoice.collectionReminderDate) : null;
+  const candidateReminderDate = input.collectionReminderDate === undefined ? storedReminderDate : input.collectionReminderDate === null ? null : normalizeCollectionReminderDate(input.collectionReminderDate);
+  const reminderDate = effectiveStatus === "a_rappeler" ? candidateReminderDate : null;
+  const reminderError = validateCollectionReminder(effectiveStatus, reminderDate);
+  if (reminderError) throw new Error(reminderError);
   const db = await requireDb();
   let owner: { id: number; name: string | null; email: string | null } | null = null;
   if (input.collectionOwnerId !== undefined && input.collectionOwnerId !== null) {
@@ -1155,8 +1162,9 @@ export async function updateCollectionFollowUp(input: { documentId: number; coll
     owner = candidates[0] ?? null;
     if (!owner) throw new Error("Le responsable sélectionné est introuvable.");
   }
-  const values: { collectionStatus?: CollectionFollowUpStatus; collectionOwnerId?: number | null } = {};
+  const values: { collectionStatus?: CollectionFollowUpStatus; collectionReminderDate?: Date | null; collectionOwnerId?: number | null } = {};
   if (input.collectionStatus) values.collectionStatus = input.collectionStatus;
+  if (input.collectionReminderDate !== undefined || (input.collectionStatus && effectiveStatus !== "a_rappeler")) values.collectionReminderDate = reminderDate;
   if (input.collectionOwnerId !== undefined) values.collectionOwnerId = input.collectionOwnerId;
   await db.update(documents).set(values).where(eq(documents.id, input.documentId));
   const activityWrites: Array<Promise<{ id: number }>> = [];
@@ -1165,8 +1173,11 @@ export async function updateCollectionFollowUp(input: { documentId: number; coll
     const ownerName = input.collectionOwnerId === null ? "Aucun responsable" : owner?.name || owner?.email || `Utilisateur ${input.collectionOwnerId}`;
     activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "responsable_recouvrement", title: "Responsable de recouvrement mis à jour", description: `${ownerName} · Facture ${invoice.number}`, createdById: input.updatedById }));
   }
+  const oldReminderKey = storedReminderDate?.toISOString().slice(0, 10) ?? null;
+  const newReminderKey = reminderDate?.toISOString().slice(0, 10) ?? null;
+  if (oldReminderKey !== newReminderKey) activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "date_rappel_recouvrement", title: newReminderKey ? `Rappel prévu le ${newReminderKey}` : "Date de rappel retirée", description: `Facture ${invoice.number}`, createdById: input.updatedById }));
   await Promise.all(activityWrites);
-  return { success: true, collectionStatus: input.collectionStatus, collectionOwnerId: input.collectionOwnerId ?? undefined };
+  return { success: true, collectionStatus: input.collectionStatus, collectionReminderDate: newReminderKey, collectionOwnerId: input.collectionOwnerId ?? undefined };
 }
 
 export async function getCollectionMonthlyReport(month: string) {
@@ -1265,6 +1276,9 @@ export async function getDocumentById(id: number) {
       total: documents.total,
       notes: documents.notes,
       isAiDraft: documents.isAiDraft,
+      collectionStatus: documents.collectionStatus,
+      collectionReminderDate: documents.collectionReminderDate,
+      collectionOwnerId: documents.collectionOwnerId,
       clientId: documents.clientId,
       projectId: documents.projectId,
       relatedDocumentId: documents.relatedDocumentId,

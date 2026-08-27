@@ -242,3 +242,8 @@
 - [x] Ajouter les statuts de créance « à traiter », « contacté » et « à rappeler ».
 - [x] Permettre l’attribution et la mise à jour d’un responsable par créance.
 - [x] Tester les règles de suivi, les contrôles d’accès et le parcours responsive du rapport mensuel.
+- [x] Ajouter une date de rappel obligatoire lorsque le statut « à rappeler » est choisi.
+- [x] Afficher les dates de rappel dans la file de créances et les exploiter dans les données de rapport.
+- [x] Ajouter un graphique circulaire déterministe de répartition des statuts au PDF mensuel.
+- [x] Repenser la guidance d’accueil en un parcours interactif, accessible et mémorisable.
+- [x] Tester les règles de rappel, le graphique PDF et les parcours responsive de guidance.

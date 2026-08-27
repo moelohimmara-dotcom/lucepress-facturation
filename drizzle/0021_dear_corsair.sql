@@ -1,0 +1,2 @@
+ALTER TABLE `client_activities` MODIFY COLUMN `type` enum('relance_preparee','note','statut_recouvrement','responsable_recouvrement','date_rappel_recouvrement') NOT NULL;--> statement-breakpoint
+ALTER TABLE `documents` ADD `collectionReminderDate` date;

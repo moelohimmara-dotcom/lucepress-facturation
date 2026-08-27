@@ -26,12 +26,14 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import {
+  ArrowRight,
   Bot,
   CalendarDays,
   CalendarClock,
   Cable,
   CircleHelp,
   CircleDollarSign,
+  Check,
   ChevronDown,
   FileText,
   FolderKanban,
@@ -88,10 +90,16 @@ const menuItems = navigationGroups.flatMap(group => group.items);
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";
 const LAST_ROUTE_KEY = "lucepress-last-route";
 const COMPACT_MODE_KEY = "lucepress-sidebar-compact";
-const SIDEBAR_HELP_SEEN_KEY = "lucepress-sidebar-help-seen";
+const SIDEBAR_GUIDANCE_SEEN_KEY = "lucepress-sidebar-guidance-v2-seen";
 const DEFAULT_WIDTH = 276;
 const MIN_WIDTH = 224;
 const MAX_WIDTH = 380;
+
+const sidebarGuidanceSteps = [
+  { eyebrow: "01 · Se repérer", title: "Votre cockpit, au bon endroit.", body: "Les espaces sont regroupés par activité : commercial, financier, puis automatisations supervisées.", highlights: ["Vue d’ensemble", "Créances", "Agent IA"] },
+  { eyebrow: "02 · S’adapter", title: "Ajustez l’espace à votre rythme.", body: "Passez du thème clair au thème sombre et activez le mode compact lorsque vous avez besoin de plus de place.", highlights: ["Thème clair / sombre", "Mode compact", "Largeur ajustable"] },
+  { eyebrow: "03 · Accélérer", title: "Gardez le travail en mouvement.", body: "Les raccourcis ouvrent vos points d’entrée : Alt + 1 pour Clients, Alt + 2 pour Chantiers et Alt + 3 pour l’assistant devis.", highlights: ["Alt + 1", "Alt + 2", "Alt + 3"] },
+] as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -138,7 +146,8 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const [isResizing, setIsResizing] = useState(false);
   const [hasMoreNavigation, setHasMoreNavigation] = useState(false);
   const [densityPreference, setDensityPreference] = useState<SidebarDensityPreference>(() => getSidebarDensityPreference(localStorage.getItem(COMPACT_MODE_KEY)));
-  const [showSidebarHelp, setShowSidebarHelp] = useState(() => localStorage.getItem(SIDEBAR_HELP_SEEN_KEY) !== "true");
+  const [showSidebarHelp, setShowSidebarHelp] = useState(() => localStorage.getItem(SIDEBAR_GUIDANCE_SEEN_KEY) !== "true");
+  const [guidanceStep, setGuidanceStep] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -146,6 +155,8 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const isCompact = !isCollapsed && isCompactSidebar(densityPreference, viewportWidth);
   const isMediumViewport = viewportWidth >= 768 && viewportWidth <= 1180;
   const effectiveSidebarWidth = getEffectiveSidebarWidth(sidebarWidth, isCompact);
+  const guidance = sidebarGuidanceSteps[guidanceStep];
+  const isFinalGuidanceStep = guidanceStep === sidebarGuidanceSteps.length - 1;
 
   useEffect(() => {
     const routeToRestore = getRestorableRoute(location, localStorage.getItem(LAST_ROUTE_KEY), menuItems.map(item => item.path));
@@ -163,11 +174,16 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
 
   const dismissSidebarHelp = () => {
     setShowSidebarHelp(false);
-    localStorage.setItem(SIDEBAR_HELP_SEEN_KEY, "true");
+    localStorage.setItem(SIDEBAR_GUIDANCE_SEEN_KEY, "true");
   };
 
   const setSidebarHelpOpen = (open: boolean) => {
-    if (open) setShowSidebarHelp(true);
+    if (open) { setGuidanceStep(0); setShowSidebarHelp(true); }
+    else dismissSidebarHelp();
+  };
+
+  const advanceGuidance = () => {
+    if (guidanceStep < sidebarGuidanceSteps.length - 1) setGuidanceStep(step => step + 1);
     else dismissSidebarHelp();
   };
 
@@ -235,7 +251,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
                 <PanelLeft className="h-4 w-4" />
               </button>
               {!isCollapsed && <div className="min-w-0 flex-1"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">{LUCEPRES_PUBLIC_PROFILE.displayName}</p>{!isCompact && <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">Solutions durables · opérations</p>}</div>}
-              {!isCollapsed && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={toggleTheme} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"} title={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button><button data-testid="sidebar-density-toggle" onClick={toggleDensity} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={isCompact ? "Passer au mode normal" : "Passer au mode compact"} title={isCompact ? "Passer au mode normal" : "Passer au mode compact"}>{isCompact ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button><Popover open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}><PopoverTrigger asChild><button data-testid="sidebar-help-trigger" className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Afficher l’aide de navigation" title="Afficher l’aide de navigation"><CircleHelp className="h-4 w-4" /></button></PopoverTrigger><PopoverContent data-testid="sidebar-help" align={isMobile ? "start" : "center"} side={isMobile ? "bottom" : "right"} sideOffset={10} className="w-72 rounded-xl border-sidebar-primary/30 bg-sidebar p-3 text-sidebar-foreground shadow-xl"><div className="flex items-start gap-2"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div className="min-w-0 flex-1"><p className="text-xs font-extrabold">Navigation rapide</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/70">Utilisez le bouton voisin pour choisir le mode compact ou normal. Les raccourcis <kbd>Alt + 1</kbd>, <kbd>Alt + 2</kbd> et <kbd>Alt + 3</kbd> ouvrent Clients, Chantiers et l’assistant IA.</p></div><button onClick={dismissSidebarHelp} className="-mt-1 -mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/65 hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Fermer l’aide de navigation"><X className="h-3.5 w-3.5" /></button></div></PopoverContent></Popover></div>}
+              {!isCollapsed && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={toggleTheme} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"} title={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button><button data-testid="sidebar-density-toggle" onClick={toggleDensity} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={isCompact ? "Passer au mode normal" : "Passer au mode compact"} title={isCompact ? "Passer au mode normal" : "Passer au mode compact"}>{isCompact ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button><Popover open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}><PopoverTrigger asChild><button data-testid="sidebar-help-trigger" className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Ouvrir le guide d’accueil" title="Ouvrir le guide d’accueil"><CircleHelp className="h-4 w-4" /></button></PopoverTrigger><PopoverContent data-testid="sidebar-help" align={isMobile ? "start" : "center"} side={isMobile ? "bottom" : "right"} sideOffset={10} className="w-[calc(100vw-2rem)] rounded-[1.25rem] border-sidebar-primary/35 bg-sidebar p-0 text-sidebar-foreground shadow-2xl sm:w-[23rem]"><div className="relative overflow-hidden"><div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-sidebar-primary/20 blur-2xl" /><div className="relative p-4"><div className="flex items-center justify-between gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sidebar-primary text-[11px] font-extrabold text-sidebar-primary-foreground">{guidanceStep + 1}/3</div><button onClick={dismissSidebarHelp} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Fermer le guide d’accueil"><X className="h-4 w-4" /></button></div><p className="mt-5 text-[10px] font-extrabold uppercase tracking-[0.18em] text-sidebar-primary">{guidance.eyebrow}</p><h2 className="mt-2 font-editorial text-xl font-semibold leading-tight">{guidance.title}</h2><p className="mt-2 text-xs leading-5 text-sidebar-foreground/72">{guidance.body}</p><div className="mt-4 flex flex-wrap gap-1.5">{guidance.highlights.map(highlight => <span key={highlight} className="rounded-full border border-white/10 bg-white/[0.08] px-2.5 py-1 text-[10px] font-bold text-sidebar-foreground/85">{highlight}</span>)}</div><div className="mt-5 flex items-center justify-between gap-3 border-t border-white/[0.1] pt-3"><div className="flex items-center gap-1.5" aria-label={`Étape ${guidanceStep + 1} sur ${sidebarGuidanceSteps.length}`}>{sidebarGuidanceSteps.map((step, index) => <span key={step.eyebrow} className={`h-1.5 rounded-full transition-all ${index <= guidanceStep ? "w-6 bg-sidebar-primary" : "w-2 bg-white/20"}`} />)}</div><Button type="button" size="sm" onClick={advanceGuidance} className="h-9 rounded-xl bg-sidebar-primary px-3 text-xs font-extrabold text-sidebar-primary-foreground hover:bg-sidebar-primary/90">{isFinalGuidanceStep ? <><Check className="mr-1.5 h-3.5 w-3.5" />Terminer</> : <>Suivant<ArrowRight className="ml-1.5 h-3.5 w-3.5" /></>}</Button></div></div></div></PopoverContent></Popover></div>}
             </div>
           </SidebarHeader>
           <SidebarContent className={`relative min-h-0 gap-0 overflow-y-auto ${isCompact ? "px-1 py-2" : "px-2 py-3"}`}>

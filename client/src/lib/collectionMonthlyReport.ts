@@ -1,4 +1,4 @@
-import { collectionFollowUpLabels, type CollectionFollowUpStatus } from "@shared/collectionFollowUp";
+import { collectionFollowUpLabels, getCollectionStatusDistribution, type CollectionFollowUpStatus } from "@shared/collectionFollowUp";
 
 export type CollectionMonthlyReport = {
   month: string;
@@ -14,7 +14,7 @@ export type CollectionMonthlyReport = {
     monthlyCollectedAmount: number;
     statusCounts: Record<CollectionFollowUpStatus, number>;
   };
-  invoices: Array<{ number: string; clientName: string; dueDate: Date | string | null; balanceDue: number; isOverdue: boolean; daysOverdue: number; collectionStatus: CollectionFollowUpStatus; collectionOwnerName: string | null }>;
+  invoices: Array<{ number: string; clientName: string; dueDate: Date | string | null; balanceDue: number; isOverdue: boolean; daysOverdue: number; collectionStatus: CollectionFollowUpStatus; collectionReminderDate?: Date | string | null; collectionOwnerName: string | null }>;
   activities: Array<{ id: string; type: string; title: string; description: string | null; documentNumber: string; clientName: string; occurredAt: Date | string }>;
 };
 
@@ -35,6 +35,48 @@ function formatDate(value: Date | string | null) {
 
 function formatMonth(value: string) {
   return new Date(`${value}-01T12:00:00Z`).toLocaleDateString("fr-GN", { month: "long", year: "numeric" });
+}
+
+function drawStatusDistributionChart(doc: { circle: (x: number, y: number, r: number, style?: string) => void; setFillColor: (red: number, green: number, blue: number) => void; setTextColor: (red: number, green: number, blue: number) => void; setFont: (name: string, style: string) => void; setFontSize: (size: number) => void; text: (value: string, x: number, y: number, options?: { align?: "left" | "center" | "right" | "justify" }) => void; triangle: (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, style?: string) => void }, statusCounts: Record<CollectionFollowUpStatus, number>, x: number, y: number) {
+  const slices = getCollectionStatusDistribution(statusCounts);
+  const total = slices.reduce((sum, slice) => sum + slice.count, 0);
+  const radius = 19;
+  doc.setFillColor(243, 245, 241);
+  doc.circle(x, y, radius, "F");
+  if (total) {
+    let angle = -Math.PI / 2;
+    slices.filter(slice => slice.count > 0).forEach(slice => {
+      const [red, green, blue] = statusColors[slice.status];
+      const nextAngle = angle + (slice.count / total) * Math.PI * 2;
+      doc.setFillColor(red, green, blue);
+      const steps = Math.max(3, Math.ceil(Math.abs(nextAngle - angle) / (Math.PI / 12)));
+      for (let step = 0; step < steps; step += 1) {
+        const current = angle + ((nextAngle - angle) * step) / steps;
+        const following = angle + ((nextAngle - angle) * (step + 1)) / steps;
+        doc.triangle(x, y, x + Math.cos(current) * radius, y + Math.sin(current) * radius, x + Math.cos(following) * radius, y + Math.sin(following) * radius, "F");
+      }
+      angle = nextAngle;
+    });
+  }
+  doc.setFillColor(255, 255, 255);
+  doc.circle(x, y, 11, "F");
+  doc.setTextColor(4, 72, 52);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(String(total), x, y - 1, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.text("créances", x, y + 4, { align: "center" });
+  slices.forEach((slice, index) => {
+    const [red, green, blue] = statusColors[slice.status];
+    const legendY = y - 12 + index * 11;
+    doc.setFillColor(red, green, blue);
+    doc.circle(x + 32, legendY - 1, 2, "F");
+    doc.setTextColor(71, 85, 105);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text(`${collectionFollowUpLabels[slice.status]} · ${slice.count} (${slice.percentage} %)`, x + 37, legendY + 1);
+  });
 }
 
 export async function downloadCollectionMonthlyReportPdf(report: CollectionMonthlyReport) {
@@ -125,7 +167,13 @@ export async function downloadCollectionMonthlyReportPdf(report: CollectionMonth
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(`${statusSummary}   |   Attribuées : ${report.summary.assignedCount}/${report.summary.openCount}`, margin, y);
-  y += 12;
+  y += 10;
+  doc.setTextColor(4, 72, 52);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Répartition des créances par statut", margin, y);
+  drawStatusDistributionChart(doc, report.summary.statusCounts, margin + 25, y + 26);
+  y += 55;
 
   doc.setTextColor(4, 72, 52);
   doc.setFont("helvetica", "bold");
@@ -142,7 +190,7 @@ export async function downloadCollectionMonthlyReportPdf(report: CollectionMonth
   }
   report.invoices.forEach(invoice => {
     const clientLines = doc.splitTextToSize(`${invoice.number} · ${invoice.clientName}`, 64) as string[];
-    const ownerLines = doc.splitTextToSize(invoice.collectionOwnerName || "Non attribué", 39) as string[];
+    const ownerLines = doc.splitTextToSize([invoice.collectionOwnerName || "Non attribué", invoice.collectionStatus === "a_rappeler" && invoice.collectionReminderDate ? `Rappel : ${formatDate(invoice.collectionReminderDate)}` : ""].filter(Boolean).join("\n"), 39) as string[];
     const amountLines = doc.splitTextToSize(formatAmount(invoice.balanceDue), 27) as string[];
     const rowHeight = Math.max(10, clientLines.length * 4 + 5, ownerLines.length * 4 + 5, amountLines.length * 4 + 5);
     ensureSpace(rowHeight + 8);

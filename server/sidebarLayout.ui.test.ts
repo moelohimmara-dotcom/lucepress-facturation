@@ -81,13 +81,18 @@ describe("sidebar Lucepress sur format contraint", () => {
     vi.unstubAllGlobals();
   });
 
-  it("affiche une infobulle à la première utilisation hors de la navigation et mémorise sa fermeture", () => {
+  it("affiche une visite guidée à la première utilisation hors de la navigation et mémorise sa complétion", () => {
     render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
     expect(screen.getByTestId("sidebar-help")).toBeTruthy();
     expect(within(screen.getByTestId("sidebar-content")).queryByTestId("sidebar-help")).toBeNull();
-    fireEvent.click(screen.getByLabelText("Fermer l’aide de navigation"));
+    expect(screen.getByText("Votre cockpit, au bon endroit.")).toBeTruthy();
+    fireEvent.click(screen.getByText("Suivant"));
+    expect(screen.getByText("Ajustez l’espace à votre rythme.")).toBeTruthy();
+    fireEvent.click(screen.getByText("Suivant"));
+    expect(screen.getByText("Gardez le travail en mouvement.")).toBeTruthy();
+    fireEvent.click(screen.getByText("Terminer"));
     expect(screen.queryByTestId("sidebar-help")).toBeNull();
-    expect(localStorage.getItem("lucepress-sidebar-help-seen")).toBe("true");
+    expect(localStorage.getItem("lucepress-sidebar-guidance-v2-seen")).toBe("true");
   });
 
   it("permet de choisir manuellement le mode compact ou normal", () => {

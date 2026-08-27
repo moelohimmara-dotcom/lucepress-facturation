@@ -12,6 +12,7 @@ export type ReceivableDocument = {
   balanceDue: number;
   isOverdue: boolean;
   collectionStatus?: "a_traiter" | "contacte" | "a_rappeler";
+  collectionReminderDate?: Date | string | null;
   collectionOwnerId?: number | null;
   paymentPromise?: { id: number; documentId: number; promisedDate: Date | string; note: string | null; updatedAt: Date | string } | null;
 };

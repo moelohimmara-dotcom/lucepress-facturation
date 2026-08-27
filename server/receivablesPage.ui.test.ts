@@ -28,4 +28,10 @@ describe("interface de recouvrement Lucepress", () => {
     expect(source).toContain("À rappeler");
     expect(source).toContain("Rapport de pilotage interne");
   });
+
+  it("affiche et configure une date lorsque la créance est à rappeler", () => {
+    expect(source).toContain("Date de rappel");
+    expect(source).toContain("Rappel le");
+    expect(source).toContain("Requise pour classer cette créance");
+  });
 });
