@@ -7,6 +7,14 @@ import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
+
+function reportWebVitals(metric: { name: string; value: number; id: string }) {
+  // En prod, envoyer à Sentry/Analytics. En dev, log discret.
+  if (import.meta.env.DEV) console.debug(`[WebVitals] ${metric.name}: ${Math.round(metric.value)}`);
+  // Ex: fetch("/api/metrics/web-vitals", { method: "POST", body: JSON.stringify(metric) });
+}
+onCLS(reportWebVitals); onFCP(reportWebVitals); onINP(reportWebVitals); onLCP(reportWebVitals); onTTFB(reportWebVitals);
 
 const queryClient = new QueryClient({
   defaultOptions: {
