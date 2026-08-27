@@ -36,12 +36,15 @@ import { DashboardLayoutContent } from "../client/src/components/DashboardLayout
 
 describe("sidebar Lucepress sur format contraint", () => {
   it("isole l’Assistant IA dans le pied de barre et laisse Clients et Chantiers dans la navigation défilante", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1280 });
     render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
     const navigation = screen.getByTestId("sidebar-content");
     const footer = screen.getByTestId("sidebar-footer");
 
     expect(within(navigation).getByText("Clients")).toBeTruthy();
     expect(within(navigation).getByText("Chantiers")).toBeTruthy();
+    expect(within(navigation).getByText("Pilotage financier")).toBeTruthy();
+    expect(within(navigation).getByText("Agent & automatisations")).toBeTruthy();
     expect(within(navigation).queryByText("Assistant IA")).toBeNull();
     expect(within(footer).getByText("Assistant IA")).toBeTruthy();
     expect(navigation.className).toContain("overflow-y-auto");
@@ -56,6 +59,7 @@ describe("sidebar Lucepress sur format contraint", () => {
   });
 
   it("applique une largeur compacte et affiche un repère lorsque la navigation déborde", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     class ResizeObserverMock {
       constructor(private callback: ResizeObserverCallback) {}
       observe(target: Element) {

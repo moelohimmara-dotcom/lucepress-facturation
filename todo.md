@@ -222,3 +222,8 @@
 - [x] Construire un calendrier visuel des campagnes et un tableau d’audit filtrable et exploitable.
 - [x] Ajouter une prévisualisation détaillée des messages e-mail de test avant toute activation réelle.
 - [x] Tester les planifications, le traitement sécurisé, le journal d’audit et le connecteur de test.
+- [x] Définir une direction visuelle premium cohérente pour les espaces commercial, financier et IA.
+- [x] Moderniser les fondations globales : typographie, couleurs, surfaces, navigation et micro-interactions.
+- [x] Refondre le cockpit, les modules de coûts/créances et les espaces de supervision de l’agent.
+- [x] Harmoniser les listes, formulaires, états vides, chargements et modales des parcours métier.
+- [x] Vérifier le rendu desktop/mobile, le contraste, l’accessibilité et les tests après la refonte.

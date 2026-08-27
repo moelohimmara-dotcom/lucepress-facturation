@@ -53,23 +53,32 @@ import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Vue d’ensemble", path: "/tableau-de-bord" },
-  { icon: FileText, label: "Devis", path: "/devis" },
-  { icon: ReceiptText, label: "Factures", path: "/factures" },
-  { icon: UsersRound, label: "Clients", path: "/clients" },
-  { icon: FolderKanban, label: "Chantiers", path: "/chantiers" },
-  { icon: CircleDollarSign, label: "Coûts & marges", path: "/couts-chantier" },
-  { icon: WalletCards, label: "Créances", path: "/creances" },
-  { icon: Wrench, label: "Prestations", path: "/prestations" },
-  { icon: Cable, label: "Intégrations", path: "/integrations" },
-  { icon: Bot, label: "Agent IA", path: "/agent-ia" },
-  { icon: CalendarClock, label: "Planification IA", path: "/agent-ia/planification" },
-  { icon: ScrollText, label: "Audit IA", path: "/agent-ia/audit" },
-  { icon: Mail, label: "E-mails de test", path: "/agent-ia/e-mails-test" },
-  { icon: Settings, label: "Paramètres", path: "/parametres" },
-  { icon: Mail, label: "Relances", path: "/relances" },
+const navigationGroups = [
+  { label: "Gestion commerciale", items: [
+    { icon: LayoutDashboard, label: "Vue d’ensemble", path: "/tableau-de-bord" },
+    { icon: FileText, label: "Devis", path: "/devis" },
+    { icon: ReceiptText, label: "Factures", path: "/factures" },
+    { icon: UsersRound, label: "Clients", path: "/clients" },
+    { icon: FolderKanban, label: "Chantiers", path: "/chantiers" },
+    { icon: Wrench, label: "Prestations", path: "/prestations" },
+  ] },
+  { label: "Pilotage financier", items: [
+    { icon: CircleDollarSign, label: "Coûts & marges", path: "/couts-chantier" },
+    { icon: WalletCards, label: "Créances", path: "/creances" },
+    { icon: Mail, label: "Relances", path: "/relances" },
+  ] },
+  { label: "Agent & automatisations", items: [
+    { icon: Bot, label: "Agent IA", path: "/agent-ia" },
+    { icon: CalendarClock, label: "Planification IA", path: "/agent-ia/planification" },
+    { icon: ScrollText, label: "Audit IA", path: "/agent-ia/audit" },
+    { icon: Mail, label: "E-mails de test", path: "/agent-ia/e-mails-test" },
+  ] },
+  { label: "Configuration", items: [
+    { icon: Cable, label: "Intégrations", path: "/integrations" },
+    { icon: Settings, label: "Paramètres", path: "/parametres" },
+  ] },
 ];
+const menuItems = navigationGroups.flatMap(group => group.items);
 
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";
 const LAST_ROUTE_KEY = "lucepress-last-route";
@@ -214,26 +223,26 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
     <>
       <div className="relative" data-testid="sidebar-shell" ref={sidebarRef} style={{ "--sidebar-width": `${effectiveSidebarWidth}px` } as CSSProperties}>
         <Sidebar collapsible="icon" className="border-r-0 bg-sidebar text-sidebar-foreground" disableTransition={isResizing}>
-          <SidebarHeader className={`${isCompact ? "h-[76px]" : "h-[92px]"} shrink-0 justify-center px-3`}>
+          <SidebarHeader className={`${isCompact ? "h-[78px]" : "h-[104px]"} shrink-0 justify-center px-3`}>
             <div className="flex items-center gap-3">
-              <button onClick={toggleSidebar} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Réduire la navigation">
+              <button onClick={toggleSidebar} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.08] shadow-sm transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Réduire la navigation">
                 <PanelLeft className="h-4 w-4" />
               </button>
-              {!isCollapsed && <div className="min-w-0 flex-1"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">{LUCEPRES_PUBLIC_PROFILE.displayName}</p>{!isCompact && <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">{LUCEPRES_PUBLIC_PROFILE.positioning}</p>}</div>}
+              {!isCollapsed && <div className="min-w-0 flex-1"><p className="font-editorial text-xl font-semibold leading-none tracking-tight">{LUCEPRES_PUBLIC_PROFILE.displayName}</p>{!isCompact && <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/55">Solutions durables · opérations</p>}</div>}
               {!isCollapsed && <div className="flex shrink-0 items-center gap-1"><button data-testid="sidebar-density-toggle" onClick={toggleDensity} className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label={isCompact ? "Passer au mode normal" : "Passer au mode compact"} title={isCompact ? "Passer au mode normal" : "Passer au mode compact"}>{isCompact ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}</button><Popover open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}><PopoverTrigger asChild><button data-testid="sidebar-help-trigger" className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Afficher l’aide de navigation" title="Afficher l’aide de navigation"><CircleHelp className="h-4 w-4" /></button></PopoverTrigger><PopoverContent data-testid="sidebar-help" align={isMobile ? "start" : "center"} side={isMobile ? "bottom" : "right"} sideOffset={10} className="w-72 rounded-xl border-sidebar-primary/30 bg-sidebar p-3 text-sidebar-foreground shadow-xl"><div className="flex items-start gap-2"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-primary" /><div className="min-w-0 flex-1"><p className="text-xs font-extrabold">Navigation rapide</p><p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/70">Utilisez le bouton voisin pour choisir le mode compact ou normal. Les raccourcis <kbd>Alt + 1</kbd>, <kbd>Alt + 2</kbd> et <kbd>Alt + 3</kbd> ouvrent Clients, Chantiers et l’assistant IA.</p></div><button onClick={dismissSidebarHelp} className="-mt-1 -mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/65 hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Fermer l’aide de navigation"><X className="h-3.5 w-3.5" /></button></div></PopoverContent></Popover></div>}
             </div>
           </SidebarHeader>
           <SidebarContent className={`relative min-h-0 gap-0 overflow-y-auto ${isCompact ? "px-1 py-2" : "px-2 py-3"}`}>
-            {!isCollapsed && !isCompact && <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45">Gestion commerciale</p>}
-            <SidebarMenu className="gap-1">
-              {menuItems.map(item => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton isActive={location === item.path} onClick={() => setLocation(item.path)} tooltip={item.label} aria-keyshortcuts={item.path === "/clients" ? "Alt+1" : item.path === "/chantiers" ? "Alt+2" : undefined} className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-11 rounded-xl px-3"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}>
-                    <item.icon className="h-[18px] w-[18px]" /><span>{item.label}</span>
+            {navigationGroups.map((group, groupIndex) => <div key={group.label} className={groupIndex ? `${isCompact ? "mt-1" : "mt-4 border-t border-white/[0.08] pt-3"}` : ""}>
+              {!isCollapsed && !isCompact && <p className="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.19em] text-sidebar-foreground/42">{group.label}</p>}
+              <SidebarMenu className="gap-1">
+                {group.items.map(item => <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton isActive={location === item.path} onClick={() => setLocation(item.path)} tooltip={item.label} aria-keyshortcuts={item.path === "/clients" ? "Alt+1" : item.path === "/chantiers" ? "Alt+2" : undefined} className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-10 rounded-xl px-3 text-[13px]"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_9px_22px_-14px_oklch(0.07_0.03_164/80%)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}>
+                    <item.icon className="h-[17px] w-[17px]" /><span>{item.label}</span>
                   </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+                </SidebarMenuItem>)}
+              </SidebarMenu>
+            </div>)}
             {hasMoreNavigation && !isCollapsed && <div aria-hidden="true" data-testid="sidebar-scroll-indicator" className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-end px-3 text-sidebar-foreground/80"><span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-sidebar/90 shadow-sm"><ChevronDown className="h-3.5 w-3.5 animate-pulse" /></span></div>}
           </SidebarContent>
           <SidebarFooter className={`${isCompact ? "p-2" : "p-3"} shrink-0 border-t border-white/10`}>
