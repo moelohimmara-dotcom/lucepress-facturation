@@ -238,3 +238,7 @@
 - [x] Ajouter une chronologie détaillée des interactions et relances par client depuis les créances.
 - [x] Préparer des relances groupées personnalisables, limitées aux brouillons à valider.
 - [x] Tester les exports, le suivi client, les sélections groupées et leurs parcours responsive.
+- [x] Ajouter un rapport PDF mensuel de synthèse du recouvrement à télécharger.
+- [x] Ajouter les statuts de créance « à traiter », « contacté » et « à rappeler ».
+- [x] Permettre l’attribution et la mise à jour d’un responsable par créance.
+- [x] Tester les règles de suivi, les contrôles d’accès et le parcours responsive du rapport mensuel.

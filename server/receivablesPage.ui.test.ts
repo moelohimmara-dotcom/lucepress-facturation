@@ -20,4 +20,12 @@ describe("interface de recouvrement Lucepress", () => {
     expect(source).toContain("Consigne de personnalisation");
     expect(source).toContain("Aucun e-mail, WhatsApp ou autre message n’est envoyé");
   });
+
+  it("propose le rapport mensuel, les statuts de suivi et l’attribution d’un responsable", () => {
+    expect(source).toContain("Rapport mensuel PDF");
+    expect(source).toContain("Statut de relance");
+    expect(source).toContain("Responsable de recouvrement");
+    expect(source).toContain("À rappeler");
+    expect(source).toContain("Rapport de pilotage interne");
+  });
 });

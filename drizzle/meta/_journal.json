@@ -141,6 +141,13 @@
       "when": 1787819353432,
       "tag": "0019_lonely_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1787823666578,
+      "tag": "0020_familiar_blindfold",
+      "breakpoints": true
     }
   ]
 }

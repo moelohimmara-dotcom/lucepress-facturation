@@ -13,11 +13,13 @@ describe("export CSV des créances filtrées", () => {
       balanceDue: 775_000,
       isOverdue: true,
       daysOverdue: 17,
+      collectionStatus: "contacte",
+      collectionOwnerName: "Awa Camara",
       isPaymentPromiseOverdue: true,
       paymentPromise: { promisedDate: "2026-08-20", note: "Règlement après validation\ninterne" },
     }]);
-    expect(csv).toContain("Priorité;Facture;Client");
-    expect(csv).toContain("Promesse dépassée;FAC-2026-0042;\"Bâti; Guinée\";\"Forage \"\"Kankan\"\"\"");
+    expect(csv).toContain("Priorité;Statut de suivi;Responsable;Facture;Client");
+    expect(csv).toContain("Promesse dépassée;Contacté;Awa Camara;FAC-2026-0042;\"Bâti; Guinée\";\"Forage \"\"Kankan\"\"\"");
     expect(csv).toContain("17;2026-08-20;\"Règlement après validation\ninterne\";900000;125000;775000");
   });
 });

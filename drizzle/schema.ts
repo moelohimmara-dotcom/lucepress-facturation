@@ -182,6 +182,8 @@ export const documents = mysqlTable(
     total: bigint("total", { mode: "number" }).default(0).notNull(),
     notes: text("notes"),
     isAiDraft: mysqlEnum("isAiDraft", ["oui", "non"]).default("non").notNull(),
+    collectionStatus: mysqlEnum("collectionStatus", ["a_traiter", "contacte", "a_rappeler"]).default("a_traiter").notNull(),
+    collectionOwnerId: int("collectionOwnerId").references(() => users.id, { onDelete: "set null" }),
     createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -192,6 +194,7 @@ export const documents = mysqlTable(
     index("documents_clientId_idx").on(table.clientId),
     index("documents_dueDate_idx").on(table.dueDate),
     index("documents_related_stage_idx").on(table.relatedDocumentId, table.invoiceStage),
+    index("documents_collection_owner_status_idx").on(table.collectionOwnerId, table.collectionStatus),
   ],
 );
 
@@ -299,7 +302,7 @@ export const clientActivities = mysqlTable(
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
     documentId: int("documentId").references(() => documents.id, { onDelete: "set null" }),
-    type: mysqlEnum("type", ["relance_preparee", "note"]).notNull(),
+    type: mysqlEnum("type", ["relance_preparee", "note", "statut_recouvrement", "responsable_recouvrement"]).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),

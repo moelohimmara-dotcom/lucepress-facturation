@@ -47,6 +47,7 @@ import { assertOpaqueIntegrationSecretReference, createPreparedIntegrationConnec
 import { getIntegrationSecretConfiguration, requireIntegrationSecret } from "./integrations/secretConfiguration";
 import { calculateProjectMargin } from "../shared/projectFinancials";
 import { summarizeReceivables } from "../shared/receivables";
+import { collectionFollowUpLabels, collectionMonthBounds, isCollectionReportMonth, type CollectionFollowUpStatus } from "../shared/collectionFollowUp";
 import { createAgentMessageDraft, getDelegationPolicyErrors, isCampaignEligibleForSimulation, requiresSecondApproval, type AgentChannel, type AgentPurpose, type AgentTone } from "../shared/agentDelegationPolicy";
 import { ENV } from "./_core/env";
 import { createHash, randomBytes } from "node:crypto";
@@ -106,6 +107,11 @@ export async function getUserByOpenId(openId: string) {
 export async function listClients() {
   const db = await requireDb();
   return db.select().from(clients).orderBy(asc(clients.companyName));
+}
+
+export async function listCollectionAssignees() {
+  const db = await requireDb();
+  return db.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).orderBy(asc(users.name));
 }
 
 export async function getClientById(id: number) {
@@ -187,7 +193,7 @@ export async function createClientAttachment(input: { clientId: number; fileName
   return { id: Number(result[0].insertId) };
 }
 
-export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note"; title: string; description?: string; createdById: number }) {
+export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement"; title: string; description?: string; createdById: number }) {
   const db = await requireDb();
   const result = await db.insert(clientActivities).values({ ...input, documentId: input.documentId ?? null, description: input.description ?? null });
   return { id: Number(result[0].insertId) };
@@ -1109,6 +1115,8 @@ export async function listDocuments(kind?: DocumentKind) {
       subtotal: documents.subtotal,
       taxTotal: documents.taxTotal,
       isAiDraft: documents.isAiDraft,
+      collectionStatus: documents.collectionStatus,
+      collectionOwnerId: documents.collectionOwnerId,
       clientId: clients.id,
       clientName: clients.companyName,
       projectId: projects.id,
@@ -1134,6 +1142,61 @@ export async function getReceivablesDashboard() {
   const [invoices, promises] = await Promise.all([listDocuments("facture"), listPaymentPromises()]);
   const promisedByDocument = new Map(promises.map(promise => [promise.documentId, promise]));
   return summarizeReceivables(invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })));
+}
+
+export async function updateCollectionFollowUp(input: { documentId: number; collectionStatus?: CollectionFollowUpStatus; collectionOwnerId?: number | null; updatedById: number }) {
+  if (!input.collectionStatus && input.collectionOwnerId === undefined) throw new Error("Aucune mise à jour de suivi n’a été demandée.");
+  const invoice = await getDocumentById(input.documentId);
+  if (!invoice || invoice.kind !== "facture" || invoice.balanceDue <= 0) throw new Error("Le suivi concerne uniquement une facture avec un solde impayé.");
+  const db = await requireDb();
+  let owner: { id: number; name: string | null; email: string | null } | null = null;
+  if (input.collectionOwnerId !== undefined && input.collectionOwnerId !== null) {
+    const candidates = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, input.collectionOwnerId)).limit(1);
+    owner = candidates[0] ?? null;
+    if (!owner) throw new Error("Le responsable sélectionné est introuvable.");
+  }
+  const values: { collectionStatus?: CollectionFollowUpStatus; collectionOwnerId?: number | null } = {};
+  if (input.collectionStatus) values.collectionStatus = input.collectionStatus;
+  if (input.collectionOwnerId !== undefined) values.collectionOwnerId = input.collectionOwnerId;
+  await db.update(documents).set(values).where(eq(documents.id, input.documentId));
+  const activityWrites: Array<Promise<{ id: number }>> = [];
+  if (input.collectionStatus) activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "statut_recouvrement", title: `Suivi recouvrement : ${collectionFollowUpLabels[input.collectionStatus]}`, description: `Facture ${invoice.number}`, createdById: input.updatedById }));
+  if (input.collectionOwnerId !== undefined) {
+    const ownerName = input.collectionOwnerId === null ? "Aucun responsable" : owner?.name || owner?.email || `Utilisateur ${input.collectionOwnerId}`;
+    activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "responsable_recouvrement", title: "Responsable de recouvrement mis à jour", description: `${ownerName} · Facture ${invoice.number}`, createdById: input.updatedById }));
+  }
+  await Promise.all(activityWrites);
+  return { success: true, collectionStatus: input.collectionStatus, collectionOwnerId: input.collectionOwnerId ?? undefined };
+}
+
+export async function getCollectionMonthlyReport(month: string) {
+  if (!isCollectionReportMonth(month)) throw new Error("Le mois du rapport est invalide.");
+  const { start, end } = collectionMonthBounds(month);
+  const startBefore = new Date(start.getTime() - 1);
+  const [receivables, people, activities, paymentRows] = await Promise.all([
+    getReceivablesDashboard(),
+    listCollectionAssignees(),
+    (async () => {
+      const db = await requireDb();
+      return db.select({ id: clientActivities.id, type: clientActivities.type, title: clientActivities.title, description: clientActivities.description, createdAt: clientActivities.createdAt, documentId: documents.id, documentNumber: documents.number, clientName: clients.companyName }).from(clientActivities).innerJoin(documents, eq(clientActivities.documentId, documents.id)).innerJoin(clients, eq(documents.clientId, clients.id)).where(and(eq(documents.kind, "facture"), gt(clientActivities.createdAt, startBefore), lt(clientActivities.createdAt, end))).orderBy(desc(clientActivities.createdAt));
+    })(),
+    (async () => {
+      const db = await requireDb();
+      return db.select({ id: payments.id, documentId: documents.id, documentNumber: documents.number, clientName: clients.companyName, amount: payments.amount, paidAt: payments.paidAt }).from(payments).innerJoin(documents, eq(payments.documentId, documents.id)).innerJoin(clients, eq(documents.clientId, clients.id)).where(and(eq(documents.kind, "facture"), gt(payments.paidAt, startBefore), lt(payments.paidAt, end))).orderBy(desc(payments.paidAt));
+    })(),
+  ]);
+  const ownerById = new Map(people.map(person => [person.id, person.name || person.email || `Utilisateur ${person.id}`]));
+  const statusCounts: Record<CollectionFollowUpStatus, number> = { a_traiter: 0, contacte: 0, a_rappeler: 0 };
+  receivables.invoices.forEach(invoice => { statusCounts[invoice.collectionStatus ?? "a_traiter"] += 1; });
+  const activityEvents = activities.map(activity => ({ id: `activity-${activity.id}`, type: activity.type, title: activity.title, description: activity.description, documentId: activity.documentId, documentNumber: activity.documentNumber, clientName: activity.clientName, occurredAt: activity.createdAt }));
+  const paymentEvents = paymentRows.map(payment => ({ id: `payment-${payment.id}`, type: "paiement_enregistre", title: `Paiement de ${payment.amount.toLocaleString("fr-GN")} GNF enregistré`, description: `Facture ${payment.documentNumber}`, documentId: payment.documentId, documentNumber: payment.documentNumber, clientName: payment.clientName, occurredAt: payment.paidAt }));
+  return {
+    month,
+    generatedAt: new Date(),
+    summary: { ...receivables.summary, statusCounts, assignedCount: receivables.invoices.filter(invoice => Boolean(invoice.collectionOwnerId)).length, activityCount: activityEvents.length + paymentEvents.length, paymentCount: paymentEvents.length, monthlyCollectedAmount: paymentRows.reduce((sum, payment) => sum + payment.amount, 0) },
+    invoices: receivables.invoices.map(invoice => ({ ...invoice, collectionStatus: invoice.collectionStatus ?? "a_traiter", collectionOwnerName: invoice.collectionOwnerId ? ownerById.get(invoice.collectionOwnerId) ?? "Responsable indisponible" : null })),
+    activities: [...activityEvents, ...paymentEvents].sort((left, right) => right.occurredAt.getTime() - left.occurredAt.getTime()),
+  };
 }
 
 export async function listPaymentPromises(documentIds?: number[]) {

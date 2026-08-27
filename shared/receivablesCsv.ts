@@ -8,6 +8,8 @@ export type ReceivablesCsvRow = {
   balanceDue: number;
   isOverdue: boolean;
   daysOverdue?: number;
+  collectionStatus?: "a_traiter" | "contacte" | "a_rappeler";
+  collectionOwnerName?: string | null;
   paymentPromise?: { promisedDate: Date | string; note: string | null } | null;
   isPaymentPromiseOverdue?: boolean;
 };
@@ -30,9 +32,11 @@ function priorityOf(row: ReceivablesCsvRow) {
 }
 
 export function createReceivablesCsv(rows: ReceivablesCsvRow[]) {
-  const header = ["Priorité", "Facture", "Client", "Chantier", "Échéance", "Retard (jours)", "Promesse de paiement", "Note de promesse", "Total (GNF)", "Encaissé (GNF)", "Solde à encaisser (GNF)"];
+  const header = ["Priorité", "Statut de suivi", "Responsable", "Facture", "Client", "Chantier", "Échéance", "Retard (jours)", "Promesse de paiement", "Note de promesse", "Total (GNF)", "Encaissé (GNF)", "Solde à encaisser (GNF)"];
   const lines = rows.map(row => [
     priorityOf(row),
+    row.collectionStatus === "contacte" ? "Contacté" : row.collectionStatus === "a_rappeler" ? "À rappeler" : "À traiter",
+    row.collectionOwnerName,
     row.number,
     row.clientName,
     row.projectName,

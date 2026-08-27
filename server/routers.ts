@@ -286,6 +286,21 @@ export const appRouter = router({
       }),
     }),
     receivables: adminProcedure.query(() => db.getReceivablesDashboard()),
+    collection: router({
+      assignees: adminProcedure.query(() => db.listCollectionAssignees()),
+      updateFollowUp: adminProcedure
+        .input(z.object({ documentId: z.number().int().positive(), collectionStatus: z.enum(["a_traiter", "contacte", "a_rappeler"]).optional(), collectionOwnerId: z.number().int().positive().nullable().optional() }))
+        .mutation(async ({ ctx, input }) => {
+          try { return await db.updateCollectionFollowUp({ ...input, updatedById: ctx.user.id }); }
+          catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le suivi de recouvrement ne peut pas être mis à jour." }); }
+        }),
+      monthlyReport: adminProcedure
+        .input(z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Le mois doit respecter le format AAAA-MM.") }))
+        .query(async ({ input }) => {
+          try { return await db.getCollectionMonthlyReport(input.month); }
+          catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le rapport mensuel est indisponible." }); }
+        }),
+    }),
     clientPortal: router({
       overview: protectedProcedure.query(({ ctx }) => db.getClientPortalOverview(ctx.user.email)),
       invoice: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => db.getClientPortalInvoice(ctx.user.email, input.id)),
