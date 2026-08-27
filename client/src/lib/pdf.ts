@@ -1,7 +1,8 @@
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
-
 export async function downloadPdfFromElement(elementId: string, filename: string) {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
   const element = document.getElementById(elementId);
   if (!element) throw new Error("Le document à exporter est introuvable.");
 

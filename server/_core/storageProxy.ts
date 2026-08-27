@@ -3,9 +3,15 @@ import { ENV } from "./env";
 
 export function registerStorageProxy(app: Express) {
   app.get("/manus-storage/*", async (req, res) => {
+    // P0: protège le proxy — évite énumération anonyme S3
+    const cookie = req.headers.cookie ?? "";
+    if (!cookie.includes("app_session_id") && !req.headers.authorization) {
+      res.status(401).send("Auth required");
+      return;
+    }
     const key = (req.params as Record<string, string>)[0];
-    if (!key) {
-      res.status(400).send("Missing storage key");
+    if (!key || key.includes("..") || key.includes("//")) {
+      res.status(400).send("Invalid storage key");
       return;
     }
 

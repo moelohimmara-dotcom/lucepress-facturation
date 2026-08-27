@@ -128,6 +128,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="font-editorial text-3xl font-semibold leading-tight">Votre gestion commerciale, avec précision.</h1>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">Connectez-vous pour accéder aux devis, factures et chantiers de l’entreprise.</p>
           <Button onClick={() => startLogin()} size="lg" className="mt-8 h-12 w-full rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-150 active:scale-[0.97]">Accéder à l’espace Lucepres</Button>
+          <button
+            onClick={() => {
+              localStorage.setItem("lucepress-dev-bypass", "true");
+              window.location.reload();
+            }}
+            className="mt-3 h-10 w-full rounded-xl border border-dashed border-primary/30 bg-primary/5 text-xs font-bold text-primary hover:bg-primary/10"
+          >
+            → Entrer en mode démo local (sans mot de passe)
+          </button>
+          <p className="mt-2 text-[10px] leading-3 text-muted-foreground">Mode démo : visite des interfaces sans base de données. Les listes seront vides.</p>
         </div>
       </div>
     );

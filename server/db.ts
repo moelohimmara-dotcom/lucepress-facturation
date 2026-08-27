@@ -1098,9 +1098,9 @@ export async function getAgentCopilotContext() {
   };
 }
 
-export async function listDocuments(kind?: DocumentKind) {
+export async function listDocuments(kind?: DocumentKind, opts?: { limit?: number; search?: string }) {
   const db = await requireDb();
-  const rows = await db
+  let query = db
     .select({
       id: documents.id,
       kind: documents.kind,
@@ -1128,7 +1128,11 @@ export async function listDocuments(kind?: DocumentKind) {
     .from(documents)
     .innerJoin(clients, eq(documents.clientId, clients.id))
     .leftJoin(projects, eq(documents.projectId, projects.id))
-    .orderBy(desc(documents.updatedAt));
+    .$dynamic();
+  if (kind) query = query.where(eq(documents.kind, kind)) as typeof query;
+  query = query.orderBy(desc(documents.updatedAt)) as typeof query;
+  if (opts?.limit) query = query.limit(opts.limit) as typeof query;
+  const rows = await query;
   const paymentRows = await db.select({ documentId: payments.documentId, paidAmount: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(payments).groupBy(payments.documentId);
   const paidByDocument = new Map(paymentRows.map(row => [row.documentId, Number(row.paidAmount)]));
   const enriched = rows.map(row => {

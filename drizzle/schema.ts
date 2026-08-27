@@ -196,6 +196,9 @@ export const documents = mysqlTable(
     index("documents_dueDate_idx").on(table.dueDate),
     index("documents_related_stage_idx").on(table.relatedDocumentId, table.invoiceStage),
     index("documents_collection_owner_status_idx").on(table.collectionOwnerId, table.collectionStatus),
+    index("documents_updatedAt_idx").on(table.updatedAt),
+    index("documents_kind_updatedAt_idx").on(table.kind, table.updatedAt),
+    index("documents_projectId_idx").on(table.projectId),
   ],
 );
 

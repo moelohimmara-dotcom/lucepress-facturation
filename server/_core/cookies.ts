@@ -39,10 +39,12 @@ export function getSessionCookieOptions(
   //       ? hostname
   //       : undefined;
 
+  // P0 fix: Lax par défaut (CSRF), Secure auto, évite SameSite=None en dev
+  const secure = isSecureRequest(req) || process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    sameSite: secure ? "lax" : "lax",
+    secure,
   };
 }

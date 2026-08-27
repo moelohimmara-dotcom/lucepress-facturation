@@ -35,9 +35,16 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // P0 security headers + rate limit
+  const helmet = (await import("helmet")).default;
+  const cors = (await import("cors")).default;
+  const rateLimit = (await import("express-rate-limit")).default;
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+  app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(",") ?? true, credentials: true }));
+  app.use("/api/", rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true }));
+  // Configure body parser with sane limits (P0: 50mb -> DoS)
+  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ limit: "1mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerClientAttachmentRoutes(app);
