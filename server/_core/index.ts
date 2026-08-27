@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { registerClientAttachmentRoutes } from "../clientAttachments";
 import { registerProjectCostAttachmentRoutes } from "../projectCostAttachments";
 import { registerIntegrationExternalRoutes } from "../integrations/externalRoutes";
+import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRoutes";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -42,6 +43,7 @@ async function startServer() {
   registerClientAttachmentRoutes(app);
   registerProjectCostAttachmentRoutes(app);
   registerIntegrationExternalRoutes(app);
+  registerAgentCampaignScheduleRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

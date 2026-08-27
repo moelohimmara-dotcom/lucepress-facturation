@@ -10,6 +10,9 @@ import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { COOKIE_NAME } from "@shared/const";
+import { parse as parseCookieHeader } from "cookie";
+import { createHeartbeatJob } from "./_core/heartbeat";
+import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
 
 const optionalText = z.string().trim().max(2000).optional();
 const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -144,6 +147,10 @@ function requireAgentActivation(access: { canActivate: boolean }) {
 
 function agentMutationError(error: unknown, fallback: string) {
   return new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : fallback });
+}
+
+function readSessionToken(cookieHeader: string | undefined) {
+  return parseCookieHeader(cookieHeader ?? "")[COOKIE_NAME] ?? "";
 }
 
 const clientHistorySummarySchema = {
@@ -322,6 +329,25 @@ export const appRouter = router({
         .mutation(async ({ ctx, input }) => {
           try { return await db.suspendAgentCampaign(input.campaignId, ctx.user.id); }
           catch (error) { throw agentMutationError(error, "La campagne ne peut pas être suspendue."); }
+        }),
+      scheduleCampaign: agentOperatorProcedure
+        .input(z.object({ campaignId: z.number().int().positive(), frequency: z.enum(["daily", "weekly"]), time: z.string().regex(/^\d{2}:\d{2}$/), weekday: z.number().int().min(0).max(6).optional() }))
+        .mutation(async ({ ctx, input }) => {
+          requireAgentActivation(ctx.agentAccess);
+          try {
+            if (process.env.NODE_ENV !== "production") throw new Error("La programmation durable sera disponible après la publication de cette version.");
+            await db.assertAgentCampaignCanBeScheduled(input.campaignId);
+            const schedule = buildCampaignSchedule(input);
+            const job = await createHeartbeatJob({ name: `agent-test-email-${input.campaignId}`, cron: schedule.cron, path: "/api/scheduled/agent-test-email", payload: { campaignId: input.campaignId }, description: `Simulation e-mail Lucepress : campagne ${input.campaignId}` }, readSessionToken(ctx.req.headers.cookie));
+            return await db.setAgentCampaignSchedule({ campaignId: input.campaignId, scheduleCronTaskUid: job.taskUid, scheduleCronExpression: schedule.cron, nextExecutionAt: job.nextExecutionAt ? new Date(job.nextExecutionAt) : null, actorId: ctx.user.id });
+          } catch (error) { throw agentMutationError(error, "La programmation de la campagne ne peut pas être enregistrée."); }
+        }),
+      runTestEmailNow: agentOperatorProcedure
+        .input(z.object({ campaignId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          requireAgentActivation(ctx.agentAccess);
+          try { return await db.deliverAgentCampaignToTestInboxNow(input.campaignId, ctx.user.id); }
+          catch (error) { throw agentMutationError(error, "Le test e-mail interne ne peut pas être exécuté."); }
         }),
       copilotBriefing: agentOperatorProcedure
         .mutation(async () => {

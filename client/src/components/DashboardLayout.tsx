@@ -26,6 +26,7 @@ import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreferen
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import {
   Bot,
+  CalendarClock,
   Cable,
   CircleHelp,
   CircleDollarSign,
@@ -35,6 +36,7 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  ScrollText,
   Maximize2,
   Minimize2,
   PanelLeft,
@@ -62,6 +64,9 @@ const menuItems = [
   { icon: Wrench, label: "Prestations", path: "/prestations" },
   { icon: Cable, label: "Intégrations", path: "/integrations" },
   { icon: Bot, label: "Agent IA", path: "/agent-ia" },
+  { icon: CalendarClock, label: "Planification IA", path: "/agent-ia/planification" },
+  { icon: ScrollText, label: "Audit IA", path: "/agent-ia/audit" },
+  { icon: Mail, label: "E-mails de test", path: "/agent-ia/e-mails-test" },
   { icon: Settings, label: "Paramètres", path: "/parametres" },
   { icon: Mail, label: "Relances", path: "/relances" },
 ];

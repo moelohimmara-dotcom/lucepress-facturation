@@ -6,6 +6,7 @@ import {
   agentDelegations,
   agentMessageJobs,
   agentOperatorGrants,
+  agentTestEmailDeliveries,
   clients,
   clientActivities,
   clientAttachments,
@@ -804,18 +805,19 @@ export async function upsertAgentOperatorGrant(input: {
 
 export async function listAgentDelegationCenter() {
   const db = await requireDb();
-  const [delegations, campaigns, jobs, audit, operatorGrants] = await Promise.all([
+  const [delegations, campaigns, jobs, audit, operatorGrants, testEmailDeliveries] = await Promise.all([
     db.select({
       id: agentDelegations.id, name: agentDelegations.name, purpose: agentDelegations.purpose, channel: agentDelegations.channel, tone: agentDelegations.tone, status: agentDelegations.status, startsAt: agentDelegations.startsAt, expiresAt: agentDelegations.expiresAt, dailyLimit: agentDelegations.dailyLimit, contactCooldownDays: agentDelegations.contactCooldownDays, requiresSecondApproval: agentDelegations.requiresSecondApproval, policyVersion: agentDelegations.policyVersion, ownerId: agentDelegations.ownerId, ownerName: users.name, approvedById: agentDelegations.approvedById, approvedAt: agentDelegations.approvedAt, secondApprovedById: agentDelegations.secondApprovedById, secondApprovedAt: agentDelegations.secondApprovedAt, activatedById: agentDelegations.activatedById, suspendedById: agentDelegations.suspendedById, createdAt: agentDelegations.createdAt, updatedAt: agentDelegations.updatedAt,
     }).from(agentDelegations).innerJoin(users, eq(agentDelegations.ownerId, users.id)).orderBy(desc(agentDelegations.updatedAt)),
     db.select({
-      id: agentCampaigns.id, delegationId: agentCampaigns.delegationId, delegationName: agentDelegations.name, purpose: agentDelegations.purpose, channel: agentDelegations.channel, name: agentCampaigns.name, status: agentCampaigns.status, scheduledFor: agentCampaigns.scheduledFor, eligibleCount: agentCampaigns.eligibleCount, preparedById: agentCampaigns.preparedById, approvedById: agentCampaigns.approvedById, approvedAt: agentCampaigns.approvedAt, secondApprovedById: agentCampaigns.secondApprovedById, secondApprovedAt: agentCampaigns.secondApprovedAt, activatedById: agentCampaigns.activatedById, suspendedById: agentCampaigns.suspendedById, createdAt: agentCampaigns.createdAt, updatedAt: agentCampaigns.updatedAt,
+      id: agentCampaigns.id, delegationId: agentCampaigns.delegationId, delegationName: agentDelegations.name, purpose: agentDelegations.purpose, channel: agentDelegations.channel, name: agentCampaigns.name, status: agentCampaigns.status, scheduledFor: agentCampaigns.scheduledFor, scheduleCronTaskUid: agentCampaigns.scheduleCronTaskUid, scheduleCronExpression: agentCampaigns.scheduleCronExpression, scheduleTimeZone: agentCampaigns.scheduleTimeZone, nextExecutionAt: agentCampaigns.nextExecutionAt, lastExecutedAt: agentCampaigns.lastExecutedAt, lastExecutionStatus: agentCampaigns.lastExecutionStatus, eligibleCount: agentCampaigns.eligibleCount, preparedById: agentCampaigns.preparedById, approvedById: agentCampaigns.approvedById, approvedAt: agentCampaigns.approvedAt, secondApprovedById: agentCampaigns.secondApprovedById, secondApprovedAt: agentCampaigns.secondApprovedAt, activatedById: agentCampaigns.activatedById, suspendedById: agentCampaigns.suspendedById, createdAt: agentCampaigns.createdAt, updatedAt: agentCampaigns.updatedAt,
     }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).orderBy(desc(agentCampaigns.updatedAt)).limit(40),
     db.select({
       id: agentMessageJobs.id, campaignId: agentMessageJobs.campaignId, clientId: agentMessageJobs.clientId, clientName: clients.companyName, documentId: agentMessageJobs.documentId, documentNumber: documents.number, subject: agentMessageJobs.subject, body: agentMessageJobs.body, status: agentMessageJobs.status, blockedReason: agentMessageJobs.blockedReason, scheduledFor: agentMessageJobs.scheduledFor, createdAt: agentMessageJobs.createdAt,
     }).from(agentMessageJobs).innerJoin(clients, eq(agentMessageJobs.clientId, clients.id)).innerJoin(documents, eq(agentMessageJobs.documentId, documents.id)).orderBy(desc(agentMessageJobs.createdAt)).limit(80),
-    db.select({ id: agentAuditLogs.id, delegationId: agentAuditLogs.delegationId, campaignId: agentAuditLogs.campaignId, action: agentAuditLogs.action, target: agentAuditLogs.target, decision: agentAuditLogs.decision, metadata: agentAuditLogs.metadata, createdAt: agentAuditLogs.createdAt, actorName: users.name }).from(agentAuditLogs).leftJoin(users, eq(agentAuditLogs.actorId, users.id)).orderBy(desc(agentAuditLogs.createdAt)).limit(40),
+    db.select({ id: agentAuditLogs.id, delegationId: agentAuditLogs.delegationId, campaignId: agentAuditLogs.campaignId, action: agentAuditLogs.action, target: agentAuditLogs.target, decision: agentAuditLogs.decision, metadata: agentAuditLogs.metadata, createdAt: agentAuditLogs.createdAt, actorName: users.name }).from(agentAuditLogs).leftJoin(users, eq(agentAuditLogs.actorId, users.id)).orderBy(desc(agentAuditLogs.createdAt)).limit(100),
     db.select().from(agentOperatorGrants).orderBy(desc(agentOperatorGrants.updatedAt)),
+    db.select({ id: agentTestEmailDeliveries.id, campaignId: agentTestEmailDeliveries.campaignId, messageJobId: agentTestEmailDeliveries.messageJobId, campaignName: agentCampaigns.name, clientName: clients.companyName, documentNumber: documents.number, testRecipient: agentTestEmailDeliveries.testRecipient, subject: agentTestEmailDeliveries.subject, body: agentTestEmailDeliveries.body, status: agentTestEmailDeliveries.status, deliveredAt: agentTestEmailDeliveries.deliveredAt, createdAt: agentTestEmailDeliveries.createdAt }).from(agentTestEmailDeliveries).innerJoin(agentCampaigns, eq(agentTestEmailDeliveries.campaignId, agentCampaigns.id)).innerJoin(agentMessageJobs, eq(agentTestEmailDeliveries.messageJobId, agentMessageJobs.id)).innerJoin(clients, eq(agentMessageJobs.clientId, clients.id)).innerJoin(documents, eq(agentMessageJobs.documentId, documents.id)).orderBy(desc(agentTestEmailDeliveries.createdAt)).limit(100),
   ]);
   return {
     delegations,
@@ -823,6 +825,7 @@ export async function listAgentDelegationCenter() {
     jobs,
     audit,
     operatorGrants,
+    testEmailDeliveries,
     channelReadiness: [
       { channel: "email" as const, label: "E-mail", status: "preparatoire" as const, detail: "Aucun connecteur e-mail applicatif n’est activé ; les campagnes restent en simulation." },
       { channel: "whatsapp" as const, label: "WhatsApp Business", status: "preparatoire" as const, detail: "La connexion WhatsApp Business reste désactivée tant que les secrets et vérifications ne sont pas configurés." },
@@ -831,6 +834,8 @@ export async function listAgentDelegationCenter() {
       activeDelegations: delegations.filter(delegation => delegation.status === "active_simulation").length,
       pendingApprovals: campaigns.filter(campaign => campaign.status === "a_approuver").length,
       simulationReady: jobs.filter(job => job.status === "simulation_prete").length,
+      scheduledCampaigns: campaigns.filter(campaign => Boolean(campaign.scheduleCronTaskUid)).length,
+      testDelivered: testEmailDeliveries.filter(delivery => delivery.status === "remis_test").length,
       blocked: jobs.filter(job => job.status === "bloquee").length,
     },
   };
@@ -1005,6 +1010,76 @@ export async function suspendAgentCampaign(campaignId: number, actorId: number) 
     await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_suspended", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
   });
   return { success: true };
+}
+
+export async function setAgentCampaignSchedule(input: { campaignId: number; scheduleCronTaskUid: string; scheduleCronExpression: string; nextExecutionAt: Date | null; actorId: number }) {
+  const db = await requireDb();
+  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(eq(agentCampaigns.id, input.campaignId)).limit(1);
+  const record = rows[0];
+  if (!record) throw new Error("Campagne introuvable.");
+  if (record.campaign.status !== "active_simulation") throw new Error("La campagne doit être activée en simulation avant de pouvoir être programmée.");
+  if (record.delegation.channel !== "email") throw new Error("La programmation de test est disponible pour les campagnes e-mail uniquement.");
+  await db.transaction(async tx => {
+    await tx.update(agentCampaigns).set({ scheduleCronTaskUid: input.scheduleCronTaskUid, scheduleCronExpression: input.scheduleCronExpression, scheduleTimeZone: "Africa/Conakry", nextExecutionAt: input.nextExecutionAt, lastExecutionStatus: "pending" }).where(eq(agentCampaigns.id, input.campaignId));
+    await tx.insert(agentAuditLogs).values({ delegationId: record.campaign.delegationId, campaignId: input.campaignId, actorId: input.actorId, action: "campaign_schedule_created", target: record.campaign.name, decision: "autorise", metadata: JSON.stringify({ mode: "test_email", cron: input.scheduleCronExpression, timeZone: "Africa/Conakry", externalDispatch: false }) });
+  });
+  return { success: true };
+}
+
+export async function assertAgentCampaignCanBeScheduled(campaignId: number) {
+  const record = await getAgentCampaignById(campaignId);
+  if (!record) throw new Error("Campagne introuvable.");
+  if (record.campaign.status !== "active_simulation") throw new Error("La campagne doit être activée en simulation avant de pouvoir être programmée.");
+  if (record.delegation.channel !== "email") throw new Error("La programmation de test est disponible pour les campagnes e-mail uniquement.");
+  if (record.campaign.scheduleCronTaskUid) throw new Error("Cette campagne dispose déjà d’une programmation active.");
+  return { name: record.campaign.name };
+}
+
+export async function getAgentCampaignByScheduleTaskUid(taskUid: string) {
+  const db = await requireDb();
+  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(eq(agentCampaigns.scheduleCronTaskUid, taskUid)).limit(1);
+  return rows[0] ?? null;
+}
+
+async function deliverAgentCampaignToTestInbox(input: { campaignId: number; runKeyPrefix: string; actorId?: number | null }) {
+  const db = await requireDb();
+  const record = await getAgentCampaignById(input.campaignId);
+  if (!record) throw new Error("Campagne introuvable.");
+  if (record.campaign.status !== "active_simulation") return { status: "skipped" as const, delivered: 0, reason: "Campagne non active en simulation." };
+  if (record.delegation.status !== "active_simulation" || record.delegation.expiresAt <= new Date()) return { status: "skipped" as const, delivered: 0, reason: "Délégation inactive ou expirée." };
+  if (record.delegation.channel !== "email") return { status: "skipped" as const, delivered: 0, reason: "Le connecteur de test ne prend en charge que l’e-mail." };
+  const jobs = await db.select().from(agentMessageJobs).where(and(eq(agentMessageJobs.campaignId, input.campaignId), eq(agentMessageJobs.status, "simulation_prete")));
+  const deliveredAt = new Date();
+  if (!jobs.length) {
+    await db.update(agentCampaigns).set({ lastExecutedAt: deliveredAt, lastExecutionStatus: "skipped" }).where(eq(agentCampaigns.id, input.campaignId));
+    return { status: "skipped" as const, delivered: 0, reason: "Aucun brouillon de test n’est disponible." };
+  }
+  await db.transaction(async tx => {
+    for (const job of jobs) {
+      await tx.insert(agentTestEmailDeliveries).values({ campaignId: input.campaignId, messageJobId: job.id, subject: job.subject, body: job.body, status: "remis_test", runKey: `${input.runKeyPrefix}:${job.id}`, deliveredAt }).onDuplicateKeyUpdate({ set: { status: "remis_test", deliveredAt } });
+      await tx.update(agentMessageJobs).set({ status: "remis_test" }).where(eq(agentMessageJobs.id, job.id));
+    }
+    await tx.update(agentCampaigns).set({ lastExecutedAt: deliveredAt, lastExecutionStatus: "success" }).where(eq(agentCampaigns.id, input.campaignId));
+    await tx.insert(agentAuditLogs).values({ delegationId: record.campaign.delegationId, campaignId: input.campaignId, actorId: input.actorId ?? null, action: "test_email_delivered", target: record.campaign.name, decision: "information", metadata: JSON.stringify({ delivered: jobs.length, mode: "test_inbox", externalDispatch: false }) });
+  });
+  return { status: "success" as const, delivered: jobs.length };
+}
+
+async function getAgentCampaignById(campaignId: number) {
+  const db = await requireDb();
+  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function deliverAgentCampaignToTestInboxNow(campaignId: number, actorId: number) {
+  return deliverAgentCampaignToTestInbox({ campaignId, actorId, runKeyPrefix: `manual-test:${campaignId}` });
+}
+
+export async function deliverScheduledAgentCampaignToTestInbox(taskUid: string) {
+  const record = await getAgentCampaignByScheduleTaskUid(taskUid);
+  if (!record) return { status: "orphan" as const, delivered: 0 };
+  const dayKey = new Date().toISOString().slice(0, 10);
+  return deliverAgentCampaignToTestInbox({ campaignId: record.campaign.id, runKeyPrefix: `scheduled-test:${taskUid}:${dayKey}` });
 }
 
 export async function getAgentCopilotContext() {

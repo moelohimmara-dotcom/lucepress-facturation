@@ -10,6 +10,9 @@ import DocumentPreviewPage from "./pages/DocumentPreviewPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import CatalogPage from "./pages/CatalogPage";
 import AgentDelegationsPage from "./pages/AgentDelegationsPage";
+import AgentCampaignSchedulerPage from "./pages/AgentCampaignSchedulerPage";
+import AgentAuditPage from "./pages/AgentAuditPage";
+import AgentTestEmailPage from "./pages/AgentTestEmailPage";
 import Home from "./pages/Home";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import ClientPortalPage from "./pages/ClientPortalPage";
@@ -33,6 +36,9 @@ function Router() {
       <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
       <Route path="/integrations" component={IntegrationsPage} />
       <Route path="/agent-ia" component={AgentDelegationsPage} />
+      <Route path="/agent-ia/planification" component={AgentCampaignSchedulerPage} />
+      <Route path="/agent-ia/audit" component={AgentAuditPage} />
+      <Route path="/agent-ia/e-mails-test" component={AgentTestEmailPage} />
       <Route path="/couts-chantier" component={ProjectCostsPage} />
       <Route path="/creances" component={ReceivablesPage} />
       <Route path="/portail-client" component={ClientPortalPage} />

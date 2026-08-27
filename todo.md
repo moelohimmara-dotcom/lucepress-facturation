@@ -216,3 +216,9 @@
 - [x] Ajouter le Copilote IA de marge et recouvrement en lecture seule avec sorties structurées et relecture obligatoire.
 - [x] Conserver e-mail et WhatsApp Business en état préparatoire, sans transmission externe ni secret exposé.
 - [x] Tester les règles de délégation, autorisations, simulation, audit, Copilote IA et parcours responsive.
+- [x] Étendre les campagnes avec une programmation visuelle durable, des échéances et des statuts détaillés.
+- [x] Implémenter le traitement planifié idempotent des campagnes en simulation via un callback sécurisé.
+- [x] Ajouter un connecteur e-mail de test isolé, avec boîte d’envoi interne et sans transmission externe.
+- [x] Construire un calendrier visuel des campagnes et un tableau d’audit filtrable et exploitable.
+- [x] Ajouter une prévisualisation détaillée des messages e-mail de test avant toute activation réelle.
+- [x] Tester les planifications, le traitement sécurisé, le journal d’audit et le connecteur de test.

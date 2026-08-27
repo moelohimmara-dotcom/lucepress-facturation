@@ -515,6 +515,12 @@ export const agentCampaigns = mysqlTable(
     name: varchar("name", { length: 180 }).notNull(),
     status: mysqlEnum("status", ["brouillon", "simulee", "a_approuver", "approuvee", "active_simulation", "suspendue", "archivee"]).default("brouillon").notNull(),
     scheduledFor: timestamp("scheduledFor"),
+    scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
+    scheduleCronExpression: varchar("scheduleCronExpression", { length: 80 }),
+    scheduleTimeZone: varchar("scheduleTimeZone", { length: 80 }).default("Africa/Conakry").notNull(),
+    nextExecutionAt: timestamp("nextExecutionAt"),
+    lastExecutedAt: timestamp("lastExecutedAt"),
+    lastExecutionStatus: mysqlEnum("lastExecutionStatus", ["pending", "success", "skipped", "failed"]).default("pending").notNull(),
     eligibleCount: int("eligibleCount").default(0).notNull(),
     preparedById: int("preparedById").notNull().references(() => users.id, { onDelete: "restrict" }),
     approvedById: int("approvedById").references(() => users.id, { onDelete: "set null" }),
@@ -529,6 +535,7 @@ export const agentCampaigns = mysqlTable(
   table => [
     index("agent_campaigns_delegation_status_idx").on(table.delegationId, table.status),
     index("agent_campaigns_scheduled_status_idx").on(table.scheduledFor, table.status),
+    index("agent_campaigns_schedule_uid_idx").on(table.scheduleCronTaskUid),
   ],
 );
 
@@ -544,7 +551,7 @@ export const agentMessageJobs = mysqlTable(
     subject: varchar("subject", { length: 255 }).notNull(),
     body: text("body").notNull(),
     contentHash: varchar("contentHash", { length: 128 }).notNull(),
-    status: mysqlEnum("status", ["simulation_prete", "bloquee", "annulee"]).default("simulation_prete").notNull(),
+    status: mysqlEnum("status", ["simulation_prete", "remis_test", "bloquee", "annulee"]).default("simulation_prete").notNull(),
     blockedReason: varchar("blockedReason", { length: 500 }),
     scheduledFor: timestamp("scheduledFor"),
     policySnapshot: text("policySnapshot").notNull(),
@@ -555,6 +562,28 @@ export const agentMessageJobs = mysqlTable(
     unique("agent_message_jobs_idempotency_unique").on(table.idempotencyKey),
     index("agent_message_jobs_campaign_status_idx").on(table.campaignId, table.status),
     index("agent_message_jobs_document_idx").on(table.documentId),
+  ],
+);
+
+/** Boîte d’envoi de test : une copie interne, jamais transmise à un fournisseur e-mail. */
+export const agentTestEmailDeliveries = mysqlTable(
+  "agent_test_email_deliveries",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    campaignId: int("campaignId").notNull().references(() => agentCampaigns.id, { onDelete: "cascade" }),
+    messageJobId: int("messageJobId").notNull().references(() => agentMessageJobs.id, { onDelete: "cascade" }),
+    testRecipient: varchar("testRecipient", { length: 255 }).default("Boîte de test Lucepress").notNull(),
+    subject: varchar("subject", { length: 255 }).notNull(),
+    body: text("body").notNull(),
+    status: mysqlEnum("status", ["previsualise", "remis_test", "annule"]).default("previsualise").notNull(),
+    runKey: varchar("runKey", { length: 255 }).notNull(),
+    deliveredAt: timestamp("deliveredAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    unique("agent_test_email_deliveries_run_key_unique").on(table.runKey),
+    index("agent_test_email_deliveries_campaign_date_idx").on(table.campaignId, table.createdAt),
+    index("agent_test_email_deliveries_job_idx").on(table.messageJobId),
   ],
 );
 
