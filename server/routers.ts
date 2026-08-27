@@ -286,6 +286,9 @@ export const appRouter = router({
       }),
     }),
     receivables: adminProcedure.query(() => db.getReceivablesDashboard()),
+    workspaceSearch: adminProcedure
+      .input(z.object({ query: z.string().trim().max(80) }))
+      .query(({ input }) => db.searchWorkspace(input.query)),
     collection: router({
       assignees: adminProcedure.query(() => db.listCollectionAssignees()),
       updateFollowUp: adminProcedure

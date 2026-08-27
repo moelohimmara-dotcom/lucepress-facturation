@@ -48,6 +48,7 @@ import { getIntegrationSecretConfiguration, requireIntegrationSecret } from "./i
 import { calculateProjectMargin } from "../shared/projectFinancials";
 import { summarizeReceivables } from "../shared/receivables";
 import { collectionFollowUpLabels, collectionMonthBounds, isCollectionReportMonth, normalizeCollectionReminderDate, validateCollectionReminder, type CollectionFollowUpStatus } from "../shared/collectionFollowUp";
+import { buildWorkspaceSearchResults } from "../shared/workspaceSearch";
 import { createAgentMessageDraft, getDelegationPolicyErrors, isCampaignEligibleForSimulation, requiresSecondApproval, type AgentChannel, type AgentPurpose, type AgentTone } from "../shared/agentDelegationPolicy";
 import { ENV } from "./_core/env";
 import { createHash, randomBytes } from "node:crypto";
@@ -1143,6 +1144,16 @@ export async function getReceivablesDashboard() {
   const [invoices, promises] = await Promise.all([listDocuments("facture"), listPaymentPromises()]);
   const promisedByDocument = new Map(promises.map(promise => [promise.documentId, promise]));
   return summarizeReceivables(invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })));
+}
+
+export async function searchWorkspace(query: string) {
+  const [clientRows, documentRows, receivables] = await Promise.all([listClients(), listDocuments(), getReceivablesDashboard()]);
+  return buildWorkspaceSearchResults({
+    query,
+    clients: clientRows,
+    documents: documentRows,
+    receivables: receivables.invoices.filter(invoice => invoice.balanceDue > 0),
+  });
 }
 
 export async function updateCollectionFollowUp(input: { documentId: number; collectionStatus?: CollectionFollowUpStatus; collectionReminderDate?: string | null; collectionOwnerId?: number | null; updatedById: number }) {

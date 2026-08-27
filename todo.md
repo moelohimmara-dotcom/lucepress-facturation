@@ -265,3 +265,7 @@
 - [x] Ajouter des points d’entrée explicites vers les premières actions métier : client, devis et suivi du recouvrement.
 - [x] Ajouter une aide brève et accessible à chaque étape pour réduire les hésitations sans surcharger l’interface.
 - [x] Tester l’onboarding, les préférences mémorisées, l’accessibilité clavier et les rendus responsive.
+- [x] Créer une galerie de modèles BTP pré-remplis pour amorcer rapidement un nouveau devis.
+- [x] Ajouter une visite guidée contextuelle et relançable dans l’éditeur de devis.
+- [x] Ajouter une recherche globale accessible pour retrouver clients, devis et créances.
+- [x] Tester la galerie, la visite de devis, la recherche et leurs parcours responsive.

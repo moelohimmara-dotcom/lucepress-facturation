@@ -8,8 +8,9 @@ describe("modèles de devis multi-services", () => {
     { id: 3, code: "HYD-EQP-001", name: "Équipement", unit: "unité", defaultUnitPrice: 700000, defaultTaxRate: 18 },
   ];
 
-  it("propose un modèle par pôle de services", () => {
-    expect(QUOTE_TEMPLATES.map(template => template.id)).toEqual(["hydraulique", "hygiene", "maintenance"]);
+  it("propose des modèles BTP et multi-services clairement regroupés", () => {
+    expect(QUOTE_TEMPLATES.filter(template => template.sector === "btp").map(template => template.id)).toEqual(["btp_gros_oeuvre", "btp_renovation", "btp_amenagement"]);
+    expect(QUOTE_TEMPLATES.filter(template => template.sector === "multiservices").map(template => template.id)).toEqual(["hydraulique", "hygiene", "maintenance"]);
   });
 
   it("reprend les tarifs configurés du catalogue tout en laissant le brouillon modifiable", () => {

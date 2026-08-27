@@ -36,14 +36,15 @@ vi.mock("@/lib/trpc", () => ({
   },
 }));
 
-afterEach(() => { cleanup(); state.created.mockReset(); state.navigate.mockReset(); state.savedDocument = null; });
+afterEach(() => { cleanup(); localStorage.clear(); state.created.mockReset(); state.navigate.mockReset(); state.savedDocument = null; });
 
 describe("éditeur de devis multi-services", () => {
   it("applique un modèle, modifie les lignes, enregistre l’échéancier et le restitue dans l’aperçu", async () => {
     const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
     const { unmount } = render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
     fireEvent.change(screen.getByLabelText("Client"), { target: { value: "8" } });
-    fireEvent.change(screen.getByDisplayValue("Choisir un modèle"), { target: { value: "hydraulique" } });
+    fireEvent.click(screen.getByRole("button", { name: "Multi-services" }));
+    fireEvent.click(screen.getByRole("button", { name: /Hydraulique/ }));
     fireEvent.click(screen.getByRole("button", { name: "Appliquer le modèle" }));
     fireEvent.change(screen.getAllByRole("spinbutton")[1], { target: { value: "2" } });
     fireEvent.click(screen.getByLabelText("Prévoir un échéancier"));
@@ -59,5 +60,17 @@ describe("éditeur de devis multi-services", () => {
     expect(screen.getByText("Échéancier de règlement proposé")).toBeTruthy();
     expect(screen.getByText("Acompte · 30%")).toBeTruthy();
     expect(screen.getByText("Solde · 70%")).toBeTruthy();
+  });
+
+  it("propose une galerie BTP et un guide de création relançable", async () => {
+    const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
+    render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
+    expect(screen.getByText("Guide express")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Gros œuvre/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Gros œuvre/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Appliquer le modèle" }));
+    expect(screen.getByDisplayValue("BTP-PRE-001")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Passer le guide" }));
+    expect(localStorage.getItem("lucepress-quote-editor-guide-seen")).toBe("true");
   });
 });

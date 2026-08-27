@@ -15,6 +15,7 @@ vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: 1, name:
 vi.mock("@/hooks/useMobile", () => ({ useIsMobile: () => false }));
 vi.mock("@/const", () => ({ startLogin: vi.fn() }));
 vi.mock("@/contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }) }));
+vi.mock("@/lib/trpc", () => ({ trpc: { billing: { workspaceSearch: { useQuery: () => ({ data: [{ id: 7, kind: "creance", title: "FAC-007", subtitle: "Créance · Kankan BTP", href: "/creances?facture=7" }], isFetching: false }) } } } }));
 vi.mock("wouter", () => ({ useLocation: () => ["/", navigate] }));
 vi.mock("@/components/ui/avatar", () => ({ Avatar: ({ children }: any) => createElement("div", null, children), AvatarFallback: ({ children }: any) => createElement("span", null, children) }));
 vi.mock("@/components/ui/button", () => ({ Button: ({ children, ...props }: any) => createElement("button", props, children) }));
@@ -31,6 +32,15 @@ vi.mock("@/components/ui/sidebar", () => ({
   SidebarProvider: ({ children }: any) => createElement("div", null, children),
   SidebarTrigger: () => createElement("button"),
   useSidebar: () => ({ state: "expanded", toggleSidebar: vi.fn() }),
+}));
+vi.mock("@/components/ui/command", () => ({
+  CommandDialog: ({ children, open }: any) => open ? createElement("div", { "data-testid": "workspace-search-dialog" }, children) : null,
+  CommandInput: ({ onValueChange, ...props }: any) => createElement("input", { ...props, onChange: (event: any) => onValueChange(event.target.value) }),
+  CommandList: ({ children }: any) => createElement("div", null, children),
+  CommandEmpty: ({ children }: any) => createElement("p", null, children),
+  CommandGroup: ({ children }: any) => createElement("div", null, children),
+  CommandItem: ({ children, onSelect }: any) => createElement("button", { onClick: onSelect }, children),
+  CommandShortcut: ({ children }: any) => createElement("span", null, children),
 }));
 
 import { DashboardLayoutContent } from "../client/src/components/DashboardLayout";
@@ -119,6 +129,15 @@ describe("sidebar Lucepress sur format contraint", () => {
     expect(navigate).toHaveBeenCalledWith("/clients");
     expect(navigate).toHaveBeenCalledWith("/chantiers");
     expect(navigate).toHaveBeenCalledWith("/devis/nouveau?assistant=1");
+  });
+
+  it("ouvre la recherche globale depuis l’en-tête ou le raccourci Ctrl+K", () => {
+    render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(screen.getByTestId("workspace-search-dialog")).toBeTruthy();
+    expect(screen.getByText("Saisissez au moins deux caractères pour commencer.")).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText("Client, numéro de devis, facture ou créance…"), { target: { value: "fac" } });
+    expect(screen.getByText("FAC-007")).toBeTruthy();
   });
 
   it("ignore les raccourcis lorsque l’utilisateur saisit du texte", () => {

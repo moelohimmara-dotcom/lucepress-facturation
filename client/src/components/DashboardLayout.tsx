@@ -23,6 +23,7 @@ import {
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { useTheme } from "@/contexts/ThemeContext";
+import { trpc } from "@/lib/trpc";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import {
@@ -41,6 +42,7 @@ import {
   LogOut,
   Mail,
   ScrollText,
+  Search,
   Maximize2,
   Minimize2,
   Moon,
@@ -58,6 +60,7 @@ import React, { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "./ui/command";
 
 const navigationGroups = [
   { label: "Gestion commerciale", items: [
@@ -148,6 +151,8 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const [densityPreference, setDensityPreference] = useState<SidebarDensityPreference>(() => getSidebarDensityPreference(localStorage.getItem(COMPACT_MODE_KEY)));
   const [showSidebarHelp, setShowSidebarHelp] = useState(false);
   const [guidanceStep, setGuidanceStep] = useState(0);
+  const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
+  const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState("");
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -157,6 +162,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const effectiveSidebarWidth = getEffectiveSidebarWidth(sidebarWidth, isCompact);
   const guidance = sidebarGuidanceSteps[guidanceStep];
   const isFinalGuidanceStep = guidanceStep === sidebarGuidanceSteps.length - 1;
+  const { data: workspaceResults = [], isFetching: isWorkspaceSearching } = trpc.billing.workspaceSearch.useQuery({ query: workspaceSearchQuery }, { enabled: workspaceSearchOpen && workspaceSearchQuery.trim().length >= 2 });
 
   useEffect(() => {
     const routeToRestore = getRestorableRoute(location, localStorage.getItem(LAST_ROUTE_KEY), menuItems.map(item => item.path));
@@ -188,6 +194,14 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   };
 
   const toggleDensity = () => setDensityPreference(isCompact ? "normal" : "compact");
+  const closeWorkspaceSearch = () => { setWorkspaceSearchOpen(false); setWorkspaceSearchQuery(""); };
+  const selectWorkspaceResult = (href: string) => { closeWorkspaceSearch(); setLocation(href); };
+  const resultGroups = [
+    { kind: "client", label: "Clients", icon: UsersRound },
+    { kind: "devis", label: "Devis", icon: FileText },
+    { kind: "facture", label: "Factures", icon: ReceiptText },
+    { kind: "creance", label: "Créances", icon: WalletCards },
+  ].map(group => ({ ...group, results: workspaceResults.filter(result => result.kind === group.kind) }));
 
   useEffect(() => {
     const updateViewport = () => setViewportWidth(window.innerWidth);
@@ -207,6 +221,18 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [setLocation]);
+
+  useEffect(() => {
+    const handleWorkspaceSearchShortcut = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (!((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k")) return;
+      event.preventDefault();
+      setWorkspaceSearchOpen(true);
+    };
+    window.addEventListener("keydown", handleWorkspaceSearchShortcut);
+    return () => window.removeEventListener("keydown", handleWorkspaceSearchShortcut);
+  }, []);
 
   useEffect(() => {
     const content = sidebarRef.current?.querySelector<HTMLElement>("[data-sidebar='content']");
@@ -283,7 +309,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
         <div className={`absolute right-0 top-0 z-50 h-full w-1 cursor-col-resize transition-colors hover:bg-sidebar-primary/40 ${isCollapsed ? "hidden" : ""}`} onMouseDown={() => setIsResizing(true)} />
       </div>
       <SidebarInset className="bg-background">
-        {isMobile && <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur"><div className="flex items-center gap-3"><SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card" /><div><p className="font-editorial text-lg font-semibold leading-none">{LUCEPRES_PUBLIC_PROFILE.displayName}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{activeMenuItem?.label ?? "Gestion"}</p></div></div><div className="flex items-center gap-2"><button type="button" onClick={() => { setGuidanceStep(0); setShowSidebarHelp(true); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label="Ouvrir le guide d’accueil"><CircleHelp className="h-4 w-4" /></button><button type="button" onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button></div></header>}
+        <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between gap-3 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6 lg:px-8"><div className="flex min-w-0 items-center gap-3">{isMobile && <SidebarTrigger className="h-9 w-9 shrink-0 rounded-xl border border-border bg-card" />}<div><p className="font-editorial text-lg font-semibold leading-none">{isMobile ? LUCEPRES_PUBLIC_PROFILE.displayName : activeMenuItem?.label ?? "Gestion"}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{isMobile ? activeMenuItem?.label ?? "Gestion" : "Recherche et accès rapides"}</p></div></div><div className="flex shrink-0 items-center gap-2"><button type="button" data-testid="workspace-search-trigger" onClick={() => setWorkspaceSearchOpen(true)} className="flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-2.5 text-xs font-bold text-muted-foreground shadow-sm transition-colors hover:border-primary/35 hover:text-primary sm:min-w-56"><Search className="h-4 w-4 text-primary" /><span className="hidden sm:inline">Rechercher…</span><CommandShortcut className="hidden text-[10px] sm:inline">⌘K</CommandShortcut></button>{isMobile && <><button type="button" onClick={() => { setGuidanceStep(0); setShowSidebarHelp(true); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label="Ouvrir le guide d’accueil"><CircleHelp className="h-4 w-4" /></button><button type="button" onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button></>}</div></header>
         <main className="min-h-screen flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </SidebarInset>
       <Dialog open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}>
@@ -291,6 +317,13 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
           <div className="relative"><div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-sidebar-primary/20 blur-2xl" /><div className="relative p-5 sm:p-6"><div className="flex items-center justify-between gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sidebar-primary text-xs font-extrabold text-sidebar-primary-foreground">{guidanceStep + 1}/3</div><button type="button" onClick={dismissSidebarHelp} className="flex h-9 w-9 items-center justify-center rounded-xl text-sidebar-foreground/65 transition-colors hover:bg-white/10 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Fermer le guide d’accueil"><X className="h-4 w-4" /></button></div><p className="mt-7 text-[10px] font-extrabold uppercase tracking-[0.2em] text-sidebar-primary">{guidance.eyebrow}</p><DialogTitle className="mt-2 font-editorial text-2xl font-semibold leading-tight text-sidebar-foreground">{guidance.title}</DialogTitle><DialogDescription className="mt-3 text-sm leading-6 text-sidebar-foreground/72">{guidance.body}</DialogDescription><div className="mt-5 flex flex-wrap gap-2">{guidance.highlights.map(highlight => <span key={highlight} className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-[11px] font-bold text-sidebar-foreground/85">{highlight}</span>)}</div><div className="mt-7 flex items-center justify-between gap-3 border-t border-white/[0.1] pt-4"><div className="flex items-center gap-1.5" aria-label={`Étape ${guidanceStep + 1} sur ${sidebarGuidanceSteps.length}`}>{sidebarGuidanceSteps.map((step, index) => <span key={step.eyebrow} className={`h-1.5 rounded-full transition-all ${index <= guidanceStep ? "w-7 bg-sidebar-primary" : "w-2 bg-white/20"}`} />)}</div><Button type="button" size="sm" onClick={advanceGuidance} className="h-10 rounded-xl bg-sidebar-primary px-4 text-xs font-extrabold text-sidebar-primary-foreground hover:bg-sidebar-primary/90">{isFinalGuidanceStep ? <><Check className="mr-1.5 h-3.5 w-3.5" />Terminer</> : <>Suivant<ArrowRight className="ml-1.5 h-3.5 w-3.5" /></>}</Button></div></div></div>
         </DialogContent>
       </Dialog>
+      <CommandDialog open={workspaceSearchOpen} onOpenChange={open => { if (open) setWorkspaceSearchOpen(true); else closeWorkspaceSearch(); }} title="Recherche globale" description="Recherchez un client, un devis, une facture ou une créance." className="max-w-[calc(100%-2rem)] rounded-2xl border-border bg-card sm:max-w-xl">
+        <CommandInput value={workspaceSearchQuery} onValueChange={setWorkspaceSearchQuery} placeholder="Client, numéro de devis, facture ou créance…" />
+        <CommandList className="max-h-[min(55vh,430px)] p-2">
+          {workspaceSearchQuery.trim().length < 2 ? <CommandEmpty>Saisissez au moins deux caractères pour commencer.</CommandEmpty> : isWorkspaceSearching ? <p className="px-3 py-6 text-center text-sm text-muted-foreground">Recherche en cours…</p> : resultGroups.filter(group => group.results.length > 0).map(group => <CommandGroup key={group.kind} heading={group.label}>{group.results.map(result => <CommandItem key={`${result.kind}-${result.id}`} value={`${result.kind} ${result.title} ${result.subtitle}`} onSelect={() => selectWorkspaceResult(result.href)}><group.icon className="h-4 w-4 text-primary" /><div className="min-w-0"><p className="truncate text-sm font-bold">{result.title}</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{result.subtitle}</p></div><ArrowRight className="ml-auto h-4 w-4 text-primary/70" /></CommandItem>)}</CommandGroup>)}
+          {workspaceSearchQuery.trim().length >= 2 && !isWorkspaceSearching && workspaceResults.length === 0 && <CommandEmpty>Aucun client, document ou créance ne correspond à votre recherche.</CommandEmpty>}
+        </CommandList>
+      </CommandDialog>
     </>
   );
 }
