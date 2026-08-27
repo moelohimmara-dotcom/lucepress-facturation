@@ -13,6 +13,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
+import { BATCH_REMINDER_LIMIT, normalizeBatchReminderDocumentIds, normalizeBatchReminderInstruction } from "../shared/batchReminders";
 
 const optionalText = z.string().trim().max(2000).optional();
 const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -109,6 +110,34 @@ const reminderResponseSchema = {
       tone: { type: "string" },
     },
     required: ["subject", "greeting", "body", "closing", "tone"],
+    additionalProperties: false,
+  },
+} as const;
+
+const batchReminderResponseSchema = {
+  name: "lucepress_batch_overdue_reminders",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      reminders: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            documentId: { type: "integer" },
+            subject: { type: "string" },
+            greeting: { type: "string" },
+            body: { type: "string" },
+            closing: { type: "string" },
+            tone: { type: "string" },
+          },
+          required: ["documentId", "subject", "greeting", "body", "closing", "tone"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["reminders"],
     additionalProperties: false,
   },
 } as const;
@@ -514,6 +543,42 @@ export const appRouter = router({
             await db.createClientActivity({ clientId: document.clientId, documentId: document.id, type: "relance_preparee", title: `Relance ${reminder.tone || input.tone} préparée`, description: reminder.subject, createdById: ctx.user.id });
             return { reminder, requiresReview: true };
           } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance ne peut pas être lu. Réessayez dans un instant." }); }
+        }),
+      prepareBatchReminders: adminProcedure
+        .input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(BATCH_REMINDER_LIMIT), tone: z.enum(["courtois", "ferme"]).default("courtois"), instruction: z.string().trim().max(500).optional() }))
+        .mutation(async ({ ctx, input }) => {
+          let documentIds: number[];
+          try { documentIds = normalizeBatchReminderDocumentIds(input.documentIds); }
+          catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La sélection de relance est invalide." }); }
+          const instruction = normalizeBatchReminderInstruction(input.instruction);
+          const documents = await Promise.all(documentIds.map(documentId => db.getDocumentById(documentId)));
+          if (documents.some(document => !document || document.kind !== "facture" || document.balanceDue <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "Chaque relance doit concerner une facture avec un solde impayé." });
+          const invoices = documents as Array<NonNullable<typeof documents[number]>>;
+          const models = await listLLMModels();
+          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const result = await invokeLLM({
+            model,
+            messages: [
+              { role: "system", content: "Tu es l’assistant de recouvrement de Lucepress, entreprise guinéenne BTP et forage. Prépare un brouillon d’e-mail distinct et personnalisé pour chaque facture fournie. Chaque texte doit être professionnel, factuel, sans menace ni affirmation juridique, et mentionner exactement le numéro de facture, le solde en GNF et l’échéance connue. Respecte l’instruction interne facultative seulement si elle est compatible avec ces faits. Ces contenus sont des brouillons internes : ne prétends jamais qu’un e-mail a été envoyé ou programmé. Retourne strictement une entrée par documentId fourni, sans en ajouter ni en omettre." },
+              { role: "user", content: JSON.stringify({ ton: input.tone, instructionInterne: instruction ?? null, factures: invoices.map(invoice => ({ documentId: invoice.id, facture: invoice.number, client: invoice.clientName, contact: invoice.contactName, echeance: invoice.dueDate, soldeGNF: invoice.balanceDue, dateEmission: invoice.issueDate })) }) },
+            ],
+            response_format: { type: "json_schema", json_schema: batchReminderResponseSchema },
+          });
+          const content = result.choices[0]?.message.content;
+          if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Les modèles de relance sont indisponibles. Réessayez dans un instant." });
+          try {
+            const parsed = JSON.parse(content) as { reminders: Array<{ documentId: number; subject: string; greeting: string; body: string; closing: string; tone: string }> };
+            const remindersByDocumentId = new Map(parsed.reminders.map(reminder => [reminder.documentId, reminder]));
+            if (parsed.reminders.length !== documentIds.length || documentIds.some(documentId => !remindersByDocumentId.has(documentId))) throw new Error("Le modèle n’a pas préparé tous les brouillons demandés.");
+            const reminders = documentIds.map(documentId => remindersByDocumentId.get(documentId)!);
+            if (reminders.some(reminder => !reminder.subject.trim() || !reminder.greeting.trim() || !reminder.body.trim() || !reminder.closing.trim())) throw new Error("Le modèle a retourné un brouillon incomplet.");
+            await Promise.all(reminders.map(reminder => {
+              const invoice = invoices.find(document => document.id === reminder.documentId)!;
+              return db.createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "relance_preparee", title: `Relance groupée ${reminder.tone || input.tone} préparée`, description: reminder.subject, createdById: ctx.user.id });
+            }));
+            return { reminders, requiresReview: true, delivery: "brouillons_uniquement" as const };
+          } catch (error) { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error instanceof Error ? error.message : "Les modèles de relance ne peuvent pas être lus. Réessayez dans un instant." }); }
         }),
       extractClient: adminProcedure
         .input(z.object({ text: z.string().trim().min(10).max(6000) }))

@@ -12,4 +12,12 @@ describe("interface de recouvrement Lucepress", () => {
     expect(source).toContain("File de traitement");
     expect(source).toContain("lucepress-panel");
   });
+
+  it("propose l’export filtré, la chronologie client et les brouillons groupés à relire", () => {
+    expect(source).toContain("Exporter la file filtrée");
+    expect(source).toContain("Historique client");
+    expect(source).toContain("Relances groupées");
+    expect(source).toContain("Consigne de personnalisation");
+    expect(source).toContain("Aucun e-mail, WhatsApp ou autre message n’est envoyé");
+  });
 });

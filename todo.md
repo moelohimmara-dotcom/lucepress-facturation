@@ -234,3 +234,7 @@
 - [x] Tester les thèmes, le calendrier, les pages modernisées et leurs parcours responsive.
 - [x] Moderniser la page Créances : indicateurs, filtres, priorités et liste de suivi.
 - [x] Vérifier le rendu desktop/mobile et les tests de la page Créances avant livraison.
+- [x] Exporter la file de créances telle qu’elle est filtrée au format CSV.
+- [x] Ajouter une chronologie détaillée des interactions et relances par client depuis les créances.
+- [x] Préparer des relances groupées personnalisables, limitées aux brouillons à valider.
+- [x] Tester les exports, le suivi client, les sélections groupées et leurs parcours responsive.
