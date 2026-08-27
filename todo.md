@@ -169,3 +169,8 @@
 - [x] Ajouter les préréglages rapides « Cette semaine » et « Ce mois » à la plage de décisions.
 - [x] Exporter l’historique local complet des simulations au format CSV avant purge.
 - [x] Tester les préréglages de période et l’archive CSV de l’historique local.
+- [x] Ajouter le préréglage « 30 derniers jours » à la plage de décisions.
+- [x] Horodater le nom et l’en-tête de l’archive CSV locale.
+- [x] Importer et restaurer de manière contrôlée l’historique des simulations depuis une archive CSV.
+- [x] Tester le préréglage de 30 jours, l’archive horodatée et la restauration locale.
+- [x] Analyser les fonctionnalités prioritaires des applications de facturation actuelles pour proposer une feuille de route adaptée à Lucepres.

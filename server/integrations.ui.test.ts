@@ -2,6 +2,7 @@
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createLocalHistoryArchive } from "../client/src/lib/localHistoryArchive";
 
 const state = vi.hoisted(() => ({
   prepare: vi.fn(),
@@ -206,5 +207,19 @@ describe("centre d’intégrations", () => {
     const blob = (URL.createObjectURL as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0] as Blob;
     expect(await blob.text()).toContain("Simulation locale · archive complète");
     anchorClick.mockRestore();
+  });
+
+  it("propose 30 derniers jours et restaure une archive CSV locale validée", async () => {
+    render(createElement(IntegrationsPage));
+    fireEvent.click(screen.getByRole("button", { name: "30 derniers jours" }));
+    const today = new Date();
+    const expectedEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect((screen.getByLabelText("Date de fin de décision") as HTMLInputElement).value).toBe(expectedEnd);
+    const archive = createLocalHistoryArchive([{ id: "restore-1", providerName: "Google Workspace", operation: "Préparer une échéance chantier", payloadHash: "restore-hash-001", createdAt: new Date(), decidedAt: new Date(), decision: "approve" }]);
+    const input = screen.getByLabelText("Importer une archive CSV Lucepres");
+    const importedFile = { name: "lucepress-archive-historique-local-20260802-090000.csv", text: async () => archive } as unknown as File;
+    fireEvent.change(input, { target: { files: [importedFile] } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /Historique local \(1\)/ })).toBeTruthy());
+    await waitFor(() => expect(window.localStorage.getItem("lucepress.integrations.demo-approvals.v3")).toContain("restore-hash-001"));
   });
 });
