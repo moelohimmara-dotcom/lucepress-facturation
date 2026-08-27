@@ -162,3 +162,7 @@
 - [x] Ajouter un filtre par date de décision aux actions approuvées ou refusées.
 - [x] Générer un rapport PDF visuel de la vue filtrée des approbations.
 - [x] Tester la purge, le filtre de date et l’export PDF local.
+- [x] Ajouter une plage de dates de décision avec bornes début et fin dans la file d’approbations.
+- [x] Personnaliser le rapport PDF avec le logo Lucepres et sa date de génération.
+- [x] Avertir visuellement lorsque l’historique local approche du seuil de capacité.
+- [x] Tester la période de décisions, l’en-tête PDF et l’alerte de capacité locale.

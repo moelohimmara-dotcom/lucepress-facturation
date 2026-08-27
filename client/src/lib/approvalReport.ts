@@ -11,7 +11,8 @@ export type ApprovalReportFilters = {
   search: string;
   provider: string;
   status: string;
-  decisionDate: string;
+  decisionStart: string;
+  decisionEnd: string;
 };
 
 const statusColors: Record<ApprovalReportRow["status"], [number, number, number]> = {
@@ -35,13 +36,21 @@ export async function downloadApprovalReportPdf(rows: ApprovalReportRow[], filte
   const addHeader = () => {
     doc.setFillColor(4, 72, 52);
     doc.rect(0, 0, pageWidth, 38, "F");
+    doc.setFillColor(243, 212, 139);
+    doc.circle(margin + 5, 15, 5, "F");
+    doc.setTextColor(4, 72, 52);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("L", margin + 3.5, 17.5);
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("Lucepress", margin, 16);
+    doc.text("Lucepres", margin + 13, 16);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("SOLUTIONS DURABLES · CENTRE D’INTÉGRATIONS", margin, 22);
+    doc.text("SARL · SOLUTIONS DURABLES · CENTRE D’INTÉGRATIONS", margin + 13, 22);
+    doc.setFontSize(7);
+    doc.text(`Généré le ${new Date().toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}`, pageWidth - margin, 12, { align: "right" });
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text("Rapport de synthèse des approbations", margin, 31);
@@ -69,7 +78,7 @@ export async function downloadApprovalReportPdf(rows: ApprovalReportRow[], filte
     `Demandes visibles : ${rows.length}`,
     `Fournisseur : ${humanizeFilter(filters.provider, { all: "Tous" })}`,
     `Statut : ${humanizeFilter(filters.status, { all: "Tous", pending: "En attente", approved: "Approuvées", rejected: "Refusées" })}`,
-    `Décision : ${filters.decisionDate || "Toutes dates"}`,
+    `Période : ${filters.decisionStart || "Début"} → ${filters.decisionEnd || "Fin"}`,
   ];
   doc.text(summary.join("   |   "), margin, y);
   y += 8;
