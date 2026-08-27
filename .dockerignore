@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.gitignore
+.manus-logs
+coverage
+playwright-report
+test-results
+tmp
+temp
+*.log
+.env
+.env.local
