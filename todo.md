@@ -151,3 +151,10 @@
 - [x] Ajouter une recherche, un filtre et un tri par fournisseur dans la file d’approbations.
 - [x] Tester les interactions de détail, de décision et d’organisation de la file.
 - [x] Documenter le mode préparatoire désactivé et les secrets nécessaires à l’activation ultérieure des flux externes.
+- [x] Exporter au format CSV les demandes visibles dans la file d’approbations filtrée.
+- [x] Conserver un historique local des décisions de simulation et permettre leur annulation sans effet externe.
+- [x] Ajouter un filtre de statut séparant les demandes en attente, approuvées et refusées.
+- [x] Tester les filtres de statut, l’export CSV et l’annulation d’une décision simulée.
+- [x] Afficher directement les simulations approuvées ou refusées lorsque leur statut est filtré.
+- [x] Restreindre l’export CSV aux éléments réellement visibles dans la vue filtrée.
+- [x] Ajouter les états vides et les tests UI des filtres approuvés et refusés.

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   prepare: vi.fn(),
@@ -82,6 +82,10 @@ vi.mock("@/lib/trpc", () => ({ trpc: {
 import IntegrationsPage from "../client/src/pages/IntegrationsPage";
 
 afterEach(() => { cleanup(); state.prepare.mockClear(); state.disable.mockClear(); state.startGoogleOauth.mockClear(); state.decideApproval.mockClear(); });
+beforeEach(() => {
+  window.localStorage.clear();
+  Object.assign(URL, { createObjectURL: vi.fn(() => "blob:lucepress-test"), revokeObjectURL: vi.fn() });
+});
 
 describe("centre d’intégrations", () => {
   it("affiche les fournisseurs approuvés et les garanties de sécurité", () => {
@@ -135,5 +139,27 @@ describe("centre d’intégrations", () => {
     expect(screen.queryByLabelText("Opération démo demo-qbo-invoice")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Réinitialiser la démo" }));
     expect(screen.getByLabelText("Opération démo demo-qbo-invoice")).toBeTruthy();
+  });
+
+  it("filtre les décisions, exporte seulement la vue visible et annule une simulation historique", async () => {
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    render(createElement(IntegrationsPage));
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir les détails" })[2]);
+    fireEvent.click(screen.getByRole("button", { name: "Approuver la démo" }));
+    fireEvent.change(screen.getByLabelText("Filtrer par statut de décision"), { target: { value: "approved" } });
+    expect(screen.getByText("Approuvée")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Exporter la file filtrée en CSV" }));
+    expect(anchorClick).toHaveBeenCalled();
+    const blob = (URL.createObjectURL as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0] as Blob;
+    const csv = await blob.text();
+    expect(csv).toContain("Approuvée");
+    expect(csv).not.toContain("WhatsApp Business");
+    fireEvent.change(screen.getByLabelText("Filtrer par statut de décision"), { target: { value: "rejected" } });
+    expect(screen.getByText("Aucune simulation refusée ne correspond à ces filtres.")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Filtrer par statut de décision"), { target: { value: "approved" } });
+    fireEvent.click(screen.getByRole("button", { name: "Annuler la décision" }));
+    fireEvent.change(screen.getByLabelText("Filtrer par statut de décision"), { target: { value: "pending" } });
+    expect(screen.getByLabelText("Opération démo demo-qbo-invoice")).toBeTruthy();
+    anchorClick.mockRestore();
   });
 });
