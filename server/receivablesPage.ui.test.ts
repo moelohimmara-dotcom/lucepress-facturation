@@ -42,4 +42,11 @@ describe("interface de recouvrement Lucepress", () => {
     expect(source).toContain("Réattribuer les créances");
     expect(source).toContain("Nouveau responsable des créances sélectionnées");
   });
+
+  it("offre un filtre par responsable et une action rapide pour clôturer un rappel", () => {
+    expect(source).toContain("Filtrer les créances par responsable");
+    expect(source).toContain("Tous les responsables");
+    expect(source).toContain("Marquer traité");
+    expect(source).toContain("Rappel marqué comme traité.");
+  });
 });

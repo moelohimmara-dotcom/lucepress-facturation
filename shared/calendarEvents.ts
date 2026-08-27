@@ -1,4 +1,4 @@
-export type CalendarEventKind = "devis" | "relance";
+export type CalendarEventKind = "devis" | "relance" | "rappel";
 
 export type CalendarEvent = {
   id: string;
@@ -28,12 +28,21 @@ type CampaignSource = {
   eligibleCount?: number;
 };
 
+type ReminderSource = {
+  id: number;
+  number: string;
+  clientName: string;
+  projectName?: string | null;
+  collectionReminderDate?: Date | string | null;
+  collectionStatus?: string | null;
+};
+
 export function calendarDateKey(value: Date | string) {
   const date = new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function buildCalendarEvents(quotes: QuoteSource[], campaigns: CampaignSource[]): CalendarEvent[] {
+export function buildCalendarEvents(quotes: QuoteSource[], campaigns: CampaignSource[], receivables: ReminderSource[] = []): CalendarEvent[] {
   const quoteEvents: CalendarEvent[] = quotes
     .filter(quote => quote.validUntil && !["refuse", "annule"].includes(quote.status))
     .map(quote => ({
@@ -58,5 +67,17 @@ export function buildCalendarEvents(quotes: QuoteSource[], campaigns: CampaignSo
       href: "/agent-ia/planification",
     }));
 
-  return [...quoteEvents, ...campaignEvents].sort((left, right) => left.date.getTime() - right.date.getTime());
+  const reminderEvents: CalendarEvent[] = receivables
+    .filter(invoice => invoice.collectionStatus === "a_rappeler" && invoice.collectionReminderDate)
+    .map(invoice => ({
+      id: `reminder-${invoice.id}`,
+      kind: "rappel" as const,
+      date: new Date(invoice.collectionReminderDate!),
+      title: `Rappel ${invoice.number}`,
+      detail: `${invoice.clientName}${invoice.projectName ? ` · ${invoice.projectName}` : ""}`,
+      status: invoice.collectionStatus ?? "a_rappeler",
+      href: `/creances?facture=${invoice.id}`,
+    }));
+
+  return [...quoteEvents, ...campaignEvents, ...reminderEvents].sort((left, right) => left.date.getTime() - right.date.getTime());
 }

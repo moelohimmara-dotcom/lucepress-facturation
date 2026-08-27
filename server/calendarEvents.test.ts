@@ -7,11 +7,12 @@ describe("échéances du calendrier Lucepress", () => {
       { id: 2, number: "DEV-002", clientName: "Bati Guinée", validUntil: "2026-09-11T00:00:00.000Z", status: "envoye" },
     ], [
       { id: 5, name: "Relances septembre", nextExecutionAt: "2026-09-10T09:00:00.000Z", scheduleTimeZone: "Africa/Conakry", status: "active_simulation", eligibleCount: 4 },
-    ]);
+    ], [{ id: 9, number: "FAC-009", clientName: "Hydro Guinée", projectName: "Forage Kindia", collectionStatus: "a_rappeler", collectionReminderDate: "2026-09-09T00:00:00.000Z" }]);
 
-    expect(events.map(event => event.kind)).toEqual(["relance", "devis"]);
-    expect(events[0]).toMatchObject({ href: "/agent-ia/planification", detail: "4 brouillon(s) · Africa/Conakry" });
-    expect(events[1]).toMatchObject({ href: "/documents/2", title: "Échéance DEV-002" });
+    expect(events.map(event => event.kind)).toEqual(["rappel", "relance", "devis"]);
+    expect(events[0]).toMatchObject({ href: "/creances?facture=9", title: "Rappel FAC-009", detail: "Hydro Guinée · Forage Kindia" });
+    expect(events[1]).toMatchObject({ href: "/agent-ia/planification", detail: "4 brouillon(s) · Africa/Conakry" });
+    expect(events[2]).toMatchObject({ href: "/documents/2", title: "Échéance DEV-002" });
   });
 
   it("écarte les devis refusés et les campagnes suspendues, et fournit une clé stable par jour", () => {

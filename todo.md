@@ -252,3 +252,7 @@
 - [x] Ajouter un filtre rapide pour isoler les créances dont le rappel est prévu aujourd’hui.
 - [x] Permettre la réattribution groupée de créances sélectionnées à un même responsable avec journalisation.
 - [x] Tester les alertes de rappel, le filtre du jour, la réattribution groupée et la guidance indépendante.
+- [x] Ajouter une action rapide sur les rappels pour classer une créance traitée depuis la liste.
+- [x] Ajouter un filtre de file de créances par responsable attribué.
+- [x] Créer une vue calendrier interactive dédiée à toutes les dates de rappel de créances.
+- [x] Tester les actions rapides, le filtrage par responsable et le calendrier de rappels sur bureau et mobile.
