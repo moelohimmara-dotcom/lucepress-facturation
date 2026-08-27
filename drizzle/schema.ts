@@ -58,6 +58,7 @@ export const projects = mysqlTable(
     location: varchar("location", { length: 255 }),
     description: text("description"),
     plannedBudget: bigint("plannedBudget", { mode: "number" }).default(0).notNull(),
+    minimumMarginRate: int("minimumMarginRate"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

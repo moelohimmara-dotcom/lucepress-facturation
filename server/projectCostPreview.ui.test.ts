@@ -9,4 +9,12 @@ describe("prévisualisation des justificatifs de coûts", () => {
     expect(source).toContain("<img src={preview.storageUrl}");
     expect(source).toContain("Prévisualiser ${attachment.fileName}");
   });
+
+  it("expose le seuil de marge et les exports détaillés de comparaison", () => {
+    const source = readFileSync(new URL("../client/src/pages/ProjectCostsPage.tsx", import.meta.url), "utf8");
+    expect(source).toContain("Seuil minimal de marge (%)");
+    expect(source).toContain("Sous le seuil");
+    expect(source).toContain("exportMarginsCsv");
+    expect(source).toContain("exportMarginsPdf");
+  });
 });

@@ -3,21 +3,26 @@ export type ProjectMarginInput = {
   costTotal: number;
   plannedRevenue?: number;
   plannedBudget?: number;
+  minimumMarginRate?: number | null;
 };
 
-export function calculateProjectMargin({ revenueCollected, costTotal, plannedRevenue = 0, plannedBudget = 0 }: ProjectMarginInput) {
+export function calculateProjectMargin({ revenueCollected, costTotal, plannedRevenue = 0, plannedBudget = 0, minimumMarginRate = null }: ProjectMarginInput) {
   const margin = revenueCollected - costTotal;
   const hasPlannedMargin = plannedRevenue > 0 && plannedBudget > 0;
   const plannedMargin = hasPlannedMargin ? plannedRevenue - plannedBudget : null;
+  const marginRate = revenueCollected > 0 ? Math.round((margin / revenueCollected) * 1000) / 10 : null;
+  const hasMinimumMarginRate = minimumMarginRate !== null;
   return {
     revenueCollected,
     costTotal,
     margin,
-    marginRate: revenueCollected > 0 ? Math.round((margin / revenueCollected) * 1000) / 10 : null,
+    marginRate,
     plannedRevenue,
     plannedBudget,
     plannedMargin,
     plannedMarginRate: hasPlannedMargin ? Math.round((plannedMargin! / plannedRevenue) * 1000) / 10 : null,
     marginVariance: plannedMargin === null ? null : margin - plannedMargin,
+    minimumMarginRate,
+    isMarginBelowTarget: hasMinimumMarginRate && marginRate !== null && marginRate < minimumMarginRate,
   };
 }

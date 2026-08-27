@@ -13,4 +13,9 @@ describe("marge de chantier", () => {
   it("compare la marge réalisée à la marge prévue quand un budget et un devis accepté existent", () => {
     expect(calculateProjectMargin({ revenueCollected: 800_000, costTotal: 500_000, plannedRevenue: 1_000_000, plannedBudget: 600_000 })).toMatchObject({ plannedMargin: 400_000, plannedMarginRate: 40, margin: 300_000, marginVariance: -100_000 });
   });
+
+  it("signale seulement une marge réalisée chiffrée qui passe sous le seuil configuré", () => {
+    expect(calculateProjectMargin({ revenueCollected: 1_000_000, costTotal: 820_000, minimumMarginRate: 20 })).toMatchObject({ marginRate: 18, minimumMarginRate: 20, isMarginBelowTarget: true });
+    expect(calculateProjectMargin({ revenueCollected: 0, costTotal: 20_000, minimumMarginRate: 20 })).toMatchObject({ marginRate: null, isMarginBelowTarget: false });
+  });
 });

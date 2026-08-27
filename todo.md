@@ -194,3 +194,8 @@
 - [x] Ajouter et renseigner un budget initial par chantier pour calculer une marge prévue fiable.
 - [x] Signaler les promesses de paiement dont la date est dépassée dans le tableau de créances.
 - [x] Tester les alertes de promesses échues, les calculs de marge et l’aperçu des justificatifs.
+- [x] Ajouter un seuil minimal de marge configurable pour chaque chantier.
+- [x] Alerter visuellement lorsque la marge réalisée est inférieure au seuil du chantier.
+- [x] Exporter le comparatif détaillé marge prévue / marge réalisée aux formats CSV et PDF.
+- [x] Afficher les promesses de paiement arrivant à échéance sous 7 jours dans le cockpit.
+- [x] Tester les seuils, les promesses à venir et les exports financiers.
