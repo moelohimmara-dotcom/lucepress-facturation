@@ -166,3 +166,6 @@
 - [x] Personnaliser le rapport PDF avec le logo Lucepres et sa date de génération.
 - [x] Avertir visuellement lorsque l’historique local approche du seuil de capacité.
 - [x] Tester la période de décisions, l’en-tête PDF et l’alerte de capacité locale.
+- [x] Ajouter les préréglages rapides « Cette semaine » et « Ce mois » à la plage de décisions.
+- [x] Exporter l’historique local complet des simulations au format CSV avant purge.
+- [x] Tester les préréglages de période et l’archive CSV de l’historique local.

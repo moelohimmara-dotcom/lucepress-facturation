@@ -189,4 +189,22 @@ describe("centre d’intégrations", () => {
     render(createElement(IntegrationsPage));
     expect(screen.getByRole("alert").textContent).toContain("Capacité locale à surveiller · 78%");
   });
+
+  it("applique les préréglages de période et archive tout l’historique local en CSV", async () => {
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    render(createElement(IntegrationsPage));
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir les détails" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Approuver la démo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cette semaine" }));
+    const today = new Date();
+    const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect((screen.getByLabelText("Date de fin de décision") as HTMLInputElement).value).toBe(todayValue);
+    fireEvent.click(screen.getByRole("button", { name: "Ce mois" }));
+    expect((screen.getByLabelText("Date de début de décision") as HTMLInputElement).value).toBe(`${todayValue.slice(0, 8)}01`);
+    fireEvent.click(screen.getByRole("button", { name: "Archiver l’historique local complet en CSV" }));
+    expect(anchorClick).toHaveBeenCalled();
+    const blob = (URL.createObjectURL as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0] as Blob;
+    expect(await blob.text()).toContain("Simulation locale · archive complète");
+    anchorClick.mockRestore();
+  });
 });
