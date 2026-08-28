@@ -9,6 +9,36 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
+  // DEV BYPASS local — uniquement en dev, jamais en prod
+  const isDevBypass =
+    typeof window !== "undefined" &&
+    import.meta.env.DEV &&
+    localStorage.getItem("lucepress-dev-bypass") === "true";
+  if (isDevBypass) {
+    const mockUser = {
+      id: 1,
+      openId: "dev-bypass",
+      name: "Démo Lucepres",
+      email: "demo@lucepres.test",
+      loginMethod: "dev-bypass",
+      role: "admin" as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    };
+    return {
+      user: mockUser,
+      loading: false,
+      error: null,
+      isAuthenticated: true,
+      refresh: async () => {},
+      logout: async () => {
+        try { localStorage.removeItem("lucepress-dev-bypass"); } catch {}
+        window.location.reload();
+      },
+    } as const;
+  }
+
   // Login is started via startLogin() in the effect below, only when we actually
   // navigate — never during render. startLogin() mints a one-time nonce + writes
   // the state cookie, so calling it per render would overwrite the cookie and

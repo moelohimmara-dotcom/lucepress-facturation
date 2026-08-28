@@ -14,6 +14,23 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    environmentMatchGlobs: [
+      ["server/agentCampaignAdministration.ui.test.ts", "node"],
+      ["server/agentDelegationsPage.ui.test.ts", "node"],
+      ["server/calendarPage.ui.test.ts", "node"],
+      ["server/dashboardUpcomingPromises.ui.test.ts", "node"],
+      ["server/homePage.ui.test.ts", "node"],
+      ["server/projectCostPreview.ui.test.ts", "node"],
+      ["server/receivablesPage.ui.test.ts", "node"],
+      ["server/**/*.ui.test.ts", "jsdom"],
+      ["client/**/*.test.ts", "jsdom"],
+      ["client/**/*.test.tsx", "jsdom"],
+    ],
+    environmentOptions: {
+      jsdom: { url: "http://localhost/" },
+    },
+    setupFiles: ["./vitest.setup.ts"],
     include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
+    exclude: ["server/*.example.test.ts", "server/**/*.example.test.ts", "node_modules/**"],
   },
 });

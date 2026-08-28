@@ -130,6 +130,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="font-editorial text-3xl font-semibold leading-tight">Votre gestion commerciale, avec précision.</h1>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">Connectez-vous pour accéder aux devis, factures et chantiers de l’entreprise.</p>
           <Button onClick={() => startLogin()} size="lg" className="mt-8 h-12 w-full rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-150 active:scale-[0.97]">Accéder à l’espace Lucepres</Button>
+          <button
+            onClick={() => {
+              localStorage.setItem("lucepress-dev-bypass", "true");
+              window.location.reload();
+            }}
+            className="mt-3 h-10 w-full rounded-xl border border-dashed border-primary/30 bg-primary/5 text-xs font-bold text-primary hover:bg-primary/10"
+          >
+            → Entrer en mode démo local (sans mot de passe)
+          </button>
+          <p className="mt-2 text-[10px] leading-3 text-muted-foreground">Mode démo : visite des interfaces sans base de données. Les listes seront vides.</p>
         </div>
       </div>
     );
@@ -277,8 +287,11 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
 
   return (
     <>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:left-4 focus:top-4 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">
+        Aller au contenu principal
+      </a>
       <div className="relative" data-testid="sidebar-shell" ref={sidebarRef} style={{ "--sidebar-width": `${effectiveSidebarWidth}px` } as CSSProperties}>
-        <Sidebar collapsible="icon" className="border-r-0 bg-sidebar text-sidebar-foreground" disableTransition={isResizing}>
+        <Sidebar collapsible="icon" aria-label="Navigation principale" className="border-r-0 bg-sidebar text-sidebar-foreground" disableTransition={isResizing}>
           <SidebarHeader className={`${isCompact ? "h-[78px]" : "h-[104px]"} shrink-0 justify-center px-3`}>
             <div className="flex items-center gap-3">
               <button onClick={toggleSidebar} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.08] shadow-sm transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="Réduire la navigation">
@@ -293,7 +306,13 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
               {!isCollapsed && !isCompact && <p className="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.19em] text-sidebar-foreground/42">{group.label}</p>}
               <SidebarMenu className="gap-1">
                 {group.items.map(item => <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton isActive={location === item.path} onClick={() => setLocation(item.path)} tooltip={item.label} aria-keyshortcuts={item.path === "/clients" ? "Alt+1" : item.path === "/chantiers" ? "Alt+2" : undefined} className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-10 rounded-xl px-3 text-[13px]"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_9px_22px_-14px_oklch(0.07_0.03_164/80%)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}>
+                  <SidebarMenuButton
+                    isActive={location === item.path}
+                    aria-current={location === item.path ? "page" : undefined}
+                    onClick={() => setLocation(item.path)}
+                    tooltip={item.label}
+                    className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-10 rounded-xl px-3 text-[13px]"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_9px_22px_-14px_oklch(0.07_0.03_164/80%)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}
+                  >
                     <item.icon className="h-[17px] w-[17px]" /><span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>)}
@@ -314,11 +333,27 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
             </DropdownMenu>
           </SidebarFooter>
         </Sidebar>
-        <div className={`absolute right-0 top-0 z-50 h-full w-1 cursor-col-resize transition-colors hover:bg-sidebar-primary/40 ${isCollapsed ? "hidden" : ""}`} onMouseDown={() => setIsResizing(true)} />
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionner la navigation"
+          tabIndex={isCollapsed ? -1 : 0}
+          aria-valuenow={sidebarWidth}
+          aria-valuemin={224}
+          aria-valuemax={380}
+          onKeyDown={e => {
+            if (e.key === "ArrowLeft") setSidebarWidth(Math.max(224, sidebarWidth - 10));
+            if (e.key === "ArrowRight") setSidebarWidth(Math.min(380, sidebarWidth + 10));
+            if (e.key === "Home") setSidebarWidth(224);
+            if (e.key === "End") setSidebarWidth(380);
+          }}
+          className={`absolute right-0 top-0 z-50 h-full w-1 cursor-col-resize transition-colors hover:bg-sidebar-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring ${isCollapsed ? "hidden" : ""}`}
+          onMouseDown={() => setIsResizing(true)}
+        />
       </div>
       <SidebarInset className="bg-background">
         <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between gap-3 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6 lg:px-8"><div className="flex min-w-0 items-center gap-3">{isMobile && <SidebarTrigger className="h-9 w-9 shrink-0 rounded-xl border border-border bg-card" />}<div><p className="font-editorial text-lg font-semibold leading-none">{isMobile ? LUCEPRES_PUBLIC_PROFILE.displayName : activeMenuItem?.label ?? "Gestion"}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{isMobile ? activeMenuItem?.label ?? "Gestion" : "Recherche et accès rapides"}</p></div></div><div className="flex shrink-0 items-center gap-2"><button type="button" data-testid="workspace-search-trigger" onClick={() => setWorkspaceSearchOpen(true)} className="flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-2.5 text-xs font-bold text-muted-foreground shadow-sm transition-colors hover:border-primary/35 hover:text-primary sm:min-w-56"><Search className="h-4 w-4 text-primary" /><span className="hidden sm:inline">Rechercher…</span><CommandShortcut className="hidden text-[10px] sm:inline">⌘K</CommandShortcut></button>{isMobile && <><button type="button" onClick={() => { setGuidanceStep(0); setShowSidebarHelp(true); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label="Ouvrir le guide d’accueil"><CircleHelp className="h-4 w-4" /></button><button type="button" onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button></>}</div></header>
-        <main className="min-h-screen flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main id="main-content" tabIndex={-1} className="min-h-screen flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </SidebarInset>
       <Dialog open={showSidebarHelp} onOpenChange={setSidebarHelpOpen}>
         <DialogContent data-testid="sidebar-help" showCloseButton={false} className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-[1.6rem] border-sidebar-primary/35 bg-sidebar p-0 text-sidebar-foreground shadow-2xl sm:max-w-[30rem]">

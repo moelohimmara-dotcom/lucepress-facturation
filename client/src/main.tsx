@@ -7,8 +7,21 @@ import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
 
-const queryClient = new QueryClient();
+function reportWebVitals(metric: { name: string; value: number; id: string }) {
+  // En prod, envoyer à Sentry/Analytics. En dev, log discret.
+  if (import.meta.env.DEV) console.debug(`[WebVitals] ${metric.name}: ${Math.round(metric.value)}`);
+  // Ex: fetch("/api/metrics/web-vitals", { method: "POST", body: JSON.stringify(metric) });
+}
+onCLS(reportWebVitals); onFCP(reportWebVitals); onINP(reportWebVitals); onLCP(reportWebVitals); onTTFB(reportWebVitals);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 30_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 1 },
+    mutations: { retry: 0 },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;

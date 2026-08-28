@@ -522,6 +522,15 @@ export const appRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture de solde ne peut pas être générée." });
           }
         }),
+      createInvoiceFromQuote: adminProcedure
+        .input(z.object({ quoteId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.createInvoiceFromQuote(input.quoteId, ctx.user.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture ne peut pas être générée depuis ce devis." });
+          }
+        }),
     }),
     payments: router({
       create: adminProcedure

@@ -1098,9 +1098,9 @@ export async function getAgentCopilotContext() {
   };
 }
 
-export async function listDocuments(kind?: DocumentKind) {
+export async function listDocuments(kind?: DocumentKind, opts?: { limit?: number; search?: string }) {
   const db = await requireDb();
-  const rows = await db
+  let query = db
     .select({
       id: documents.id,
       kind: documents.kind,
@@ -1128,7 +1128,11 @@ export async function listDocuments(kind?: DocumentKind) {
     .from(documents)
     .innerJoin(clients, eq(documents.clientId, clients.id))
     .leftJoin(projects, eq(documents.projectId, projects.id))
-    .orderBy(desc(documents.updatedAt));
+    .$dynamic();
+  if (kind) query = query.where(eq(documents.kind, kind)) as typeof query;
+  query = query.orderBy(desc(documents.updatedAt)) as typeof query;
+  if (opts?.limit) query = query.limit(opts.limit) as typeof query;
+  const rows = await query;
   const paymentRows = await db.select({ documentId: payments.documentId, paidAmount: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(payments).groupBy(payments.documentId);
   const paidByDocument = new Map(paymentRows.map(row => [row.documentId, Number(row.paidAmount)]));
   const enriched = rows.map(row => {
@@ -1476,6 +1480,35 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
     });
     const id = Number(result[0].insertId);
     await tx.insert(documentLines).values({ documentId: id, position: 1, description: `Solde sur devis ${quote.number} après acompte`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
+    return { id, number, existing: false };
+  });
+}
+
+export async function createInvoiceFromQuote(quoteId: number, createdById: number) {
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    const quoteRows = await tx.select().from(documents).where(eq(documents.id, quoteId)).limit(1);
+    const quote = quoteRows[0];
+    if (!quote || quote.kind !== "devis") throw new Error("Le devis est introuvable.");
+    if (quote.status !== "accepte") throw new Error("Seul un devis accepté peut être converti en facture.");
+    const existing = await tx.select({ id: documents.id }).from(documents).where(and(eq(documents.kind, "facture"), eq(documents.relatedDocumentId, quoteId), eq(documents.invoiceStage, "standard"))).limit(1);
+    if (existing[0]) return { id: existing[0].id, existing: true };
+    const lines = await tx.select().from(documentLines).where(eq(documentLines.documentId, quoteId)).orderBy(documentLines.position);
+    if (!lines.length) throw new Error("Le devis ne contient aucune ligne à facturer.");
+    await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const seq = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
+    const number = formatDocumentNumber("facture", new Date().getUTCFullYear(), seq[0]?.lastValue ?? 1);
+    const result = await tx.insert(documents).values({
+      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "standard",
+      status: "brouillon", issueDate: new Date(), dueDate: new Date(Date.now() + 14 * 24 * 3600 * 1000), validUntil: null,
+      depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: quote.discountPercent, discountAmount: quote.discountAmount,
+      subtotal: quote.subtotal, taxTotal: quote.taxTotal, total: quote.total,
+      notes: `Facture générée à partir du devis ${quote.number}.`, isAiDraft: "non", createdById,
+    });
+    const id = Number(result[0].insertId);
+    await tx.insert(documentLines).values(lines.map((l: any) => ({
+      documentId: id, position: l.position, description: l.description, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPrice, taxRate: l.taxRate, lineTotal: l.lineTotal, serviceId: l.serviceId,
+    })));
     return { id, number, existing: false };
   });
 }
