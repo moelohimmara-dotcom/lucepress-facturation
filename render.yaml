@@ -1,0 +1,29 @@
+# render.yaml - Blueprint pour déploiement Lucepress sur Render
+services:
+  - type: web
+    name: lucepress-facturation
+    env: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: VITE_APP_ID
+        value: lucepress-prod
+      - key: OAUTH_SERVER_URL
+        value: https://auth.manus.im
+      - key: VITE_OAUTH_PORTAL_URL
+        value: https://auth.manus.im
+      - key: ALLOWED_ORIGINS
+        value: https://*.onrender.com
+
+databases:
+  - name: lucepress-db
+    databaseName: lucepress
+    user: lucepress
+    plan: free
