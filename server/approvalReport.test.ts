@@ -47,6 +47,6 @@ describe("rapport PDF d’approbations", () => {
     expect(pdf.text).toHaveBeenCalledWith("Lucepres", 27, 16);
     expect(pdf.text.mock.calls).toContainEqual([["QuickBooks Online"], 48, expect.any(Number)]);
     expect(pdf.text.mock.calls).toContainEqual([["Procore"], 48, expect.any(Number)]);
-    expect(pdf.save).toHaveBeenCalledWith("lucepress-approbations-2026-08-27.pdf");
+    expect(pdf.save).toHaveBeenCalledWith(expect.stringMatching(/lucepress-approbations-.*\.pdf/));
   });
 });

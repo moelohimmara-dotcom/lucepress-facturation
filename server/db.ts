@@ -1483,6 +1483,35 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
   });
 }
 
+export async function createInvoiceFromQuote(quoteId: number, createdById: number) {
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    const quoteRows = await tx.select().from(documents).where(eq(documents.id, quoteId)).limit(1);
+    const quote = quoteRows[0];
+    if (!quote || quote.kind !== "devis") throw new Error("Le devis est introuvable.");
+    if (quote.status !== "accepte") throw new Error("Seul un devis accepté peut être converti en facture.");
+    const existing = await tx.select({ id: documents.id }).from(documents).where(and(eq(documents.kind, "facture"), eq(documents.relatedDocumentId, quoteId), eq(documents.invoiceStage, "standard"))).limit(1);
+    if (existing[0]) return { id: existing[0].id, existing: true };
+    const lines = await tx.select().from(documentLines).where(eq(documentLines.documentId, quoteId)).orderBy(documentLines.position);
+    if (!lines.length) throw new Error("Le devis ne contient aucune ligne à facturer.");
+    await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const seq = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
+    const number = formatDocumentNumber("facture", new Date().getUTCFullYear(), seq[0]?.lastValue ?? 1);
+    const result = await tx.insert(documents).values({
+      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "standard",
+      status: "brouillon", issueDate: new Date(), dueDate: new Date(Date.now() + 14 * 24 * 3600 * 1000), validUntil: null,
+      depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: quote.discountPercent, discountAmount: quote.discountAmount,
+      subtotal: quote.subtotal, taxTotal: quote.taxTotal, total: quote.total,
+      notes: `Facture générée à partir du devis ${quote.number}.`, isAiDraft: "non", createdById,
+    });
+    const id = Number(result[0].insertId);
+    await tx.insert(documentLines).values(lines.map((l: any) => ({
+      documentId: id, position: l.position, description: l.description, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPrice, taxRate: l.taxRate, lineTotal: l.lineTotal, serviceId: l.serviceId,
+    })));
+    return { id, number, existing: false };
+  });
+}
+
 export async function recordPayment(input: {
   documentId: number;
   amount: number;
