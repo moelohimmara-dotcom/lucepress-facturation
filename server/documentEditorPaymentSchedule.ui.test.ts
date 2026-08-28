@@ -65,12 +65,25 @@ describe("éditeur de devis multi-services", () => {
   it("propose une galerie BTP et un guide de création relançable", async () => {
     const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
     render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
-    expect(screen.getByText("Guide express")).toBeTruthy();
+    expect(screen.getByText("Guide express · devis")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Gros œuvre/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Gros œuvre/ }));
     fireEvent.click(screen.getByRole("button", { name: "Appliquer le modèle" }));
     expect(screen.getByDisplayValue("BTP-PRE-001")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Passer le guide" }));
     expect(localStorage.getItem("lucepress-quote-editor-guide-seen")).toBe("true");
+  });
+
+  it("accompagne la création d’une facture en trois étapes et mémorise la fin du guide", async () => {
+    const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
+    render(createElement(DocumentEditorPage, { kind: "facture", mode: "create" }));
+    expect(screen.getByText("Guide express · facture")).toBeTruthy();
+    expect(screen.getByText("Sélectionnez le client")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Suivant" }));
+    expect(screen.getByText("Ajoutez les prestations")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Suivant" }));
+    expect(screen.getByText("Vérifiez puis enregistrez")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "J’ai compris" }));
+    expect(localStorage.getItem("lucepress-invoice-editor-guide-seen")).toBe("true");
   });
 });

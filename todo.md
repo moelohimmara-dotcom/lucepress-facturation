@@ -269,3 +269,8 @@
 - [x] Ajouter une visite guidée contextuelle et relançable dans l’éditeur de devis.
 - [x] Ajouter une recherche globale accessible pour retrouver clients, devis et créances.
 - [x] Tester la galerie, la visite de devis, la recherche et leurs parcours responsive.
+
+- [x] Ajouter un guide interactif, contextuel et relançable pour la création de factures.
+- [x] Ajouter une bibliothèque de prix BTP par défaut avec tarifs GNF reliés aux modèles de devis.
+- [x] Ajouter des filtres avancés à la recherche globale par période, statut et montant.
+- [x] Tester les nouveaux parcours de facturation, de tarification BTP et de recherche sur desktop et mobile.

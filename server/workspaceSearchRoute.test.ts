@@ -21,7 +21,7 @@ describe("billing.workspaceSearch", () => {
   it("réserve la recherche globale au back-office administrateur et transmet une requête normalisée", async () => {
     const result = await appRouter.createCaller(createContext("admin")).billing.workspaceSearch({ query: "  bati  " });
 
-    expect(mocks.searchWorkspace).toHaveBeenCalledWith("bati");
+    expect(mocks.searchWorkspace).toHaveBeenCalledWith({ query: "bati", filters: undefined });
     expect(result).toMatchObject([{ id: 7, kind: "devis", href: "/documents/7" }]);
     await expect(appRouter.createCaller(createContext("user")).billing.workspaceSearch({ query: "bati" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });

@@ -140,6 +140,18 @@ describe("sidebar Lucepress sur format contraint", () => {
     expect(screen.getByText("FAC-007")).toBeTruthy();
   });
 
+  it("ouvre les filtres avancés de type, statut, période et montant", () => {
+    render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    fireEvent.click(screen.getByTestId("workspace-search-trigger"));
+    fireEvent.click(screen.getByRole("button", { name: /Filtres avancés/ }));
+    expect(screen.getByLabelText("Filtrer par type")).toBeTruthy();
+    expect(screen.getByLabelText("Date de début")).toBeTruthy();
+    expect(screen.getByLabelText("Montant minimum")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Filtrer par statut"), { target: { value: "envoye" } });
+    fireEvent.change(screen.getByLabelText("Montant minimum"), { target: { value: "500000" } });
+    expect(screen.getByText("2")).toBeTruthy();
+  });
+
   it("ignore les raccourcis lorsque l’utilisateur saisit du texte", () => {
     navigate.mockClear();
     render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));

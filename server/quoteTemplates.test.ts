@@ -19,4 +19,14 @@ describe("modèles de devis multi-services", () => {
     expect(draft?.lines[1]).toMatchObject({ description: "Pose de conduite", unit: "ml", unitPrice: 50000, taxRate: 18, serviceId: 2 });
     expect(draft?.notes).toBeUndefined();
   });
+
+  it("préremplit un modèle BTP avec les tarifs validés du catalogue", () => {
+    const draft = buildQuoteTemplateDraft("btp_gros_oeuvre", [
+      { id: 21, code: "BTP-PRE-001", name: "Préparation et installation de chantier", unit: "forfait", defaultUnitPrice: 125000, defaultTaxRate: 0 },
+      { id: 22, code: "BTP-FON-001", name: "Fondations et terrassement préparatoire", unit: "m³", defaultUnitPrice: 275000, defaultTaxRate: 0 },
+    ]);
+    expect(draft?.lines[0]).toMatchObject({ description: "Préparation et installation de chantier", unitPrice: 125000, serviceId: 21 });
+    expect(draft?.lines[1]).toMatchObject({ description: "Fondations et terrassement préparatoire", unitPrice: 275000, serviceId: 22 });
+    expect(draft?.lines[2]).toMatchObject({ description: "BTP-ELV-001", unitPrice: 0 });
+  });
 });

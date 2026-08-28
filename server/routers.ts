@@ -287,8 +287,20 @@ export const appRouter = router({
     }),
     receivables: adminProcedure.query(() => db.getReceivablesDashboard()),
     workspaceSearch: adminProcedure
-      .input(z.object({ query: z.string().trim().max(80) }))
-      .query(({ input }) => db.searchWorkspace(input.query)),
+      .input(z.object({
+        query: z.string().trim().max(80),
+        filters: z.object({
+          kind: z.enum(["client", "devis", "facture", "creance"]).optional(),
+          dateFrom: z.string().regex(/^\\d{4}-(0[1-9]|1[0-2])-([0-2]\\d|3[01])$/).optional(),
+          dateTo: z.string().regex(/^\\d{4}-(0[1-9]|1[0-2])-([0-2]\\d|3[01])$/).optional(),
+          status: z.string().trim().max(40).optional(),
+          amountMin: z.number().int().nonnegative().max(1_000_000_000_000_000).optional(),
+          amountMax: z.number().int().nonnegative().max(1_000_000_000_000_000).optional(),
+          sortBy: z.enum(["relevance", "date", "status", "amount"]).optional(),
+          sortDirection: z.enum(["asc", "desc"]).optional(),
+        }).optional(),
+      }))
+      .query(({ input }) => db.searchWorkspace({ query: input.query, filters: input.filters })),
     collection: router({
       assignees: adminProcedure.query(() => db.listCollectionAssignees()),
       updateFollowUp: adminProcedure

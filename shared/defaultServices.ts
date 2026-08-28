@@ -12,7 +12,24 @@ export type DefaultService = {
   defaultTaxRate: number;
 };
 
+/**
+ * Catalogue de départ Lucepress. Les tarifs BTP sont volontairement à 0 tant
+ * qu’ils n’ont pas été validés par l’entreprise : les codes, unités et libellés
+ * préremplissent les modèles, mais aucun prix métier n’est inventé.
+ */
 export const LUCEPRES_DEFAULT_SERVICES: readonly DefaultService[] = [
+  { code: "BTP-PRE-001", name: "Préparation et installation de chantier", category: "btp", description: "Installation, sécurisation et préparation des zones de travaux.", unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-FON-001", name: "Fondations et terrassement préparatoire", category: "btp", description: "Préparation des fondations et terrassement selon les métrés validés.", unit: "m³", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-ELV-001", name: "Élévation des ouvrages", category: "btp", description: "Élévation des murs, poteaux ou éléments structurels du projet.", unit: "m²", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-GOE-001", name: "Béton armé et gros œuvre", category: "btp", description: "Réalisation des éléments en béton armé et ouvrages de structure.", unit: "m³", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-DIA-001", name: "Diagnostic technique du bâti", category: "btp", description: "État des lieux, relevés et diagnostic préalable aux travaux.", unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-DEP-001", name: "Dépose et évacuation contrôlée", category: "btp", description: "Dépose des éléments existants et évacuation selon les contraintes du site.", unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-REN-001", name: "Réhabilitation des ouvrages existants", category: "btp", description: "Réparation et remise en état des ouvrages existants.", unit: "m²", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-FIN-001", name: "Finitions et remise en état", category: "btp", description: "Finitions, nettoyage de réception et remise en état des espaces.", unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-IMP-001", name: "Implantation et préparation de site", category: "btp", description: "Implantation, préparation des emprises et organisation initiale du site.", unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-ASS-001", name: "Assainissement et évacuation de site", category: "btp", description: "Travaux d’assainissement et gestion des évacuations du site.", unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-ACC-001", name: "Voiries, accès et réseaux divers", category: "btp", description: "Création ou amélioration des accès, voiries et réseaux divers.", unit: "ml", defaultUnitPrice: 0, defaultTaxRate: 0 },
+  { code: "BTP-EXT-001", name: "Aménagements extérieurs", category: "btp", description: "Aménagement et finition des espaces extérieurs du chantier.", unit: "m²", defaultUnitPrice: 0, defaultTaxRate: 0 },
   { code: "HYD-ETU-001", name: "Étude et diagnostic hydraulique", category: "hydraulique", description: "Analyse initiale du besoin, du site et des contraintes techniques.", unit: "forfait", defaultUnitPrice: 0, defaultTaxRate: 0 },
   { code: "HYD-ADD-001", name: "Pose de conduite d’adduction", category: "hydraulique", description: "Pose et raccordement de conduite d’adduction d’eau.", unit: "ml", defaultUnitPrice: 0, defaultTaxRate: 0 },
   { code: "HYD-EQP-001", name: "Fourniture et pose d’équipement hydraulique", category: "hydraulique", description: "Fourniture, installation et essais d’équipement hydraulique.", unit: "unité", defaultUnitPrice: 0, defaultTaxRate: 0 },

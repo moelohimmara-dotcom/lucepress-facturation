@@ -25,6 +25,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
+import type { WorkspaceSearchFilters } from "@shared/workspaceSearch";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import {
   ArrowRight,
@@ -43,6 +44,7 @@ import {
   Mail,
   ScrollText,
   Search,
+  SlidersHorizontal,
   Maximize2,
   Minimize2,
   Moon,
@@ -56,7 +58,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import React, { CSSProperties, useEffect, useRef, useState } from "react";
+import React, { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
@@ -153,6 +155,8 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const [guidanceStep, setGuidanceStep] = useState(0);
   const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState("");
+  const [workspaceSearchFilters, setWorkspaceSearchFilters] = useState<WorkspaceSearchFilters>({});
+  const [workspaceSearchFiltersOpen, setWorkspaceSearchFiltersOpen] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -162,7 +166,9 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const effectiveSidebarWidth = getEffectiveSidebarWidth(sidebarWidth, isCompact);
   const guidance = sidebarGuidanceSteps[guidanceStep];
   const isFinalGuidanceStep = guidanceStep === sidebarGuidanceSteps.length - 1;
-  const { data: workspaceResults = [], isFetching: isWorkspaceSearching } = trpc.billing.workspaceSearch.useQuery({ query: workspaceSearchQuery }, { enabled: workspaceSearchOpen && workspaceSearchQuery.trim().length >= 2 });
+  const workspaceSearchInput = useMemo(() => ({ query: workspaceSearchQuery, filters: workspaceSearchFilters }), [workspaceSearchFilters, workspaceSearchQuery]);
+  const activeWorkspaceFilterCount = [workspaceSearchFilters.kind, workspaceSearchFilters.dateFrom, workspaceSearchFilters.dateTo, workspaceSearchFilters.status, workspaceSearchFilters.amountMin !== undefined, workspaceSearchFilters.amountMax !== undefined, workspaceSearchFilters.sortBy && workspaceSearchFilters.sortBy !== "relevance"].filter(Boolean).length;
+  const { data: workspaceResults = [], isFetching: isWorkspaceSearching } = trpc.billing.workspaceSearch.useQuery(workspaceSearchInput, { enabled: workspaceSearchOpen && workspaceSearchQuery.trim().length >= 2 });
 
   useEffect(() => {
     const routeToRestore = getRestorableRoute(location, localStorage.getItem(LAST_ROUTE_KEY), menuItems.map(item => item.path));
@@ -194,7 +200,9 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   };
 
   const toggleDensity = () => setDensityPreference(isCompact ? "normal" : "compact");
-  const closeWorkspaceSearch = () => { setWorkspaceSearchOpen(false); setWorkspaceSearchQuery(""); };
+  const closeWorkspaceSearch = () => { setWorkspaceSearchOpen(false); setWorkspaceSearchQuery(""); setWorkspaceSearchFilters({}); setWorkspaceSearchFiltersOpen(false); };
+  const updateWorkspaceSearchFilter = <K extends keyof WorkspaceSearchFilters>(key: K, value: WorkspaceSearchFilters[K] | undefined) => setWorkspaceSearchFilters(current => ({ ...current, [key]: value }));
+  const resetWorkspaceSearchFilters = () => setWorkspaceSearchFilters({});
   const selectWorkspaceResult = (href: string) => { closeWorkspaceSearch(); setLocation(href); };
   const resultGroups = [
     { kind: "client", label: "Clients", icon: UsersRound },
@@ -319,6 +327,22 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
       </Dialog>
       <CommandDialog open={workspaceSearchOpen} onOpenChange={open => { if (open) setWorkspaceSearchOpen(true); else closeWorkspaceSearch(); }} title="Recherche globale" description="Recherchez un client, un devis, une facture ou une créance." className="max-w-[calc(100%-2rem)] rounded-2xl border-border bg-card sm:max-w-xl">
         <CommandInput value={workspaceSearchQuery} onValueChange={setWorkspaceSearchQuery} placeholder="Client, numéro de devis, facture ou créance…" />
+        <div className="border-b border-border/70 px-3 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <button type="button" onClick={() => setWorkspaceSearchFiltersOpen(open => !open)} className="inline-flex items-center gap-2 text-xs font-extrabold text-primary hover:underline" aria-expanded={workspaceSearchFiltersOpen}><SlidersHorizontal className="h-3.5 w-3.5" />Filtres avancés{activeWorkspaceFilterCount > 0 && <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{activeWorkspaceFilterCount}</span>}</button>
+            {activeWorkspaceFilterCount > 0 && <button type="button" onClick={resetWorkspaceSearchFilters} className="text-[11px] font-bold text-muted-foreground hover:text-primary">Réinitialiser</button>}
+          </div>
+          {workspaceSearchFiltersOpen && <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Type<select aria-label="Filtrer par type" value={workspaceSearchFilters.kind || ""} onChange={event => updateWorkspaceSearchFilter("kind", event.target.value ? event.target.value as WorkspaceSearchFilters["kind"] : undefined)} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground"><option value="">Tous les résultats</option><option value="client">Clients</option><option value="devis">Devis</option><option value="facture">Factures</option><option value="creance">Créances</option></select></label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Statut<select aria-label="Filtrer par statut" value={workspaceSearchFilters.status || ""} onChange={event => updateWorkspaceSearchFilter("status", event.target.value || undefined)} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground"><option value="">Tous les statuts</option><option value="brouillon">Brouillon</option><option value="a_envoyer">À envoyer</option><option value="envoye">Envoyé</option><option value="accepte">Accepté</option><option value="partiellement_paye">Partiellement payé</option><option value="paye">Payé</option><option value="en_retard">En retard</option><option value="a_traiter">À traiter</option><option value="contacte">Contacté</option><option value="a_rappeler">À rappeler</option></select></label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Date de début<input aria-label="Date de début" type="date" value={workspaceSearchFilters.dateFrom || ""} onChange={event => updateWorkspaceSearchFilter("dateFrom", event.target.value || undefined)} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground" /></label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Date de fin<input aria-label="Date de fin" type="date" value={workspaceSearchFilters.dateTo || ""} onChange={event => updateWorkspaceSearchFilter("dateTo", event.target.value || undefined)} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground" /></label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Montant minimum<input aria-label="Montant minimum" type="number" min="0" step="1" placeholder="GNF" value={workspaceSearchFilters.amountMin ?? ""} onChange={event => updateWorkspaceSearchFilter("amountMin", event.target.value ? Number(event.target.value) : undefined)} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground" /></label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Montant maximum<input aria-label="Montant maximum" type="number" min="0" step="1" placeholder="GNF" value={workspaceSearchFilters.amountMax ?? ""} onChange={event => updateWorkspaceSearchFilter("amountMax", event.target.value ? Number(event.target.value) : undefined)} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground" /></label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Trier par<select aria-label="Trier les résultats" value={workspaceSearchFilters.sortBy || "relevance"} onChange={event => updateWorkspaceSearchFilter("sortBy", event.target.value as WorkspaceSearchFilters["sortBy"])} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground"><option value="relevance">Pertinence</option><option value="date">Date</option><option value="status">Statut</option><option value="amount">Montant</option></select></label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Ordre<select aria-label="Ordre de tri" value={workspaceSearchFilters.sortDirection || "desc"} onChange={event => updateWorkspaceSearchFilter("sortDirection", event.target.value as WorkspaceSearchFilters["sortDirection"])} className="mt-1 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold normal-case tracking-normal text-foreground"><option value="desc">Décroissant</option><option value="asc">Croissant</option></select></label>
+          </div>}
+        </div>
         <CommandList className="max-h-[min(55vh,430px)] p-2">
           {workspaceSearchQuery.trim().length < 2 ? <CommandEmpty>Saisissez au moins deux caractères pour commencer.</CommandEmpty> : isWorkspaceSearching ? <p className="px-3 py-6 text-center text-sm text-muted-foreground">Recherche en cours…</p> : resultGroups.filter(group => group.results.length > 0).map(group => <CommandGroup key={group.kind} heading={group.label}>{group.results.map(result => <CommandItem key={`${result.kind}-${result.id}`} value={`${result.kind} ${result.title} ${result.subtitle}`} onSelect={() => selectWorkspaceResult(result.href)}><group.icon className="h-4 w-4 text-primary" /><div className="min-w-0"><p className="truncate text-sm font-bold">{result.title}</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{result.subtitle}</p></div><ArrowRight className="ml-auto h-4 w-4 text-primary/70" /></CommandItem>)}</CommandGroup>)}
           {workspaceSearchQuery.trim().length >= 2 && !isWorkspaceSearching && workspaceResults.length === 0 && <CommandEmpty>Aucun client, document ou créance ne correspond à votre recherche.</CommandEmpty>}

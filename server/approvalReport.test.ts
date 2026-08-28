@@ -38,6 +38,7 @@ import { downloadApprovalReportPdf } from "../client/src/lib/approvalReport";
 
 describe("rapport PDF d’approbations", () => {
   it("génère une synthèse locale avec les lignes visibles et leur statut", async () => {
+    const today = new Date().toISOString().slice(0, 10);
     await downloadApprovalReportPdf([
       { source: "Simulation locale", status: "Approuvée", providerName: "QuickBooks Online", operation: "Créer une facture", createdAt: "27 août, 09:15", decidedAt: "27 août, 11:00" },
       { source: "Simulation locale", status: "Refusée", providerName: "Procore", operation: "Synchroniser un rapport", createdAt: "27 août, 10:00", decidedAt: "27 août, 11:05" },
@@ -47,6 +48,6 @@ describe("rapport PDF d’approbations", () => {
     expect(pdf.text).toHaveBeenCalledWith("Lucepres", 27, 16);
     expect(pdf.text.mock.calls).toContainEqual([["QuickBooks Online"], 48, expect.any(Number)]);
     expect(pdf.text.mock.calls).toContainEqual([["Procore"], 48, expect.any(Number)]);
-    expect(pdf.save).toHaveBeenCalledWith("lucepress-approbations-2026-08-27.pdf");
+    expect(pdf.save).toHaveBeenCalledWith(`lucepress-approbations-${today}.pdf`);
   });
 });
