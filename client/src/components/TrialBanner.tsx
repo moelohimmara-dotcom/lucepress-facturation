@@ -6,7 +6,26 @@ import type { SubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 export function TrialBanner({ access }: { access: SubscriptionAccess }) {
   const [, setLocation] = useLocation();
 
-  if (access.status !== "trial") return null;
+  if (access.status !== "trial" && access.status !== "suspended") return null;
+
+  if (access.status === "suspended") {
+    return (
+      <div className="flex items-center justify-between gap-3 bg-destructive/10 px-4 py-2.5 text-destructive">
+        <div className="flex items-center gap-2 text-xs font-bold">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Abonnement expiré — renouvelez pour continuer
+        </div>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="h-7 text-xs"
+          onClick={() => setLocation("/parametres/abonnement")}
+        >
+          Renouveler
+        </Button>
+      </div>
+    );
+  }
 
   const trialEndsAt = access.trialEndsAt ? new Date(access.trialEndsAt) : null;
   const expired = !trialEndsAt || trialEndsAt < new Date();

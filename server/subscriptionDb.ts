@@ -16,7 +16,7 @@ export const PLAN_LABELS: Record<string, string> = {
 export async function checkTenantAccess(tenantId: number) {
   const db = await requireDb();
   const rows = await db
-    .select({ plan: tenants.plan, status: tenants.status, trialEndsAt: tenants.trialEndsAt })
+    .select({ plan: tenants.plan, status: tenants.status, trialEndsAt: tenants.trialEndsAt, currentPeriodEnd: tenants.currentPeriodEnd })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
     .limit(1);
@@ -27,16 +27,34 @@ export async function checkTenantAccess(tenantId: number) {
   const trialEndsAt = tenant.trialEndsAt ? new Date(tenant.trialEndsAt) : null;
   const isActive = tenant.status === "active";
   const isTrial = tenant.status === "trial";
+
+  // Check if active subscription has expired
+  let subscriptionExpired = false;
+  if (isActive && tenant.currentPeriodEnd) {
+    const periodEnd = new Date(tenant.currentPeriodEnd);
+    if (periodEnd < now) {
+      subscriptionExpired = true;
+      // Auto-suspend the tenant
+      await db
+        .update(tenants)
+        .set({ status: "suspended" })
+        .where(eq(tenants.id, tenantId));
+    }
+  }
+
   const trialExpired = isTrial && (!trialEndsAt || trialEndsAt < now);
   const daysRemaining = isTrial && trialEndsAt && trialEndsAt > now
     ? Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
+  const hasAccess = (isActive && !subscriptionExpired) || (isTrial && !trialExpired);
+
   return {
-    hasAccess: isActive || (isTrial && !trialExpired),
+    hasAccess,
     plan: tenant.plan,
-    status: tenant.status,
+    status: subscriptionExpired ? "suspended" : tenant.status,
     trialEndsAt: trialEndsAt?.toISOString() ?? null,
+    currentPeriodEnd: tenant.currentPeriodEnd?.toISOString() ?? null,
     daysRemaining,
   };
 }
@@ -44,7 +62,7 @@ export async function checkTenantAccess(tenantId: number) {
 export async function getTenantSubscriptionStatus(tenantId: number) {
   const db = await requireDb();
   const tenantRows = await db
-    .select({ id: tenants.id, name: tenants.name, plan: tenants.plan, status: tenants.status, trialEndsAt: tenants.trialEndsAt, currency: tenants.currency })
+    .select({ id: tenants.id, name: tenants.name, plan: tenants.plan, status: tenants.status, trialEndsAt: tenants.trialEndsAt, currentPeriodEnd: tenants.currentPeriodEnd, currency: tenants.currency })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
     .limit(1);
@@ -135,13 +153,27 @@ export async function activateTenantSubscription(input: {
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
       });
 
-    // Activate tenant
+    // Activate tenant and set the subscription period end (30 days from now, or extend from current period if still active)
+    const now = new Date();
+    const existingTenant = await tx
+      .select({ currentPeriodEnd: tenants.currentPeriodEnd, status: tenants.status })
+      .from(tenants)
+      .where(eq(tenants.id, input.tenantId))
+      .limit(1);
+    const current = existingTenant[0];
+    // If the current period hasn't ended yet, extend from its end date; otherwise start from now
+    const baseDate = current?.currentPeriodEnd && current.currentPeriodEnd > now && current.status === "active"
+      ? new Date(current.currentPeriodEnd)
+      : now;
+    const periodEnd = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
     await tx
       .update(tenants)
       .set({
         plan: input.plan,
         status: "active",
         trialEndsAt: null,
+        currentPeriodEnd: periodEnd,
       })
       .where(eq(tenants.id, input.tenantId));
   });

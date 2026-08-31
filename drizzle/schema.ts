@@ -32,6 +32,7 @@ export const tenants = mysqlTable("tenants", {
   status: mysqlEnum("status", ["trial", "active", "suspended", "cancelled"]).default("trial").notNull(),
   currency: varchar("currency", { length: 3 }).default("GNF").notNull(),
   trialEndsAt: timestamp("trialEndsAt"),
+  currentPeriodEnd: timestamp("currentPeriodEnd"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -78,8 +78,14 @@ export default function SubscriptionPage() {
   const tenant = data?.tenant;
   const isTrial = tenant?.status === "trial";
   const isActive = tenant?.status === "active";
+  const isSuspended = tenant?.status === "suspended";
   const trialEndsAt = tenant?.trialEndsAt ? new Date(tenant.trialEndsAt) : null;
   const trialExpired = isTrial && trialEndsAt && trialEndsAt < new Date();
+  const currentPeriodEnd = tenant?.currentPeriodEnd ? new Date(tenant.currentPeriodEnd) : null;
+  const daysUntilExpiry = currentPeriodEnd && currentPeriodEnd > new Date()
+    ? Math.ceil((currentPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const canRenew = isActive || isSuspended;
 
   return (
     <DashboardLayout>
@@ -115,13 +121,46 @@ export default function SubscriptionPage() {
             </div>
           </div>
         )}
-        {isActive && (
+        {isActive && currentPeriodEnd && (
           <div className="mt-6 flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-50 p-5">
             <Check className="h-5 w-5 shrink-0 text-emerald-600" />
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-bold text-emerald-700">Abonnement actif — Plan {tenant?.plan === "pro" ? "Pro" : "Entreprise"}</p>
-              <p className="mt-0.5 text-xs text-emerald-600">Votre abonnement est en cours.</p>
+              <p className="mt-0.5 text-xs text-emerald-600">
+                {daysUntilExpiry > 0
+                  ? `Expire le ${currentPeriodEnd.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} — ${daysUntilExpiry} jour${daysUntilExpiry > 1 ? "s" : ""} restant${daysUntilExpiry > 1 ? "s" : ""}.`
+                  : "Votre abonnement a expiré."}
+              </p>
             </div>
+            {daysUntilExpiry <= 7 && canRenew && (
+              <Button
+                onClick={() => checkout.mutate({ plan: tenant?.plan === "enterprise" ? "enterprise" : "pro" })}
+                disabled={checkout.isPending}
+                className="h-9 rounded-xl"
+              >
+                {checkout.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Renouveler
+              </Button>
+            )}
+          </div>
+        )}
+        {isSuspended && (
+          <div className="mt-6 flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-5">
+            <Clock className="h-5 w-5 shrink-0 text-destructive" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-destructive">Abonnement expiré</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Votre abonnement a expiré. Renouvelez-le pour reprendre l'utilisation de Lucepress.
+              </p>
+            </div>
+            <Button
+              onClick={() => checkout.mutate({ plan: "pro" })}
+              disabled={checkout.isPending}
+              className="h-9 rounded-xl"
+            >
+              {checkout.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Renouveler
+            </Button>
           </div>
         )}
 
@@ -161,7 +200,7 @@ export default function SubscriptionPage() {
                 ))}
               </ul>
               <Button
-                disabled={plan.disabled || (isActive && tenant?.plan === plan.id) || (plan.id === "trial" && isTrial)}
+                disabled={plan.disabled || (isActive && tenant?.plan === plan.id && daysUntilExpiry > 7) || (plan.id === "trial" && isTrial)}
                 onClick={() => plan.id === "pro" && checkout.mutate({ plan: "pro" })}
                 className={`mt-6 h-11 w-full rounded-xl font-bold ${
                   plan.highlighted ? "bg-primary text-primary-foreground" : ""
@@ -171,7 +210,11 @@ export default function SubscriptionPage() {
                 {checkout.isPending && plan.id === "pro" ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                {isActive && tenant?.plan === plan.id ? "Plan actuel" : plan.cta}
+                {isActive && tenant?.plan === plan.id && daysUntilExpiry > 7
+                  ? "Plan actuel"
+                  : isSuspended && plan.id === "pro"
+                  ? "Renouveler"
+                  : plan.cta}
               </Button>
             </div>
           ))}
