@@ -1,9 +1,11 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
-import { Check, Clock, CreditCard, Loader2, Sparkles, Zap } from "lucide-react";
+import { Check, Clock, CreditCard, Download, Loader2, Sparkles, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 import { formatGnf } from "@shared/billing";
+import { downloadSubscriptionReceiptPdf } from "@/lib/subscriptionReceipt";
 
 const PLANS = [
   {
@@ -64,6 +66,28 @@ export default function SubscriptionPage() {
     },
     onError: error => toast.error(error.message),
   });
+  const [downloadingReceipt, setDownloadingReceipt] = useState<number | null>(null);
+
+  async function handleDownloadReceipt(sub: NonNullable<typeof data>["subscriptions"][number]) {
+    if (!sub.paidAt || !sub.expiresAt || !sub.monerooPaymentId) return;
+    setDownloadingReceipt(sub.id);
+    try {
+      await downloadSubscriptionReceiptPdf({
+        invoiceNumber: `REC-${String(sub.id).padStart(5, "0")}`,
+        tenantName: data?.tenant?.name ?? "",
+        plan: sub.plan,
+        amount: sub.amount,
+        currency: sub.currency,
+        paidAt: new Date(sub.paidAt).toISOString(),
+        expiresAt: new Date(sub.expiresAt).toISOString(),
+        monerooPaymentId: sub.monerooPaymentId,
+      });
+    } catch {
+      toast.error("Erreur lors de la génération du reçu.");
+    } finally {
+      setDownloadingReceipt(null);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -232,6 +256,7 @@ export default function SubscriptionPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-muted-foreground">Montant</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-muted-foreground">Statut</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-muted-foreground">Date</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">Reçu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -251,6 +276,26 @@ export default function SubscriptionPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {new Date(sub.createdAt).toLocaleDateString("fr-FR")}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {sub.status === "success" && sub.monerooPaymentId ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs"
+                            disabled={downloadingReceipt === sub.id}
+                            onClick={() => handleDownloadReceipt(sub)}
+                          >
+                            {downloadingReceipt === sub.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
+                            PDF
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
