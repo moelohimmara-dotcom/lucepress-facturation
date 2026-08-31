@@ -29,6 +29,7 @@ import {
   projects,
   servicePriceRevisions,
   services,
+  tenantMemberships,
   users,
 } from "../drizzle/schema";
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
@@ -105,23 +106,31 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
-export async function listClients() {
+export async function listClients(tenantId: number) {
   const db = await requireDb();
-  return db.select().from(clients).orderBy(asc(clients.companyName));
+  return db.select().from(clients).where(eq(clients.tenantId, tenantId)).orderBy(asc(clients.companyName));
 }
 
-export async function listCollectionAssignees() {
+export async function listCollectionAssignees(tenantId?: number) {
   const db = await requireDb();
+  if (tenantId) {
+    return db.select({ id: users.id, name: users.name, email: users.email, role: users.role })
+      .from(users)
+      .innerJoin(tenantMemberships, eq(users.id, tenantMemberships.userId))
+      .where(and(eq(tenantMemberships.tenantId, tenantId), eq(tenantMemberships.status, "active")))
+      .orderBy(asc(users.name));
+  }
   return db.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).orderBy(asc(users.name));
 }
 
-export async function getClientById(id: number) {
+export async function getClientById(id: number, tenantId?: number) {
   const db = await requireDb();
-  const result = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+  const condition = tenantId ? and(eq(clients.id, id), eq(clients.tenantId, tenantId)) : eq(clients.id, id);
+  const result = await db.select().from(clients).where(condition).limit(1);
   return result[0];
 }
 
-export async function createClient(input: {
+export async function createClient(tenantId: number, input: {
   companyName: string;
   contactName?: string;
   email?: string;
@@ -133,6 +142,7 @@ export async function createClient(input: {
 }) {
   const db = await requireDb();
   const result = await db.insert(clients).values({
+    tenantId,
     companyName: input.companyName,
     contactName: input.contactName || null,
     email: input.email || null,
@@ -156,7 +166,7 @@ export type ClientInput = {
   defaultDiscountPercent?: number;
 };
 
-export async function updateClient(id: number, input: ClientInput) {
+export async function updateClient(id: number, input: ClientInput, tenantId: number) {
   const db = await requireDb();
   await db.update(clients).set({
     companyName: input.companyName,
@@ -167,12 +177,12 @@ export async function updateClient(id: number, input: ClientInput) {
     taxId: input.taxId || null,
     notes: input.notes || null,
     defaultDiscountPercent: input.defaultDiscountPercent ?? 0,
-  }).where(eq(clients.id, id));
+  }).where(and(eq(clients.id, id), eq(clients.tenantId, tenantId)));
   return { success: true };
 }
 
-export async function findClientDuplicates(input: ClientDuplicateCandidate, excludedId?: number) {
-  const existing = await listClients();
+export async function findClientDuplicates(tenantId: number, input: ClientDuplicateCandidate, excludedId?: number) {
+  const existing = await listClients(tenantId);
   return findPotentialClientDuplicates(existing, input, excludedId).map(match => ({
     id: match.client.id,
     companyName: match.client.companyName,
@@ -183,9 +193,10 @@ export async function findClientDuplicates(input: ClientDuplicateCandidate, excl
   }));
 }
 
-export async function listClientAttachments(clientId: number) {
+export async function listClientAttachments(clientId: number, tenantId?: number) {
   const db = await requireDb();
-  return db.select().from(clientAttachments).where(eq(clientAttachments.clientId, clientId)).orderBy(desc(clientAttachments.createdAt));
+  const condition = tenantId ? and(eq(clientAttachments.clientId, clientId), eq(clientAttachments.tenantId, tenantId)) : eq(clientAttachments.clientId, clientId);
+  return db.select().from(clientAttachments).where(condition).orderBy(desc(clientAttachments.createdAt));
 }
 
 export async function createClientAttachment(input: { clientId: number; fileName: string; contentType: string; size: number; storageKey: string; storageUrl: string; createdById: number }) {
@@ -194,18 +205,19 @@ export async function createClientAttachment(input: { clientId: number; fileName
   return { id: Number(result[0].insertId) };
 }
 
-export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement" | "date_rappel_recouvrement"; title: string; description?: string; createdById: number }) {
+export async function createClientActivity(tenantId: number, input: { clientId: number; documentId?: number; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement" | "date_rappel_recouvrement"; title: string; description?: string; createdById: number }) {
   const db = await requireDb();
-  const result = await db.insert(clientActivities).values({ ...input, documentId: input.documentId ?? null, description: input.description ?? null });
+  const result = await db.insert(clientActivities).values({ ...input, tenantId, documentId: input.documentId ?? null, description: input.description ?? null });
   return { id: Number(result[0].insertId) };
 }
 
-export async function listClientActivities(clientId: number) {
+export async function listClientActivities(clientId: number, tenantId?: number) {
   const db = await requireDb();
+  const tFilter = tenantId ? eq(documents.tenantId, tenantId) : sql`1=1`;
   const [activities, clientDocuments, clientPayments] = await Promise.all([
     db.select().from(clientActivities).where(eq(clientActivities.clientId, clientId)).orderBy(desc(clientActivities.createdAt)),
-    db.select({ id: documents.id, kind: documents.kind, number: documents.number, total: documents.total, status: documents.status, createdAt: documents.createdAt }).from(documents).where(eq(documents.clientId, clientId)).orderBy(desc(documents.createdAt)),
-    db.select({ id: payments.id, documentId: payments.documentId, documentNumber: documents.number, amount: payments.amount, method: payments.method, reference: payments.reference, paidAt: payments.paidAt, createdAt: payments.createdAt }).from(payments).innerJoin(documents, eq(payments.documentId, documents.id)).where(eq(documents.clientId, clientId)).orderBy(desc(payments.paidAt)),
+    db.select({ id: documents.id, kind: documents.kind, number: documents.number, total: documents.total, status: documents.status, createdAt: documents.createdAt }).from(documents).where(and(eq(documents.clientId, clientId), tFilter)).orderBy(desc(documents.createdAt)),
+    db.select({ id: payments.id, documentId: payments.documentId, documentNumber: documents.number, amount: payments.amount, method: payments.method, reference: payments.reference, paidAt: payments.paidAt, createdAt: payments.createdAt }).from(payments).innerJoin(documents, eq(payments.documentId, documents.id)).where(and(eq(documents.clientId, clientId), tFilter)).orderBy(desc(payments.paidAt)),
   ]);
   return buildClientActivityTimeline(clientId, clientDocuments, activities, clientPayments);
 }
@@ -265,22 +277,23 @@ function normalizeCompanySettings(input: CompanySettingsInput): typeof companySe
   };
 }
 
-export async function getCompanySettings() {
+export async function getCompanySettings(tenantId?: number) {
   const db = await requireDb();
-  const result = await db.select().from(companySettings).limit(1);
+  const condition = tenantId ? eq(companySettings.tenantId, tenantId) : sql`1=1`;
+  const result = await db.select().from(companySettings).where(condition).limit(1);
   return result[0] ?? emptyCompanySettings();
 }
 
-export async function saveCompanySettings(input: CompanySettingsInput) {
+export async function saveCompanySettings(tenantId: number, input: CompanySettingsInput) {
   const db = await requireDb();
-  const values = normalizeCompanySettings(input);
-  const existing = await db.select({ id: companySettings.id }).from(companySettings).limit(1);
+  const values = { ...normalizeCompanySettings(input), tenantId };
+  const existing = await db.select({ id: companySettings.id }).from(companySettings).where(eq(companySettings.tenantId, tenantId)).limit(1);
   if (existing[0]) await db.update(companySettings).set(values).where(eq(companySettings.id, existing[0].id));
   else await db.insert(companySettings).values(values);
-  return getCompanySettings();
+  return getCompanySettings(tenantId);
 }
 
-export async function listProjects() {
+export async function listProjects(tenantId: number) {
   const db = await requireDb();
   return db
     .select({
@@ -299,10 +312,11 @@ export async function listProjects() {
     })
     .from(projects)
     .innerJoin(clients, eq(projects.clientId, clients.id))
+    .where(eq(projects.tenantId, tenantId))
     .orderBy(desc(projects.createdAt));
 }
 
-export async function createProject(input: {
+export async function createProject(tenantId: number, input: {
   clientId: number;
   name: string;
   reference?: string;
@@ -313,6 +327,7 @@ export async function createProject(input: {
   const db = await requireDb();
   const result = await db.insert(projects).values({
     ...input,
+    tenantId,
     reference: input.reference || null,
     location: input.location || null,
     description: input.description || null,
@@ -320,17 +335,17 @@ export async function createProject(input: {
   return { id: Number(result[0].insertId) };
 }
 
-export async function updateProjectPlannedBudget(input: { id: number; plannedBudget: number }) {
+export async function updateProjectPlannedBudget(tenantId: number, input: { id: number; plannedBudget: number }) {
   const db = await requireDb();
-  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.id)).limit(1);
+  const project = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.id), eq(projects.tenantId, tenantId))).limit(1);
   if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
   await db.update(projects).set({ plannedBudget: input.plannedBudget }).where(eq(projects.id, input.id));
   return { success: true };
 }
 
-export async function updateProjectFinancialTargets(input: { id: number; plannedBudget: number; minimumMarginRate: number | null }) {
+export async function updateProjectFinancialTargets(tenantId: number, input: { id: number; plannedBudget: number; minimumMarginRate: number | null }) {
   const db = await requireDb();
-  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.id)).limit(1);
+  const project = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.id), eq(projects.tenantId, tenantId))).limit(1);
   if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
   await db.update(projects).set({ plannedBudget: input.plannedBudget, minimumMarginRate: input.minimumMarginRate }).where(eq(projects.id, input.id));
   return { success: true };
@@ -345,7 +360,7 @@ export type ProjectCostInput = {
   createdById: number;
 };
 
-export async function listProjectCosts(projectId?: number) {
+export async function listProjectCosts(tenantId: number, projectId?: number) {
   const db = await requireDb();
   const query = db.select({
     id: projectCosts.id, projectId: projectCosts.projectId, projectName: projects.name, clientName: clients.companyName,
@@ -354,17 +369,17 @@ export async function listProjectCosts(projectId?: number) {
   return projectId ? query.where(eq(projectCosts.projectId, projectId)).orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt)) : query.orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt));
 }
 
-export async function createProjectCost(input: ProjectCostInput) {
+export async function createProjectCost(tenantId: number, input: ProjectCostInput) {
   const db = await requireDb();
-  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
+  const project = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.projectId), eq(projects.tenantId, tenantId))).limit(1);
   if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
-  const result = await db.insert(projectCosts).values({ ...input, incurredAt: new Date(input.incurredAt) });
+  const result = await db.insert(projectCosts).values({ ...input, tenantId, incurredAt: new Date(input.incurredAt) });
   return { id: Number(result[0].insertId) };
 }
 
-export async function deleteProjectCost(id: number) {
+export async function deleteProjectCost(tenantId: number, id: number) {
   const db = await requireDb();
-  await db.delete(projectCosts).where(eq(projectCosts.id, id));
+  await db.delete(projectCosts).where(and(eq(projectCosts.id, id), eq(projectCosts.tenantId, tenantId)));
   return { success: true };
 }
 
@@ -391,10 +406,11 @@ export async function deleteProjectCostAttachment(id: number) {
   return { success: true };
 }
 
-export async function listProjectProfitability() {
+export async function listProjectProfitability(tenantId?: number) {
   const db = await requireDb();
+  const tFilter = tenantId ? eq(projects.tenantId, tenantId) : sql`1=1`;
   const [projectRows, costRows, paymentRows, plannedRevenueRows] = await Promise.all([
-    db.select({ id: projects.id, name: projects.name, reference: projects.reference, status: projects.status, clientName: clients.companyName, plannedBudget: projects.plannedBudget, minimumMarginRate: projects.minimumMarginRate }).from(projects).innerJoin(clients, eq(projects.clientId, clients.id)).orderBy(desc(projects.createdAt)),
+    db.select({ id: projects.id, name: projects.name, reference: projects.reference, status: projects.status, clientName: clients.companyName, plannedBudget: projects.plannedBudget, minimumMarginRate: projects.minimumMarginRate }).from(projects).innerJoin(clients, eq(projects.clientId, clients.id)).where(tFilter).orderBy(desc(projects.createdAt)),
     db.select({ projectId: projectCosts.projectId, costTotal: sql<number>`coalesce(sum(${projectCosts.amount}), 0)` }).from(projectCosts).groupBy(projectCosts.projectId),
     db.select({ projectId: documents.projectId, revenueCollected: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(documents).innerJoin(payments, eq(payments.documentId, documents.id)).where(and(eq(documents.kind, "facture"), sql`${documents.projectId} is not null`, sql`${documents.status} <> 'annule'`)).groupBy(documents.projectId),
     db.select({ projectId: documents.projectId, plannedRevenue: sql<number>`coalesce(sum(${documents.total}), 0)` }).from(documents).where(and(eq(documents.kind, "devis"), eq(documents.status, "accepte"), sql`${documents.projectId} is not null`)).groupBy(documents.projectId),
@@ -405,15 +421,16 @@ export async function listProjectProfitability() {
   return projectRows.map(project => ({ ...project, ...calculateProjectMargin({ revenueCollected: revenueByProject.get(project.id) ?? 0, costTotal: costsByProject.get(project.id) ?? 0, plannedRevenue: plannedRevenueByProject.get(project.id) ?? 0, plannedBudget: Number(project.plannedBudget), minimumMarginRate: project.minimumMarginRate }) }));
 }
 
-export async function listServices() {
+export async function listServices(tenantId?: number) {
   const db = await requireDb();
-  const existingCodes = await db.select({ code: services.code }).from(services);
+  const tFilter = tenantId ? eq(services.tenantId, tenantId) : sql`1=1`;
+  const existingCodes = await db.select({ code: services.code }).from(services).where(tFilter);
   const missingDefaults = getMissingDefaultServices(existingCodes.map(service => service.code));
   if (missingDefaults.length) await db.insert(services).values(missingDefaults);
-  return db.select().from(services).orderBy(asc(services.category), asc(services.name));
+  return db.select().from(services).where(tFilter).orderBy(asc(services.category), asc(services.name));
 }
 
-export async function createService(input: {
+export async function createService(tenantId: number, input: {
   code: string;
   name: string;
   category: ServiceCategory;
@@ -425,33 +442,34 @@ export async function createService(input: {
   const db = await requireDb();
   const result = await db.insert(services).values({
     ...input,
+    tenantId,
     description: input.description || null,
   });
   return { id: Number(result[0].insertId) };
 }
 
-export async function updateServiceTariff(input: { id: number; defaultUnitPrice: number; defaultTaxRate: number; changedById: number }) {
+export async function updateServiceTariff(tenantId: number, input: { id: number; defaultUnitPrice: number; defaultTaxRate: number; changedById: number }) {
   const db = await requireDb();
   return db.transaction(async tx => {
-    const current = await tx.select().from(services).where(eq(services.id, input.id)).limit(1);
+    const current = await tx.select().from(services).where(and(eq(services.id, input.id), eq(services.tenantId, tenantId))).limit(1);
     const service = current[0];
     if (!service) throw new Error("Prestation introuvable.");
     const changed = service.defaultUnitPrice !== input.defaultUnitPrice || service.defaultTaxRate !== input.defaultTaxRate;
     if (!changed) return { success: true, revisionCreated: false };
     await tx.update(services).set({ defaultUnitPrice: input.defaultUnitPrice, defaultTaxRate: input.defaultTaxRate }).where(eq(services.id, input.id));
-    await tx.insert(servicePriceRevisions).values({ serviceId: service.id, previousUnitPrice: service.defaultUnitPrice, nextUnitPrice: input.defaultUnitPrice, previousTaxRate: service.defaultTaxRate, nextTaxRate: input.defaultTaxRate, changedById: input.changedById });
+    await tx.insert(servicePriceRevisions).values({ tenantId, serviceId: service.id, previousUnitPrice: service.defaultUnitPrice, nextUnitPrice: input.defaultUnitPrice, previousTaxRate: service.defaultTaxRate, nextTaxRate: input.defaultTaxRate, changedById: input.changedById });
     return { success: true, revisionCreated: true };
   });
 }
 
-export async function listServicePriceRevisions(serviceId: number) {
+export async function listServicePriceRevisions(tenantId: number, serviceId: number) {
   const db = await requireDb();
-  return db.select({ id: servicePriceRevisions.id, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(eq(servicePriceRevisions.serviceId, serviceId)).orderBy(desc(servicePriceRevisions.createdAt));
+  return db.select({ id: servicePriceRevisions.id, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(and(eq(servicePriceRevisions.serviceId, serviceId), eq(servicePriceRevisions.tenantId, tenantId))).orderBy(desc(servicePriceRevisions.createdAt));
 }
 
-export async function listAllServicePriceRevisions() {
+export async function listAllServicePriceRevisions(tenantId: number) {
   const db = await requireDb();
-  return db.select({ id: servicePriceRevisions.id, serviceCode: services.code, serviceName: services.name, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).innerJoin(services, eq(servicePriceRevisions.serviceId, services.id)).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).orderBy(desc(servicePriceRevisions.createdAt));
+  return db.select({ id: servicePriceRevisions.id, serviceCode: services.code, serviceName: services.name, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).innerJoin(services, eq(servicePriceRevisions.serviceId, services.id)).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(eq(servicePriceRevisions.tenantId, tenantId)).orderBy(desc(servicePriceRevisions.createdAt));
 }
 
 async function ensureDefaultIntegrationProviders() {
@@ -932,7 +950,7 @@ export async function createAgentCampaignSimulation(input: { delegationId: numbe
     .innerJoin(agentCampaigns, eq(agentMessageJobs.campaignId, agentCampaigns.id))
     .where(and(eq(agentCampaigns.delegationId, delegation.id), gt(agentMessageJobs.scheduledFor, new Date(dayStart.getTime() - 1)), lt(agentMessageJobs.scheduledFor, dayEnd)));
   const remainingDailyCapacity = Math.max(0, delegation.dailyLimit - Number(scheduledRows[0]?.count ?? 0));
-  const documentsToCheck = await listDocuments(delegation.purpose === "relance_facture" ? "facture" : "devis");
+  const documentsToCheck = await listDocuments(undefined, delegation.purpose === "relance_facture" ? "facture" : "devis");
   const cooldownStart = new Date(Date.now() - delegation.contactCooldownDays * 86_400_000);
   const recentJobs = await db.select({ clientId: agentMessageJobs.clientId }).from(agentMessageJobs).where(gt(agentMessageJobs.createdAt, cooldownStart));
   const contactedRecently = new Set(recentJobs.map(job => job.clientId));
@@ -1089,8 +1107,8 @@ export async function deliverScheduledAgentCampaignToTestInbox(taskUid: string) 
   return deliverAgentCampaignToTestInbox({ campaignId: record.campaign.id, runKeyPrefix: `scheduled-test:${taskUid}:${dayKey}` });
 }
 
-export async function getAgentCopilotContext() {
-  const [profitability, receivables] = await Promise.all([listProjectProfitability(), getReceivablesDashboard()]);
+export async function getAgentCopilotContext(tenantId?: number) {
+  const [profitability, receivables] = await Promise.all([listProjectProfitability(tenantId), getReceivablesDashboard(tenantId)]);
   return {
     projectsBelowTarget: profitability.filter(project => project.isMarginBelowTarget).slice(0, 10).map(project => ({ projectId: project.id, name: project.name, client: project.clientName, margin: project.margin, marginRate: project.marginRate, minimumMarginRate: project.minimumMarginRate, variance: project.marginVariance, revenueCollected: project.revenueCollected, costs: project.costTotal })),
     receivables: receivables.invoices.filter(invoice => invoice.isPaymentPromiseOverdue || invoice.isOverdue).slice(0, 12).map(invoice => ({ documentId: invoice.id, number: invoice.number, client: invoice.clientName, balanceDue: invoice.balanceDue, daysOverdue: invoice.daysOverdue, promiseOverdue: invoice.isPaymentPromiseOverdue, promiseDueSoon: invoice.isPaymentPromiseDueSoon, promisedDate: invoice.paymentPromise?.promisedDate ?? null })),
@@ -1098,8 +1116,9 @@ export async function getAgentCopilotContext() {
   };
 }
 
-export async function listDocuments(kind?: DocumentKind, opts?: { limit?: number; search?: string }) {
+export async function listDocuments(tenantId?: number, kind?: DocumentKind, opts?: { limit?: number; search?: string }) {
   const db = await requireDb();
+  const tFilter = tenantId ? eq(documents.tenantId, tenantId) : sql`1=1`;
   let query = db
     .select({
       id: documents.id,
@@ -1129,6 +1148,7 @@ export async function listDocuments(kind?: DocumentKind, opts?: { limit?: number
     .innerJoin(clients, eq(documents.clientId, clients.id))
     .leftJoin(projects, eq(documents.projectId, projects.id))
     .$dynamic();
+  query = query.where(tFilter) as typeof query;
   if (kind) query = query.where(eq(documents.kind, kind)) as typeof query;
   query = query.orderBy(desc(documents.updatedAt)) as typeof query;
   if (opts?.limit) query = query.limit(opts.limit) as typeof query;
@@ -1144,14 +1164,14 @@ export async function listDocuments(kind?: DocumentKind, opts?: { limit?: number
   return kind ? enriched.filter(row => row.kind === kind) : enriched;
 }
 
-export async function getReceivablesDashboard() {
-  const [invoices, promises] = await Promise.all([listDocuments("facture"), listPaymentPromises()]);
+export async function getReceivablesDashboard(tenantId?: number) {
+  const [invoices, promises] = await Promise.all([listDocuments(tenantId, "facture"), listPaymentPromises()]);
   const promisedByDocument = new Map(promises.map(promise => [promise.documentId, promise]));
   return summarizeReceivables(invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })));
 }
 
-export async function searchWorkspace(input: { query: string; filters?: WorkspaceSearchFilters }) {
-  const [clientRows, documentRows, receivables] = await Promise.all([listClients(), listDocuments(), getReceivablesDashboard()]);
+export async function searchWorkspace(tenantId: number, input: { query: string; filters?: WorkspaceSearchFilters }) {
+  const [clientRows, documentRows, receivables] = await Promise.all([listClients(tenantId), listDocuments(tenantId), getReceivablesDashboard(tenantId)]);
   return buildWorkspaceSearchResults({
     query: input.query,
     filters: input.filters,
@@ -1161,9 +1181,9 @@ export async function searchWorkspace(input: { query: string; filters?: Workspac
   });
 }
 
-export async function updateCollectionFollowUp(input: { documentId: number; collectionStatus?: CollectionFollowUpStatus; collectionReminderDate?: string | null; collectionOwnerId?: number | null; updatedById: number }) {
+export async function updateCollectionFollowUp(tenantId: number, input: { documentId: number; collectionStatus?: CollectionFollowUpStatus; collectionReminderDate?: string | null; collectionOwnerId?: number | null; updatedById: number }) {
   if (!input.collectionStatus && input.collectionReminderDate === undefined && input.collectionOwnerId === undefined) throw new Error("Aucune mise à jour de suivi n’a été demandée.");
-  const invoice = await getDocumentById(input.documentId);
+  const invoice = await getDocumentById(input.documentId, tenantId);
   if (!invoice || invoice.kind !== "facture" || invoice.balanceDue <= 0) throw new Error("Le suivi concerne uniquement une facture avec un solde impayé.");
   const effectiveStatus = input.collectionStatus ?? invoice.collectionStatus ?? "a_traiter";
   const storedReminderDate = invoice.collectionReminderDate ? new Date(invoice.collectionReminderDate) : null;
@@ -1184,43 +1204,43 @@ export async function updateCollectionFollowUp(input: { documentId: number; coll
   if (input.collectionOwnerId !== undefined) values.collectionOwnerId = input.collectionOwnerId;
   await db.update(documents).set(values).where(eq(documents.id, input.documentId));
   const activityWrites: Array<Promise<{ id: number }>> = [];
-  if (input.collectionStatus) activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "statut_recouvrement", title: `Suivi recouvrement : ${collectionFollowUpLabels[input.collectionStatus]}`, description: `Facture ${invoice.number}`, createdById: input.updatedById }));
+  if (input.collectionStatus) activityWrites.push(createClientActivity(tenantId, { clientId: invoice.clientId, documentId: invoice.id, type: "statut_recouvrement", title: `Suivi recouvrement : ${collectionFollowUpLabels[input.collectionStatus]}`, description: `Facture ${invoice.number}`, createdById: input.updatedById }));
   if (input.collectionOwnerId !== undefined) {
     const ownerName = input.collectionOwnerId === null ? "Aucun responsable" : owner?.name || owner?.email || `Utilisateur ${input.collectionOwnerId}`;
-    activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "responsable_recouvrement", title: "Responsable de recouvrement mis à jour", description: `${ownerName} · Facture ${invoice.number}`, createdById: input.updatedById }));
+    activityWrites.push(createClientActivity(tenantId, { clientId: invoice.clientId, documentId: invoice.id, type: "responsable_recouvrement", title: "Responsable de recouvrement mis à jour", description: `${ownerName} · Facture ${invoice.number}`, createdById: input.updatedById }));
   }
   const oldReminderKey = storedReminderDate?.toISOString().slice(0, 10) ?? null;
   const newReminderKey = reminderDate?.toISOString().slice(0, 10) ?? null;
-  if (oldReminderKey !== newReminderKey) activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "date_rappel_recouvrement", title: newReminderKey ? `Rappel prévu le ${newReminderKey}` : "Date de rappel retirée", description: `Facture ${invoice.number}`, createdById: input.updatedById }));
+  if (oldReminderKey !== newReminderKey) activityWrites.push(createClientActivity(tenantId, { clientId: invoice.clientId, documentId: invoice.id, type: "date_rappel_recouvrement", title: newReminderKey ? `Rappel prévu le ${newReminderKey}` : "Date de rappel retirée", description: `Facture ${invoice.number}`, createdById: input.updatedById }));
   await Promise.all(activityWrites);
   return { success: true, collectionStatus: input.collectionStatus, collectionReminderDate: newReminderKey, collectionOwnerId: input.collectionOwnerId ?? undefined };
 }
 
-export async function reassignCollectionFollowUps(input: { documentIds: number[]; collectionOwnerId: number; updatedById: number }) {
+export async function reassignCollectionFollowUps(tenantId: number, input: { documentIds: number[]; collectionOwnerId: number; updatedById: number }) {
   const documentIds = Array.from(new Set(input.documentIds));
   if (!documentIds.length || documentIds.length > 20 || documentIds.some(id => !Number.isInteger(id) || id <= 0)) throw new Error("Sélectionnez entre 1 et 20 créances valides.");
   const db = await requireDb();
-  const owners = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, input.collectionOwnerId)).limit(1);
+  const owners = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).innerJoin(tenantMemberships, eq(users.id, tenantMemberships.userId)).where(and(eq(users.id, input.collectionOwnerId), eq(tenantMemberships.tenantId, tenantId))).limit(1);
   const owner = owners[0];
   if (!owner) throw new Error("Le responsable sélectionné est introuvable.");
-  const invoices = (await listDocuments("facture")).filter(invoice => documentIds.includes(invoice.id));
+  const invoices = (await listDocuments(tenantId, "facture")).filter(invoice => documentIds.includes(invoice.id));
   if (invoices.length !== documentIds.length || invoices.some(invoice => invoice.balanceDue <= 0)) throw new Error("Toutes les créances sélectionnées doivent être ouvertes et disponibles.");
   const changedInvoices = invoices.filter(invoice => invoice.collectionOwnerId !== input.collectionOwnerId);
   if (changedInvoices.length) {
     await db.update(documents).set({ collectionOwnerId: input.collectionOwnerId }).where(inArray(documents.id, changedInvoices.map(invoice => invoice.id)));
     const ownerName = owner.name || owner.email || `Utilisateur ${owner.id}`;
-    await Promise.all(changedInvoices.map(invoice => createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "responsable_recouvrement", title: "Responsable de recouvrement mis à jour", description: `${ownerName} · Facture ${invoice.number}`, createdById: input.updatedById })));
+    await Promise.all(changedInvoices.map(invoice => createClientActivity(tenantId, { clientId: invoice.clientId, documentId: invoice.id, type: "responsable_recouvrement", title: "Responsable de recouvrement mis à jour", description: `${ownerName} · Facture ${invoice.number}`, createdById: input.updatedById })));
   }
   return { success: true, updatedCount: changedInvoices.length, unchangedCount: invoices.length - changedInvoices.length, collectionOwnerId: owner.id };
 }
 
-export async function getCollectionMonthlyReport(month: string) {
+export async function getCollectionMonthlyReport(tenantId: number, month: string) {
   if (!isCollectionReportMonth(month)) throw new Error("Le mois du rapport est invalide.");
   const { start, end } = collectionMonthBounds(month);
   const startBefore = new Date(start.getTime() - 1);
   const [receivables, people, activities, paymentRows] = await Promise.all([
-    getReceivablesDashboard(),
-    listCollectionAssignees(),
+    getReceivablesDashboard(tenantId),
+    listCollectionAssignees(tenantId),
     (async () => {
       const db = await requireDb();
       return db.select({ id: clientActivities.id, type: clientActivities.type, title: clientActivities.title, description: clientActivities.description, createdAt: clientActivities.createdAt, documentId: documents.id, documentNumber: documents.number, clientName: clients.companyName }).from(clientActivities).innerJoin(documents, eq(clientActivities.documentId, documents.id)).innerJoin(clients, eq(documents.clientId, clients.id)).where(and(eq(documents.kind, "facture"), gt(clientActivities.createdAt, startBefore), lt(clientActivities.createdAt, end))).orderBy(desc(clientActivities.createdAt));
@@ -1261,7 +1281,7 @@ async function findClientByPortalEmail(email?: string | null) {
 export async function getClientPortalOverview(email?: string | null) {
   const client = await findClientByPortalEmail(email);
   if (!client) return { client: null, invoices: [] };
-  const invoices = (await listDocuments("facture")).filter(invoice => invoice.clientId === client.id);
+  const invoices = (await listDocuments(undefined, "facture")).filter(invoice => invoice.clientId === client.id);
   const promises = await listPaymentPromises(invoices.map(invoice => invoice.id));
   const promisedByDocument = new Map(promises.map(promise => [promise.documentId, promise]));
   return { client, invoices: invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })) };
@@ -1289,8 +1309,9 @@ export async function createClientPaymentPromise(input: { email?: string | null;
   return { success: true };
 }
 
-export async function getDocumentById(id: number) {
+export async function getDocumentById(id: number, tenantId?: number) {
   const db = await requireDb();
+  const tFilter = tenantId ? eq(documents.tenantId, tenantId) : sql`1=1`;
   const header = await db
     .select({
       id: documents.id,
@@ -1327,7 +1348,7 @@ export async function getDocumentById(id: number) {
     .from(documents)
     .innerJoin(clients, eq(documents.clientId, clients.id))
     .leftJoin(projects, eq(documents.projectId, projects.id))
-    .where(eq(documents.id, id))
+    .where(and(eq(documents.id, id), tFilter))
     .limit(1);
   if (!header[0]) return null;
   const lines = await db.select().from(documentLines).where(eq(documentLines.documentId, id)).orderBy(asc(documentLines.position));
@@ -1338,7 +1359,7 @@ export async function getDocumentById(id: number) {
   return { ...header[0], status, lines, payments: paymentRows, paidAmount, balanceDue: header[0].kind === "facture" ? balance.balanceDue : 0, isOverdue: header[0].kind === "facture" && isInvoiceOverdue(status, header[0].dueDate) };
 }
 
-export async function createDocument(input: {
+export async function createDocument(tenantId: number, input: {
   kind: DocumentKind;
   clientId: number;
   projectId?: number;
@@ -1366,6 +1387,7 @@ export async function createDocument(input: {
     const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, input.kind)).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const documentValues: typeof documents.$inferInsert = {
+      tenantId,
       kind: input.kind,
       number: formatDocumentNumber(input.kind, new Date(input.issueDate).getUTCFullYear(), serial),
       clientId: input.clientId,
@@ -1413,13 +1435,14 @@ export async function createDocument(input: {
   return { ...result, totals: { subtotal: totals.subtotal, taxTotal: totals.taxTotal, total: totals.totalAfterDiscount, discountPercent: totals.discountPercent, discountAmount: totals.discountAmount } };
 }
 
-export async function updateDocumentStatus(id: number, status: DocumentStatus) {
+export async function updateDocumentStatus(id: number, status: DocumentStatus, tenantId?: number) {
   const db = await requireDb();
-  await db.update(documents).set({ status }).where(eq(documents.id, id));
+  const condition = tenantId ? and(eq(documents.id, id), eq(documents.tenantId, tenantId)) : eq(documents.id, id);
+  await db.update(documents).set({ status }).where(condition);
   return { success: true };
 }
 
-export async function createDepositInvoiceFromQuote(quoteId: number, createdById: number) {
+export async function createDepositInvoiceFromQuote(quoteId: number, createdById: number, tenantId?: number) {
   const db = await requireDb();
   return db.transaction(async tx => {
     const quoteRows = await tx.select().from(documents).where(eq(documents.id, quoteId)).limit(1);
@@ -1435,7 +1458,7 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
     const serial = sequence[0]?.lastValue ?? 1;
     const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
     const result = await tx.insert(documents).values({
-      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "acompte",
+      tenantId, kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "acompte",
       status: "brouillon", issueDate: new Date(), dueDate: quote.depositDueDate ?? new Date(), validUntil: null,
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
       subtotal: amount, taxTotal: 0, total: amount,
@@ -1447,7 +1470,7 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
   });
 }
 
-export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, createdById: number) {
+export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, createdById: number, tenantId?: number) {
   const db = await requireDb();
   return db.transaction(async tx => {
     const depositRows = await tx.select().from(documents).where(eq(documents.id, depositInvoiceId)).limit(1);
@@ -1472,7 +1495,7 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
     const serial = sequence[0]?.lastValue ?? 1;
     const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
     const result = await tx.insert(documents).values({
-      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: deposit.id, invoiceStage: "solde",
+      tenantId, kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: deposit.id, invoiceStage: "solde",
       status: "brouillon", issueDate: new Date(), dueDate: quote.balanceDueDate ?? new Date(), validUntil: null,
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
       subtotal: amount, taxTotal: 0, total: amount,
@@ -1484,7 +1507,7 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
   });
 }
 
-export async function createInvoiceFromQuote(quoteId: number, createdById: number) {
+export async function createInvoiceFromQuote(quoteId: number, createdById: number, tenantId?: number) {
   const db = await requireDb();
   return db.transaction(async tx => {
     const quoteRows = await tx.select().from(documents).where(eq(documents.id, quoteId)).limit(1);
@@ -1499,7 +1522,7 @@ export async function createInvoiceFromQuote(quoteId: number, createdById: numbe
     const seq = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
     const number = formatDocumentNumber("facture", new Date().getUTCFullYear(), seq[0]?.lastValue ?? 1);
     const result = await tx.insert(documents).values({
-      kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "standard",
+      tenantId, kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "standard",
       status: "brouillon", issueDate: new Date(), dueDate: new Date(Date.now() + 14 * 24 * 3600 * 1000), validUntil: null,
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: quote.discountPercent, discountAmount: quote.discountAmount,
       subtotal: quote.subtotal, taxTotal: quote.taxTotal, total: quote.total,
@@ -1513,7 +1536,7 @@ export async function createInvoiceFromQuote(quoteId: number, createdById: numbe
   });
 }
 
-export async function recordPayment(input: {
+export async function recordPayment(tenantId: number, input: {
   documentId: number;
   amount: number;
   paidAt: string;
@@ -1532,7 +1555,7 @@ export async function recordPayment(input: {
     const paidBefore = existingPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const balanceBefore = calculatePaymentBalance(invoice.total, paidBefore);
     if (input.amount > balanceBefore.balanceDue) throw new Error("Le montant saisi dépasse le solde restant dû.");
-    const result = await tx.insert(payments).values({ documentId: input.documentId, amount: input.amount, paidAt: new Date(`${input.paidAt}T00:00:00.000Z`), method: input.method, reference: input.reference || null, notes: input.notes || null, createdById: input.createdById });
+    const result = await tx.insert(payments).values({ tenantId, documentId: input.documentId, amount: input.amount, paidAt: new Date(`${input.paidAt}T00:00:00.000Z`), method: input.method, reference: input.reference || null, notes: input.notes || null, createdById: input.createdById });
     const paidAfter = paidBefore + input.amount;
     const status = invoicePaymentStatus(invoice.total, paidAfter, invoice.dueDate, invoice.status);
     await tx.update(documents).set({ status }).where(eq(documents.id, input.documentId));
@@ -1540,7 +1563,7 @@ export async function recordPayment(input: {
   });
 }
 
-export async function updateDocument(input: {
+export async function updateDocument(tenantId: number, input: {
   id: number;
   clientId: number;
   projectId?: number;
@@ -1595,8 +1618,8 @@ export async function updateDocument(input: {
   return { success: true, totals: { subtotal: totals.subtotal, taxTotal: totals.taxTotal, total: totals.totalAfterDiscount, discountPercent: totals.discountPercent, discountAmount: totals.discountAmount } };
 }
 
-export async function getDashboardData() {
-  const allDocuments = await listDocuments();
+export async function getDashboardData(tenantId: number) {
+  const allDocuments = await listDocuments(tenantId);
   const now = new Date();
   const priority = allDocuments.filter(document => document.status === "a_envoyer" || (document.kind === "facture" && document.dueDate && document.dueDate < now && !["paye", "annule", "refuse"].includes(document.status))).slice(0, 6);
   return {

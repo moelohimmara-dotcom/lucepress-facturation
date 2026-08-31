@@ -245,47 +245,47 @@ export const appRouter = router({
     }),
   }),
   billing: router({
-    dashboard: adminProcedure.query(() => db.getDashboardData()),
+    dashboard: adminProcedure.query(({ ctx }) => db.getDashboardData(ctx.tenantId!)),
     clients: router({
-      list: adminProcedure.query(() => db.listClients()),
-      duplicates: adminProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
+      list: adminProcedure.query(({ ctx }) => db.listClients(ctx.tenantId!)),
+      duplicates: adminProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(ctx.tenantId!, input, input.excludedId)),
       create: adminProcedure
         .input(clientInputSchema)
-        .mutation(({ input }) => db.createClient(input)),
+        .mutation(({ input }) => db.createClient(ctx.tenantId!, input)),
       update: adminProcedure
         .input(clientInputSchema.extend({ id: z.number().int().positive() }))
-        .mutation(({ input }) => db.updateClient(input.id, input)),
+        .mutation(({ input }) => db.updateClient(input.id, input, ctx.tenantId!)),
       attachments: router({
-        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientAttachments(input.clientId)),
+        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientAttachments(input.clientId, ctx.tenantId!)),
       }),
       activities: router({
-        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientActivities(input.clientId)),
-        createNote: adminProcedure.input(z.object({ clientId: z.number().int().positive(), title: z.string().trim().min(2).max(255).default("Note d’appel"), description: z.string().trim().min(3).max(2000) })).mutation(({ ctx, input }) => db.createClientActivity({ ...input, type: "note", createdById: ctx.user.id })),
+        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientActivities(input.clientId, ctx.tenantId!)),
+        createNote: adminProcedure.input(z.object({ clientId: z.number().int().positive(), title: z.string().trim().min(2).max(255).default("Note d’appel"), description: z.string().trim().min(3).max(2000) })).mutation(({ ctx, input }) => db.createClientActivity(ctx.tenantId!, { ...input, type: "note", createdById: ctx.user.id })),
       }),
     }),
     settings: router({
-      get: adminProcedure.query(() => db.getCompanySettings()),
-      save: adminProcedure.input(companySettingsInputSchema).mutation(({ input }) => db.saveCompanySettings(input)),
+      get: adminProcedure.query(({ ctx }) => db.getCompanySettings(ctx.tenantId!)),
+      save: adminProcedure.input(companySettingsInputSchema).mutation(({ input }) => db.saveCompanySettings(ctx.tenantId!, input)),
     }),
     projects: router({
-      list: adminProcedure.query(() => db.listProjects()),
+      list: adminProcedure.query(({ ctx }) => db.listProjects(ctx.tenantId!)),
       create: adminProcedure
         .input(z.object({ clientId: z.number().int().positive(), name: z.string().trim().min(2).max(180), reference: z.string().trim().max(80).optional(), type: z.enum(["btp", "forage", "mixte"]), location: z.string().trim().max(255).optional(), description: optionalText }))
-        .mutation(({ input }) => db.createProject(input)),
-      updatePlannedBudget: adminProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000) })).mutation(({ input }) => db.updateProjectPlannedBudget(input)),
-      updateFinancialTargets: adminProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000), minimumMarginRate: z.number().int().min(0).max(100).nullable() })).mutation(({ input }) => db.updateProjectFinancialTargets(input)),
+        .mutation(({ input }) => db.createProject(ctx.tenantId!, input)),
+      updatePlannedBudget: adminProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000) })).mutation(({ input }) => db.updateProjectPlannedBudget(ctx.tenantId!, input)),
+      updateFinancialTargets: adminProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000), minimumMarginRate: z.number().int().min(0).max(100).nullable() })).mutation(({ input }) => db.updateProjectFinancialTargets(ctx.tenantId!, input)),
       costs: router({
-        list: adminProcedure.input(z.object({ projectId: z.number().int().positive().optional() }).optional()).query(({ input }) => db.listProjectCosts(input?.projectId)),
-        create: adminProcedure.input(z.object({ projectId: z.number().int().positive(), category: z.enum(["materiaux", "main_oeuvre", "transport", "equipement", "sous_traitance", "autre"]), description: z.string().trim().min(3).max(500), amount: z.number().int().positive().max(9_000_000_000), incurredAt: dateText })).mutation(({ ctx, input }) => db.createProjectCost({ ...input, createdById: ctx.user.id })),
-        delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCost(input.id)),
+        list: adminProcedure.input(z.object({ projectId: z.number().int().positive().optional() }).optional()).query(({ input }) => db.listProjectCosts(ctx.tenantId!, input?.projectId)),
+        create: adminProcedure.input(z.object({ projectId: z.number().int().positive(), category: z.enum(["materiaux", "main_oeuvre", "transport", "equipement", "sous_traitance", "autre"]), description: z.string().trim().min(3).max(500), amount: z.number().int().positive().max(9_000_000_000), incurredAt: dateText })).mutation(({ ctx, input }) => db.createProjectCost(ctx.tenantId!, { ...input, createdById: ctx.user.id })),
+        delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCost(ctx.tenantId!, input.id)),
         attachments: router({
           list: adminProcedure.input(z.object({ projectCostId: z.number().int().positive() })).query(({ input }) => db.listProjectCostAttachments(input.projectCostId)),
           delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCostAttachment(input.id)),
         }),
-        profitability: adminProcedure.query(() => db.listProjectProfitability()),
+        profitability: adminProcedure.query(({ ctx }) => db.listProjectProfitability(ctx.tenantId!)),
       }),
     }),
-    receivables: adminProcedure.query(() => db.getReceivablesDashboard()),
+    receivables: adminProcedure.query(({ ctx }) => db.getReceivablesDashboard(ctx.tenantId!)),
     workspaceSearch: adminProcedure
       .input(z.object({
         query: z.string().trim().max(80),
@@ -300,25 +300,25 @@ export const appRouter = router({
           sortDirection: z.enum(["asc", "desc"]).optional(),
         }).optional(),
       }))
-      .query(({ input }) => db.searchWorkspace({ query: input.query, filters: input.filters })),
+      .query(({ input }) => db.searchWorkspace(ctx.tenantId!, { query: input.query, filters: input.filters })),
     collection: router({
       assignees: adminProcedure.query(() => db.listCollectionAssignees()),
       updateFollowUp: adminProcedure
         .input(z.object({ documentId: z.number().int().positive(), collectionStatus: z.enum(["a_traiter", "contacte", "a_rappeler"]).optional(), collectionReminderDate: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/, "La date de rappel doit respecter le format AAAA-MM-JJ.").nullable().optional(), collectionOwnerId: z.number().int().positive().nullable().optional() }))
         .mutation(async ({ ctx, input }) => {
-          try { return await db.updateCollectionFollowUp({ ...input, updatedById: ctx.user.id }); }
+          try { return await db.updateCollectionFollowUp(ctx.tenantId!, { ...input, updatedById: ctx.user.id }); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le suivi de recouvrement ne peut pas être mis à jour." }); }
         }),
       reassign: adminProcedure
         .input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(20).refine(ids => new Set(ids).size === ids.length, "Une créance ne peut être sélectionnée qu’une fois."), collectionOwnerId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
-          try { return await db.reassignCollectionFollowUps({ ...input, updatedById: ctx.user.id }); }
+          try { return await db.reassignCollectionFollowUps(ctx.tenantId!, { ...input, updatedById: ctx.user.id }); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Les créances ne peuvent pas être réattribuées." }); }
         }),
       monthlyReport: adminProcedure
         .input(z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Le mois doit respecter le format AAAA-MM.") }))
         .query(async ({ input }) => {
-          try { return await db.getCollectionMonthlyReport(input.month); }
+          try { return await db.getCollectionMonthlyReport(ctx.tenantId!, input.month); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le rapport mensuel est indisponible." }); }
         }),
     }),
@@ -416,7 +416,7 @@ export const appRouter = router({
         }),
       copilotBriefing: agentOperatorProcedure
         .mutation(async () => {
-          const context = await db.getAgentCopilotContext();
+          const context = await db.getAgentCopilotContext(ctx.tenantId!);
           const models = await listLLMModels();
           const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
@@ -479,36 +479,36 @@ export const appRouter = router({
         }),
     }),
     services: router({
-      list: adminProcedure.query(() => db.listServices()),
+      list: adminProcedure.query(({ ctx }) => db.listServices(ctx.tenantId!)),
       create: adminProcedure
         .input(z.object({ code: z.string().trim().min(2).max(50), name: z.string().trim().min(2).max(180), category: z.enum(SERVICE_CATEGORIES), description: optionalText, unit: z.string().trim().min(1).max(30), defaultUnitPrice: z.number().int().min(0).max(9_000_000_000), defaultTaxRate: z.number().int().min(0).max(100) }))
-        .mutation(({ input }) => db.createService(input)),
+        .mutation(({ input }) => db.createService(ctx.tenantId!, input)),
       updateTariff: adminProcedure
         .input(z.object({ id: z.number().int().positive(), defaultUnitPrice: z.number().int().min(0).max(9_000_000_000), defaultTaxRate: z.number().int().min(0).max(100) }))
-        .mutation(({ ctx, input }) => db.updateServiceTariff({ ...input, changedById: ctx.user.id })),
+        .mutation(({ ctx, input }) => db.updateServiceTariff(ctx.tenantId!, { ...input, changedById: ctx.user.id })),
       priceHistory: adminProcedure
         .input(z.object({ serviceId: z.number().int().positive() }))
-        .query(({ input }) => db.listServicePriceRevisions(input.serviceId)),
+        .query(({ ctx, input }) => db.listServicePriceRevisions(ctx.tenantId!, input.serviceId)),
       priceHistoryExport: adminProcedure
-        .query(() => db.listAllServicePriceRevisions()),
+        .query(({ ctx }) => db.listAllServicePriceRevisions(ctx.tenantId!)),
     }),
     documents: router({
-      list: adminProcedure.input(z.object({ kind: z.enum(["devis", "facture"]).optional() }).optional()).query(({ input }) => db.listDocuments(input?.kind)),
-      get: adminProcedure.input(z.object({ id: z.number().int().positive() })).query(({ input }) => db.getDocumentById(input.id)),
+      list: adminProcedure.input(z.object({ kind: z.enum(["devis", "facture"]).optional() }).optional()).query(({ input }) => db.listDocuments(ctx.tenantId!, input?.kind)),
+      get: adminProcedure.input(z.object({ id: z.number().int().positive() })).query(({ input }) => db.getDocumentById(input.id, ctx.tenantId!)),
       create: adminProcedure
         .input(z.object({ kind: z.enum(["devis", "facture"]), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), relatedDocumentId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES).optional(), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, isAiDraft: z.boolean().optional(), lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
-        .mutation(({ ctx, input }) => db.createDocument({ ...input, createdById: ctx.user.id, lines: input.lines as EditableDocumentLine[] })),
+        .mutation(({ ctx, input }) => db.createDocument(ctx.tenantId!, { ...input, createdById: ctx.user.id, lines: input.lines as EditableDocumentLine[] })),
       update: adminProcedure
         .input(z.object({ id: z.number().int().positive(), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
-        .mutation(({ input }) => db.updateDocument({ ...input, lines: input.lines as EditableDocumentLine[] })),
+        .mutation(({ input }) => db.updateDocument(ctx.tenantId!, { ...input, lines: input.lines as EditableDocumentLine[] })),
       updateStatus: adminProcedure
         .input(z.object({ id: z.number().int().positive(), status: z.enum(DOCUMENT_STATUSES) }))
-        .mutation(({ input }) => db.updateDocumentStatus(input.id, input.status)),
+        .mutation(({ input }) => db.updateDocumentStatus(input.id, input.status, ctx.tenantId!)),
       createDepositInvoice: adminProcedure
         .input(z.object({ quoteId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try {
-            return await db.createDepositInvoiceFromQuote(input.quoteId, ctx.user.id);
+            return await db.createDepositInvoiceFromQuote(input.quoteId, ctx.user.id, ctx.tenantId!);
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture d’acompte ne peut pas être générée." });
           }
@@ -517,7 +517,7 @@ export const appRouter = router({
         .input(z.object({ depositInvoiceId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try {
-            return await db.createBalanceInvoiceFromDeposit(input.depositInvoiceId, ctx.user.id);
+            return await db.createBalanceInvoiceFromDeposit(input.depositInvoiceId, ctx.user.id, ctx.tenantId!);
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture de solde ne peut pas être générée." });
           }
@@ -526,7 +526,7 @@ export const appRouter = router({
         .input(z.object({ quoteId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try {
-            return await db.createInvoiceFromQuote(input.quoteId, ctx.user.id);
+            return await db.createInvoiceFromQuote(input.quoteId, ctx.user.id, ctx.tenantId!);
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture ne peut pas être générée depuis ce devis." });
           }
@@ -537,7 +537,7 @@ export const appRouter = router({
         .input(z.object({ documentId: z.number().int().positive(), amount: z.number().int().positive().max(9_000_000_000), paidAt: dateText, method: z.enum(["especes", "virement", "cheque", "mobile_money", "autre"]), reference: z.string().trim().max(120).optional(), notes: optionalText }))
         .mutation(async ({ ctx, input }) => {
           try {
-            return await db.recordPayment({ ...input, createdById: ctx.user.id });
+            return await db.recordPayment(ctx.tenantId!, { ...input, createdById: ctx.user.id });
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le paiement ne peut pas être enregistré." });
           }
@@ -547,9 +547,9 @@ export const appRouter = router({
       summarizeClientHistory: adminProcedure
         .input(z.object({ clientId: z.number().int().positive() }))
         .mutation(async ({ input }) => {
-          const client = await db.getClientById(input.clientId);
+          const client = await db.getClientById(input.clientId, ctx.tenantId!);
           if (!client) throw new TRPCError({ code: "NOT_FOUND", message: "Client introuvable." });
-          const history = await db.listClientActivities(input.clientId);
+          const history = await db.listClientActivities(input.clientId, ctx.tenantId!);
           const models = await listLLMModels();
           const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
@@ -568,7 +568,7 @@ export const appRouter = router({
       generateReminder: adminProcedure
         .input(z.object({ documentId: z.number().int().positive(), tone: z.enum(["courtois", "ferme"]).default("courtois") }))
         .mutation(async ({ ctx, input }) => {
-          const document = await db.getDocumentById(input.documentId);
+          const document = await db.getDocumentById(input.documentId, ctx.tenantId!);
           if (!document || document.kind !== "facture" || document.balanceDue <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
           const models = await listLLMModels();
           const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
@@ -585,7 +585,7 @@ export const appRouter = router({
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance est indisponible. Réessayez dans un instant." });
           try {
             const reminder = JSON.parse(content) as { subject: string; greeting: string; body: string; closing: string; tone: string };
-            await db.createClientActivity({ clientId: document.clientId, documentId: document.id, type: "relance_preparee", title: `Relance ${reminder.tone || input.tone} préparée`, description: reminder.subject, createdById: ctx.user.id });
+            await db.createClientActivity(ctx.tenantId!, { clientId: document.clientId, documentId: document.id, type: "relance_preparee", title: `Relance ${reminder.tone || input.tone} préparée`, description: reminder.subject, createdById: ctx.user.id });
             return { reminder, requiresReview: true };
           } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance ne peut pas être lu. Réessayez dans un instant." }); }
         }),
@@ -596,7 +596,7 @@ export const appRouter = router({
           try { documentIds = normalizeBatchReminderDocumentIds(input.documentIds); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La sélection de relance est invalide." }); }
           const instruction = normalizeBatchReminderInstruction(input.instruction);
-          const documents = await Promise.all(documentIds.map(documentId => db.getDocumentById(documentId)));
+          const documents = await Promise.all(documentIds.map(documentId => db.getDocumentById(documentId, ctx.tenantId!)));
           if (documents.some(document => !document || document.kind !== "facture" || document.balanceDue <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "Chaque relance doit concerner une facture avec un solde impayé." });
           const invoices = documents as Array<NonNullable<typeof documents[number]>>;
           const models = await listLLMModels();
@@ -620,7 +620,7 @@ export const appRouter = router({
             if (reminders.some(reminder => !reminder.subject.trim() || !reminder.greeting.trim() || !reminder.body.trim() || !reminder.closing.trim())) throw new Error("Le modèle a retourné un brouillon incomplet.");
             await Promise.all(reminders.map(reminder => {
               const invoice = invoices.find(document => document.id === reminder.documentId)!;
-              return db.createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "relance_preparee", title: `Relance groupée ${reminder.tone || input.tone} préparée`, description: reminder.subject, createdById: ctx.user.id });
+              return db.createClientActivity(ctx.tenantId!, { clientId: invoice.clientId, documentId: invoice.id, type: "relance_preparee", title: `Relance groupée ${reminder.tone || input.tone} préparée`, description: reminder.subject, createdById: ctx.user.id });
             }));
             return { reminders, requiresReview: true, delivery: "brouillons_uniquement" as const };
           } catch (error) { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error instanceof Error ? error.message : "Les modèles de relance ne peuvent pas être lus. Réessayez dans un instant." }); }
@@ -650,7 +650,7 @@ export const appRouter = router({
       proposeQuote: adminProcedure
         .input(z.object({ description: z.string().trim().min(20).max(6000), projectType: z.enum(["btp", "forage", "mixte"]).optional(), taxRate: z.number().int().min(0).max(100).default(0) }))
         .mutation(async ({ input }) => {
-          const catalog = await db.listServices();
+          const catalog = await db.listServices(ctx.tenantId!);
           const models = await listLLMModels();
           const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });

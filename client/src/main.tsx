@@ -1,9 +1,10 @@
 import { trpc } from "@/lib/trpc";
-import { UNAUTHED_ERR_MSG } from '@shared/const';
+import { TRIAL_EXPIRED_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
+import { toast } from "sonner";
 import App from "./App";
 import "./index.css";
 import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
@@ -26,11 +27,17 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
 
-  const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
+  if (error.message === UNAUTHED_ERR_MSG) {
+    window.location.href = "/connexion";
+    return;
+  }
 
-  if (!isUnauthorized) return;
-
-  window.location.href = "/connexion";
+  if (error.message === TRIAL_EXPIRED_ERR_MSG) {
+    toast.error("Votre essai est terminé", {
+      description: "Souscrivez à un abonnement pour continuer à utiliser Lucepress.",
+      duration: 8000,
+    });
+  }
 };
 
 queryClient.getQueryCache().subscribe(event => {
