@@ -17,12 +17,79 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  passwordHash: text("passwordHash"),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
+
+export const tenants = mysqlTable("tenants", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 180 }).notNull(),
+  plan: mysqlEnum("plan", ["trial", "pro", "enterprise", "suspended"]).default("trial").notNull(),
+  status: mysqlEnum("status", ["trial", "active", "suspended", "cancelled"]).default("trial").notNull(),
+  currency: varchar("currency", { length: 3 }).default("GNF").notNull(),
+  trialEndsAt: timestamp("trialEndsAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const tenantMemberships = mysqlTable(
+  "tenant_memberships",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    role: mysqlEnum("role", ["admin", "member", "viewer"]).default("member").notNull(),
+    status: mysqlEnum("status", ["active", "suspended", "revoked"]).default("active").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    unique("tenant_memberships_user_tenant_unique").on(table.userId, table.tenantId),
+    index("tenant_memberships_tenant_idx").on(table.tenantId),
+  ],
+);
+
+export const invitations = mysqlTable(
+  "invitations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }).notNull(),
+    role: mysqlEnum("role", ["admin", "member", "viewer"]).default("member").notNull(),
+    token: varchar("token", { length: 64 }).notNull(),
+    status: mysqlEnum("status", ["pending", "accepted", "expired", "revoked"]).default("pending").notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    invitedById: int("invitedById").references(() => users.id, { onDelete: "set null" }),
+    acceptedAt: timestamp("acceptedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    unique("invitations_token_unique").on(table.token),
+    index("invitations_tenant_status_idx").on(table.tenantId, table.status),
+  ],
+);
+
+export const subscriptions = mysqlTable(
+  "subscriptions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    monerooPaymentId: varchar("monerooPaymentId", { length: 255 }),
+    plan: mysqlEnum("plan", ["trial", "pro", "enterprise"]).default("trial").notNull(),
+    status: mysqlEnum("status", ["pending", "success", "failed", "expired"]).default("pending").notNull(),
+    amount: bigint("amount", { mode: "number" }).default(0).notNull(),
+    currency: varchar("currency", { length: 3 }).default("GNF").notNull(),
+    paidAt: timestamp("paidAt"),
+    expiresAt: timestamp("expiresAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("subscriptions_tenant_status_idx").on(table.tenantId, table.status)],
+);
 
 export const clients = mysqlTable(
   "clients",
@@ -46,6 +113,7 @@ export const projects = mysqlTable(
   "projects",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId"),
     clientId: int("clientId")
       .notNull()
       .references(() => clients.id, { onDelete: "restrict" }),
@@ -628,6 +696,10 @@ export const documentSequences = mysqlTable(
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+export type Tenant = typeof tenants.$inferSelect;
+export type TenantMembership = typeof tenantMemberships.$inferSelect;
+export type Invitation = typeof invitations.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type ProjectCost = typeof projectCosts.$inferSelect;

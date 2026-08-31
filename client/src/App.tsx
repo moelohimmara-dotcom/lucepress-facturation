@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { DashboardLayoutSkeleton } from "./components/DashboardLayoutSkeleton";
 
 const Home = lazy(() => import("./pages/Home"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DocumentsPage = lazy(() => import("./pages/DocumentsPage"));
 const DocumentEditorPage = lazy(() => import("./pages/DocumentEditorPage"));
 const DocumentEditRoute = lazy(() => import("./pages/DocumentEditRoute"));
@@ -31,6 +32,7 @@ function Router() {
   return (
     <Suspense fallback={<LazyFallback />}>
       <Switch>
+        <Route path="/connexion" component={AuthPage} />
         <Route path="/" component={Home} />
         <Route path="/tableau-de-bord" component={Home} />
         <Route path={"/devis"} component={() => <DocumentsPage kind="devis" />} />

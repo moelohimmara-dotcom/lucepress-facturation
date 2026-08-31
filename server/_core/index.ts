@@ -3,7 +3,7 @@ import express from "express";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
+import { registerAuthRoutes } from "./authRoutes";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { registerClientAttachmentRoutes } from "../clientAttachments";
@@ -46,7 +46,7 @@ async function startServer() {
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ limit: "1mb", extended: true }));
   registerStorageProxy(app);
-  registerOAuthRoutes(app);
+  registerAuthRoutes(app);
   registerClientAttachmentRoutes(app);
   registerProjectCostAttachmentRoutes(app);
   registerIntegrationExternalRoutes(app);

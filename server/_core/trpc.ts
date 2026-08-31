@@ -21,6 +21,7 @@ const requireUser = t.middleware(async opts => {
     ctx: {
       ...ctx,
       user: ctx.user,
+      tenantId: ctx.tenantId,
     },
   });
 });

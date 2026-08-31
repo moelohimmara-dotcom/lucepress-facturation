@@ -162,6 +162,13 @@
       "when": 1787828000000,
       "tag": "0022_p0_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1787830000000,
+      "tag": "0023_multi_tenant",
+      "breakpoints": true
     }
   ]
 }
