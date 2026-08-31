@@ -10,6 +10,7 @@ import { registerClientAttachmentRoutes } from "../clientAttachments";
 import { registerProjectCostAttachmentRoutes } from "../projectCostAttachments";
 import { registerIntegrationExternalRoutes } from "../integrations/externalRoutes";
 import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRoutes";
+import { registerMonerooWebhookRoute } from "./monerooWebhook";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -51,6 +52,7 @@ async function startServer() {
   registerProjectCostAttachmentRoutes(app);
   registerIntegrationExternalRoutes(app);
   registerAgentCampaignScheduleRoutes(app);
+  registerMonerooWebhookRoute(app);
   // tRPC API
   app.use(
     "/api/trpc",

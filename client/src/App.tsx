@@ -24,6 +24,7 @@ const ClientPortalPage = lazy(() => import("./pages/ClientPortalPage"));
 const ProjectCostsPage = lazy(() => import("./pages/ProjectCostsPage"));
 const ReceivablesPage = lazy(() => import("./pages/ReceivablesPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
 const RemindersPage = lazy(() => import("./pages/RemindersPage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
@@ -52,6 +53,7 @@ function Router() {
         <Route path="/creances" component={ReceivablesPage} />
         <Route path="/portail-client" component={ClientPortalPage} />
         <Route path={"/parametres"} component={SettingsPage} />
+        <Route path={"/parametres/abonnement"} component={SubscriptionPage} />
         <Route path={"/relances"} component={RemindersPage} />
         <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
         <Route path={"/documents/:id"} component={DocumentPreviewPage} />

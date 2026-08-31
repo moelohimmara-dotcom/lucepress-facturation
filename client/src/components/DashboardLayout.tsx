@@ -36,6 +36,7 @@ import {
   CircleDollarSign,
   Check,
   ChevronDown,
+  CreditCard,
   FileText,
   FolderKanban,
   LayoutDashboard,
@@ -86,6 +87,7 @@ const navigationGroups = [
   ] },
   { label: "Configuration", items: [
     { icon: Cable, label: "Intégrations", path: "/integrations" },
+    { icon: CreditCard, label: "Abonnement", path: "/parametres/abonnement" },
     { icon: Settings, label: "Paramètres", path: "/parametres" },
   ] },
 ];

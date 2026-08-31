@@ -14,6 +14,8 @@ import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
 import { BATCH_REMINDER_LIMIT, normalizeBatchReminderDocumentIds, normalizeBatchReminderInstruction } from "../shared/batchReminders";
+import { initializeMonerooPayment, isMonerooConfigured } from "./_core/moneroo";
+import { PLAN_PRICES_GNF, createSubscriptionRecord, getTenantSubscriptionStatus } from "./subscriptionDb";
 
 const optionalText = z.string().trim().max(2000).optional();
 const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -243,6 +245,57 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+  subscription: router({
+    status: protectedProcedure.query(({ ctx }) =>
+      getTenantSubscriptionStatus(ctx.tenantId!)
+    ),
+    checkout: adminProcedure
+      .input(z.object({ plan: z.enum(["pro", "enterprise"]) }))
+      .mutation(async ({ ctx, input }) => {
+        if (!isMonerooConfigured()) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Le paiement en ligne n'est pas encore configuré. Contactez l'équipe Lucepress pour finaliser votre abonnement.",
+          });
+        }
+
+        const amount = PLAN_PRICES_GNF[input.plan] ?? 0;
+        if (amount === 0 && input.plan === "enterprise") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Le plan Entreprise est disponible sur devis. Contactez l'équipe Lucepress.",
+          });
+        }
+
+        const returnUrl = `${ctx.req.headers.origin ?? ""}/parametres/abonnement`;
+
+        const monerooPayment = await initializeMonerooPayment({
+          amount,
+          currency: "GNF",
+          description: `Abonnement Lucepress ${input.plan === "pro" ? "Pro" : "Entreprise"} — mensuel`,
+          customer: {
+            email: ctx.user.email ?? "",
+            first_name: ctx.user.name?.split(" ")[0] ?? "Client",
+            last_name: ctx.user.name?.split(" ").slice(1).join(" ") || "Lucepress",
+          },
+          return_url: returnUrl,
+          metadata: {
+            tenant_id: String(ctx.tenantId),
+            plan: input.plan,
+          },
+        });
+
+        await createSubscriptionRecord({
+          tenantId: ctx.tenantId!,
+          plan: input.plan,
+          amount,
+          currency: "GNF",
+          monerooPaymentId: monerooPayment.id,
+        });
+
+        return { checkoutUrl: monerooPayment.checkout_url, paymentId: monerooPayment.id };
+      }),
   }),
   billing: router({
     dashboard: adminProcedure.query(({ ctx }) => db.getDashboardData(ctx.tenantId!)),

@@ -36,6 +36,10 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
     toast.error("Votre essai est terminé", {
       description: "Souscrivez à un abonnement pour continuer à utiliser Lucepress.",
       duration: 8000,
+      action: {
+        label: "S'abonner",
+        onClick: () => { window.location.href = "/parametres/abonnement"; },
+      },
     });
   }
 };
