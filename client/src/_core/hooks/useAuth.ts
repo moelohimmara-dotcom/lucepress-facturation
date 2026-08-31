@@ -9,11 +9,8 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  // DEV BYPASS local — uniquement en dev, jamais en prod
-  const isDevBypass =
-    typeof window !== "undefined" &&
-    import.meta.env.DEV &&
-    localStorage.getItem("lucepress-dev-bypass") === "true";
+  // Controle local - Manus retire : acces direct sans OAuth externe
+  const isDevBypass = true;
   if (isDevBypass) {
     const mockUser = {
       id: 1,

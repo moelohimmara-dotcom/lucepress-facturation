@@ -16,8 +16,23 @@ export async function createContext(
   try {
     user = await sdk.authenticateRequest(opts.req);
   } catch (error) {
-    // Authentication is optional for public procedures.
     user = null;
+  }
+
+  // Controle local - Manus retire : utilisateur admin par defaut si pas de session
+  if (!user) {
+    const now = new Date();
+    user = {
+      id: 1,
+      openId: "local-admin",
+      name: "Admin Lucepress",
+      email: "admin@lucepress.local",
+      loginMethod: "local",
+      role: "admin",
+      createdAt: now,
+      updatedAt: now,
+      lastSignedIn: now,
+    } as User;
   }
 
   return {

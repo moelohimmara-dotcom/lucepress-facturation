@@ -68,13 +68,13 @@ const companySettingsInputSchema = z.object({
 
 const extractedClientSchema = z.object({
   companyName: z.string().trim().min(2).max(180),
-  contactName: z.string().trim().max(180),
-  email: z.string().trim().max(320),
-  phone: z.string().trim().max(64),
-  address: z.string().trim().max(2000),
-  taxId: z.string().trim().max(100),
-  notes: z.string().trim().max(2000),
-  missingFields: z.array(z.string().trim().max(100)).max(8),
+  contactName: z.string().trim().max(180).optional().default(""),
+  email: z.string().trim().max(320).optional().default(""),
+  phone: z.string().trim().max(64).optional().default(""),
+  address: z.string().trim().max(2000).optional().default(""),
+  taxId: z.string().trim().max(100).optional().default(""),
+  notes: z.string().trim().max(2000).optional().default(""),
+  missingFields: z.array(z.string().trim().max(100)).max(8).optional().default([]),
 });
 
 const clientExtractionResponseSchema = {
@@ -415,24 +415,27 @@ export const appRouter = router({
           catch (error) { throw agentMutationError(error, "Le test e-mail interne ne peut pas être exécuté."); }
         }),
       copilotBriefing: agentOperatorProcedure
-        .mutation(async () => {
-          const context = await db.getAgentCopilotContext();
-          const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
-          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
-          const result = await invokeLLM({
-            model,
-            messages: [
-              { role: "system", content: "Tu es le Copilote de marge et recouvrement de Lucepress, entreprise guinéenne de BTP, forage et services durables. Analyse seulement les faits du contexte JSON fourni. Rédige en français une aide interne claire, brève et structurée. Ne fabrique aucun montant, client, échéance, statut, promesse, règle ou action réalisée. Les chiffres restent des références à vérifier dans l’application. Priorise les promesses échues, les retards, puis les marges réalisées sous seuil. Propose uniquement des contrôles ou des brouillons de relance à faire approuver. Ne prétends jamais qu’un message a été envoyé, qu’un paiement a été reçu ou qu’une modification a été appliquée. Signale explicitement les données insuffisantes." },
-              { role: "user", content: JSON.stringify(context) },
-            ],
-            response_format: { type: "json_schema", json_schema: agentCopilotResponseSchema },
-          });
-          const content = result.choices[0]?.message.content;
-          if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA est indisponible. Réessayez dans un instant." });
-          try { return { briefing: JSON.parse(content) as { summary: string; marginAlerts: string[]; collectionPriorities: string[]; suggestedActions: string[]; dataToVerify: string[]; sourceReferences: string[] }, requiresReview: true, model }; }
-          catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA ne peut pas être lu. Réessayez dans un instant." }); }
-        }),
+              .mutation(async () => {
+                const context = await db.getAgentCopilotContext();
+                const models = await listLLMModels();
+                // Préférer nemotron-3-ultra (respecte json_schema strict), fallback gpt-oss:120b puis premier dispo
+                const model = models.data.find(entry => entry.id === "nemotron-3-ultra")?.id
+                  ?? models.data.find(entry => entry.id === "gpt-oss:120b")?.id
+                  ?? models.data[0]?.id;
+                if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n'est actuellement disponible." });
+                const result = await invokeLLM({
+                  model,
+                  messages: [
+                    { role: "system", content: "Tu es le Copilote de marge et recouvrement de Lucepress, entreprise guineenne de BTP, forage et services durables. Analyse seulement les faits du contexte JSON fourni. Redige en francais une aide interne claire, breve et structuree. Ne fabrique aucun montant, client, echeance, statut, promesse, regle ou action realisee. Les chiffres restent des references a verifier dans l'application. Priorise les promesses echues, les retards, puis les marges realisees sous seuil. Propose uniquement des controles ou des brouillons de relance a faire approuver. Ne pretends jamais qu'un message a ete envoye, qu'un paiement a ete recu ou qu'une modification a ete appliquee. Signale explicitement les donnees insuffisantes." },
+                    { role: "user", content: JSON.stringify(context) },
+                  ],
+                  response_format: { type: "json_schema", json_schema: agentCopilotResponseSchema },
+                });
+                const content = result.choices[0]?.message.content;
+                if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA est indisponible. Reessayez dans un instant." });
+                try { return { briefing: JSON.parse(content) as { summary: string; marginAlerts: string[]; collectionPriorities: string[]; suggestedActions: string[]; dataToVerify: string[]; sourceReferences: string[] }, requiresReview: true, model }; }
+                catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA ne peut pas etre lu. Reessayez dans un instant." }); }
+              }),
     }),
     integrations: router({
       list: adminProcedure.query(() => db.listIntegrations()),
@@ -551,7 +554,7 @@ export const appRouter = router({
           if (!client) throw new TRPCError({ code: "NOT_FOUND", message: "Client introuvable." });
           const history = await db.listClientActivities(input.clientId);
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          const model = models.data.find(entry => entry.id === "nemotron-3-ultra")?.id ?? models.data.find(entry => entry.id === "gpt-oss:120b")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
@@ -571,7 +574,7 @@ export const appRouter = router({
           const document = await db.getDocumentById(input.documentId);
           if (!document || document.kind !== "facture" || document.balanceDue <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          const model = models.data.find(entry => entry.id === "nemotron-3-ultra")?.id ?? models.data.find(entry => entry.id === "gpt-oss:120b")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
@@ -600,7 +603,7 @@ export const appRouter = router({
           if (documents.some(document => !document || document.kind !== "facture" || document.balanceDue <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "Chaque relance doit concerner une facture avec un solde impayé." });
           const invoices = documents as Array<NonNullable<typeof documents[number]>>;
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          const model = models.data.find(entry => entry.id === "nemotron-3-ultra")?.id ?? models.data.find(entry => entry.id === "gpt-oss:120b")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
@@ -629,7 +632,7 @@ export const appRouter = router({
         .input(z.object({ text: z.string().trim().min(10).max(6000) }))
         .mutation(async ({ input }) => {
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          const model = models.data.find(entry => entry.id === "nemotron-3-ultra")?.id ?? models.data.find(entry => entry.id === "gpt-oss:120b")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
@@ -652,7 +655,7 @@ export const appRouter = router({
         .mutation(async ({ input }) => {
           const catalog = await db.listServices();
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "gpt-5-mini")?.id ?? models.data[0]?.id;
+          const model = models.data.find(entry => entry.id === "nemotron-3-ultra")?.id ?? models.data.find(entry => entry.id === "gpt-oss:120b")?.id ?? models.data[0]?.id;
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const serviceContext = catalog.map(service => ({ code: service.code, name: service.name, unit: service.unit, unitPrice: service.defaultUnitPrice, taxRate: service.defaultTaxRate })).slice(0, 80);
           const result = await invokeLLM({

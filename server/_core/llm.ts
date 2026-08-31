@@ -214,12 +214,17 @@ const normalizeToolChoice = (
 
 const resolveApiUrl = () =>
   ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/api/chat`
+    : "https://api.ollama.com/api/chat";
+
+const resolveModelsUrl = () =>
+  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
+    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/api/tags`
+    : "https://api.ollama.com/api/tags";
 
 const assertApiKey = () => {
   if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
   }
 };
 
@@ -339,6 +344,46 @@ const fetchWithBackoff = async (
     : new Error("LLM request failed after exhausting retries");
 };
 
+/**
+ * Extract a JSON value from an LLM response that may be wrapped in Markdown
+ * (e.g. ```json ... ```) or contain prose around a JSON object/array.
+ * Falls back to returning the raw string if no valid JSON is found.
+ */
+function extractJson<T = unknown>(raw: string): { value: T; ok: true } | { value: string; ok: false } {
+  const text = raw.trim();
+  // 1. Direct parse
+  try {
+    return { value: JSON.parse(text) as T, ok: true };
+  } catch {
+    /* continue */
+  }
+  // 2. Fenced code block ```json ... ``` or ``` ... ```
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence?.[1]) {
+    try {
+      return { value: JSON.parse(fence[1].trim()) as T, ok: true };
+    } catch {
+      /* continue */
+    }
+  }
+  // 3. First balanced { or [ by scan
+  const start = text.search(/[{\[]/);
+  if (start !== -1) {
+    for (let end = text.length - 1; end > start; end--) {
+      const ch = text[end];
+      if (ch === "}" || ch === "]") {
+        const candidate = text.slice(start, end + 1);
+        try {
+          return { value: JSON.parse(candidate) as T, ok: true };
+        } catch {
+          /* try shorter */
+        }
+      }
+    }
+  }
+  return { value: raw, ok: false };
+}
+
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
 
@@ -360,7 +405,24 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   const payload: Record<string, unknown> = {
     messages: messages.map(normalizeMessage),
+    stream: false,
   };
+
+  // If a JSON response format is requested, harden the system prompt so models
+  // that ignore `format` (e.g. gpt-oss) still emit parseable JSON.
+  const normalizedResponseFormat = normalizeResponseFormat({
+    responseFormat,
+    response_format,
+    outputSchema,
+    output_schema,
+  });
+  if (normalizedResponseFormat) {
+    payload.messages = (payload.messages as Array<{ role: string; content: string }>).map((m) =>
+      m.role === "system"
+        ? { ...m, content: `RÈGLE ABSOLUE : Réponds UNIQUEMENT par un objet JSON valide, sans aucun texte autour, sans bloc Markdown, sans explication. La première ligne doit être exactement "{" et la dernière "}".\n\n${m.content}` }
+        : m
+    );
+  }
 
   if (model) {
     payload.model = model;
@@ -390,15 +452,20 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.reasoning = reasoning;
   }
 
-  const normalizedResponseFormat = normalizeResponseFormat({
-    responseFormat,
-    response_format,
-    outputSchema,
-    output_schema,
-  });
-
   if (normalizedResponseFormat) {
-    payload.response_format = normalizedResponseFormat;
+    // Ollama native /api/chat expects `format` (not `response_format`).
+    // Convert OpenAI-style response_format to Ollama format.
+    const rf = normalizedResponseFormat;
+    if (rf.type === "json_schema" && rf.json_schema?.schema) {
+      (payload as Record<string, unknown>).format = {
+        type: "json_schema",
+        json_schema: rf.json_schema,
+      };
+    } else if (rf.type === "json_object") {
+      (payload as Record<string, unknown>).format = "json";
+    } else {
+      (payload as Record<string, unknown>).response_format = rf;
+    }
   }
 
   const response = await fetchWithBackoff(resolveApiUrl(), {
@@ -417,7 +484,39 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     );
   }
 
-  return (await response.json()) as InvokeResult;
+  const data = await response.json() as {
+    model: string;
+    created_at: string;
+    message: { role: string; content: string; thinking?: string };
+    done: boolean;
+    done_reason: string;
+    total_duration?: number;
+    prompt_eval_count?: number;
+    eval_count?: number;
+  };
+
+  // Convert Ollama response format to OpenAI-compatible format
+  // Some models wrap JSON in Markdown or prose; extract the JSON value.
+  const parsed = extractJson(data.message.content ?? "");
+  const safeContent = parsed.ok ? JSON.stringify(parsed.value) : data.message.content ?? "";
+  return {
+    id: `chatcmpl-${Date.now()}`,
+    created: Math.floor(Date.now() / 1000),
+    model: data.model,
+    choices: [{
+      index: 0,
+      message: {
+        role: data.message.role as Role,
+        content: safeContent,
+      },
+      finish_reason: data.done_reason === "stop" ? "stop" : data.done_reason,
+    }],
+    usage: {
+      prompt_tokens: data.prompt_eval_count ?? 0,
+      completion_tokens: data.eval_count ?? 0,
+      total_tokens: (data.prompt_eval_count ?? 0) + (data.eval_count ?? 0),
+    },
+  };
 }
 
 export type ModelInfo = {
@@ -435,9 +534,7 @@ export type ModelsResponse = {
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`
-    : "https://forge.manus.im/v1/models";
+  const url = resolveModelsUrl();
 
   const response = await fetchWithBackoff(url, {
     headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
@@ -450,5 +547,15 @@ export async function listLLMModels(): Promise<ModelsResponse> {
     );
   }
 
-  return (await response.json()) as ModelsResponse;
+  const data = await response.json() as { models: Array<{ name: string; model: string; size: number; digest: string; details?: Record<string, unknown> }> };
+  
+  // Convert Ollama format to our expected format
+  const models = data.models.map(m => ({
+    id: m.name,
+    object: "model",
+    created: Date.now(),
+    owned_by: "ollama",
+  }));
+
+  return { object: "list", data: models };
 }
