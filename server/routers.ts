@@ -15,7 +15,7 @@ import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
 import { BATCH_REMINDER_LIMIT, normalizeBatchReminderDocumentIds, normalizeBatchReminderInstruction } from "../shared/batchReminders";
 import { initializeMonerooPayment, isMonerooConfigured } from "./_core/moneroo";
-import { PLAN_PRICES_GNF, createSubscriptionRecord, getTenantSubscriptionStatus } from "./subscriptionDb";
+import { PLAN_PRICES_GNF, checkTenantAccess, createSubscriptionRecord, getTenantSubscriptionStatus } from "./subscriptionDb";
 
 const optionalText = z.string().trim().max(2000).optional();
 const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -249,6 +249,9 @@ export const appRouter = router({
   subscription: router({
     status: protectedProcedure.query(({ ctx }) =>
       getTenantSubscriptionStatus(ctx.tenantId!)
+    ),
+    checkAccess: protectedProcedure.query(({ ctx }) =>
+      checkTenantAccess(ctx.tenantId!)
     ),
     checkout: adminProcedure
       .input(z.object({ plan: z.enum(["pro", "enterprise"]) }))

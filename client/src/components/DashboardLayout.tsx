@@ -63,6 +63,9 @@ import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "./ui/command";
+import { useSubscriptionAccess, type SubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { TrialBanner } from "./TrialBanner";
+import { SubscriptionPaywall } from "./SubscriptionPaywall";
 
 const navigationGroups = [
   { label: "Gestion commerciale", items: [
@@ -113,6 +116,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth({ redirectOnUnauthenticated: true });
+  const { access, isLoading: isAccessLoading } = useSubscriptionAccess();
+  const [currentLocation] = useLocation();
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -120,14 +125,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading || !user) return <DashboardLayoutSkeleton />;
 
+  // Block access when trial expired and no active subscription (except subscription page)
+  const isOnSubscriptionPage = currentLocation === "/parametres/abonnement";
+  if (!isAccessLoading && access && !access.hasAccess && !isOnSubscriptionPage) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <p className="font-editorial text-xl font-semibold">Lucepress</p>
+          <button
+            onClick={() => { localStorage.removeItem("lucepress-session"); window.location.href = "/connexion"; }}
+            className="text-xs font-bold text-muted-foreground hover:text-foreground"
+          >
+            Se déconnecter
+          </button>
+        </div>
+        <SubscriptionPaywall trialEndsAt={access.trialEndsAt} />
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}>
-      <DashboardLayoutContent sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth}>{children}</DashboardLayoutContent>
+      <DashboardLayoutContent sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} subscriptionAccess={access}>{children}</DashboardLayoutContent>
     </SidebarProvider>
   );
 }
 
-export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH, setSidebarWidth }: { children: React.ReactNode; sidebarWidth?: number; setSidebarWidth: (width: number) => void }) {
+export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH, setSidebarWidth, subscriptionAccess }: { children: React.ReactNode; sidebarWidth?: number; setSidebarWidth: (width: number) => void; subscriptionAccess?: SubscriptionAccess }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [location, setLocation] = useLocation();
@@ -327,6 +351,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
         />
       </div>
       <SidebarInset className="bg-background">
+        {subscriptionAccess && <TrialBanner access={subscriptionAccess} />}
         {typeof window !== "undefined" && localStorage.getItem("lucepress-dev-bypass") === "true" && (
           <div className="bg-amber-100 px-4 py-2 text-center text-xs font-bold text-amber-900">Mode démo actif — données d'exemple (3 clients, 3 documents) — <button onClick={() => { localStorage.removeItem("lucepress-dev-bypass"); window.location.reload(); }} className="underline">quitter</button></div>
         )}

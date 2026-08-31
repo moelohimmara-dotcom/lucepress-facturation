@@ -13,6 +13,34 @@ export const PLAN_LABELS: Record<string, string> = {
   enterprise: "Entreprise",
 };
 
+export async function checkTenantAccess(tenantId: number) {
+  const db = await requireDb();
+  const rows = await db
+    .select({ plan: tenants.plan, status: tenants.status, trialEndsAt: tenants.trialEndsAt })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+  const tenant = rows[0];
+  if (!tenant) throw new Error("Espace de travail introuvable.");
+
+  const now = new Date();
+  const trialEndsAt = tenant.trialEndsAt ? new Date(tenant.trialEndsAt) : null;
+  const isActive = tenant.status === "active";
+  const isTrial = tenant.status === "trial";
+  const trialExpired = isTrial && (!trialEndsAt || trialEndsAt < now);
+  const daysRemaining = isTrial && trialEndsAt && trialEndsAt > now
+    ? Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  return {
+    hasAccess: isActive || (isTrial && !trialExpired),
+    plan: tenant.plan,
+    status: tenant.status,
+    trialEndsAt: trialEndsAt?.toISOString() ?? null,
+    daysRemaining,
+  };
+}
+
 export async function getTenantSubscriptionStatus(tenantId: number) {
   const db = await requireDb();
   const tenantRows = await db
