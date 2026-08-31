@@ -120,6 +120,12 @@ export async function createLocalUser(input: {
   email: string;
   passwordHash: string;
   name?: string | null;
+  /**
+   * Rôle explicite. Volontairement OBLIGATOIRE côté appelant : cette fonction
+   * forçait auparavant `role: "admin"` en dur, ce qui donnait les pleins droits
+   * à tout compte créé via `auth.register` (procédure publique).
+   */
+  role: "admin" | "user";
 }): Promise<{ id: number; openId: string }> {
   const db = await requireDb();
   const openId = `local_${randomBytes(12).toString("hex")}`;
@@ -129,10 +135,28 @@ export async function createLocalUser(input: {
     passwordHash: input.passwordHash,
     name: input.name ?? null,
     loginMethod: "email",
-    role: "admin",
+    role: input.role,
     lastSignedIn: new Date(),
   } as any);
   return { id: Number(result[0].insertId), openId };
+}
+
+/**
+ * Nombre de comptes réellement utilisables en auth locale (donc pourvus d'un mot
+ * de passe). Sert au garde-fou d'amorçage de `auth.register` : l'inscription
+ * libre n'est ouverte que tant qu'aucun compte local n'existe.
+ *
+ * On ne compte QUE les comptes avec `passwordHash`, car la base contient des
+ * lignes héritées de l'ancien OAuth (sans mot de passe) qui, sinon, bloqueraient
+ * définitivement la création du premier compte.
+ */
+export async function countUsersWithPassword(): Promise<number> {
+  const db = await requireDb();
+  const result = await db
+    .select({ value: sql<number>`count(*)` })
+    .from(users)
+    .where(sql`${users.passwordHash} is not null`);
+  return Number(result[0]?.value ?? 0);
 }
 
 export async function setUserPasswordHash(userId: number, passwordHash: string): Promise<void> {

@@ -243,9 +243,37 @@ export const appRouter = router({
         password: z.string().min(8).max(128),
         name: z.string().trim().min(2).max(180).optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        // Freine le spam de création de comptes (quota plus permissif que login).
+        const { registerRateLimiter } = await import("./_core/loginRateLimit");
+        const { resolveClientIp } = await import("./_core/clientIp");
+        const ip = resolveClientIp(ctx.req);
+
+        const verdict = registerRateLimiter.check({ email: input.email, ip });
+        if (!verdict.allowed) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Trop de tentatives d'inscription. Réessayez dans ${verdict.retryAfterSeconds} seconde(s).`,
+          });
+        }
+
+        // GARDE-FOU D'AMORÇAGE : `auth.register` est public. Sans ce verrou,
+        // n'importe quel visiteur d'Internet peut se créer un compte sur une
+        // instance déjà en service. L'inscription libre n'est donc autorisée que
+        // pour créer le PREMIER compte (amorçage). Ensuite, la création de
+        // comptes passe par un administrateur.
+        const existingCount = await db.countUsersWithPassword();
+        if (existingCount > 0) {
+          registerRateLimiter.recordFailure({ email: input.email, ip });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "L'inscription libre est fermée. Demandez à un administrateur de créer votre compte.",
+          });
+        }
+
         const existing = await db.getUserByEmail(input.email);
         if (existing) {
+          registerRateLimiter.recordFailure({ email: input.email, ip });
           throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
         }
         const { hashPassword } = await import("./_core/password");
@@ -254,7 +282,11 @@ export const appRouter = router({
           email: input.email,
           passwordHash,
           name: input.name ?? null,
+          // Premier compte de l'instance : il doit être administrateur pour
+          // pouvoir ensuite gérer les autres.
+          role: "admin",
         });
+        registerRateLimiter.recordSuccess({ email: input.email });
         return { success: true, openId: user.openId };
       }),
     login: publicProcedure
@@ -263,15 +295,34 @@ export const appRouter = router({
         password: z.string().min(1).max(128),
       }))
       .mutation(async ({ ctx, input }) => {
+        // Anti-brute-force. Le rate-limit HTTP de `_core/index.ts` ne suffit pas :
+        // `httpBatchLink` permet d'empaqueter N tentatives dans 1 requête HTTP.
+        // Le comptage doit donc vivre ici, dans la procédure. Voir
+        // `_core/loginRateLimit.ts` et `docs/AUTH-email-password.md`.
+        const { loginRateLimiter } = await import("./_core/loginRateLimit");
+        const { resolveClientIp } = await import("./_core/clientIp");
+        const ip = resolveClientIp(ctx.req);
+
+        const verdict = loginRateLimiter.check({ email: input.email, ip });
+        if (!verdict.allowed) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Trop de tentatives de connexion. Réessayez dans ${verdict.retryAfterSeconds} seconde(s).`,
+          });
+        }
+
         const user = await db.getUserByEmail(input.email);
         if (!user || !user.passwordHash) {
+          loginRateLimiter.recordFailure({ email: input.email, ip });
           throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou mot de passe incorrect." });
         }
         const { verifyPassword } = await import("./_core/password");
         const ok = await verifyPassword(input.password, user.passwordHash);
         if (!ok) {
+          loginRateLimiter.recordFailure({ email: input.email, ip });
           throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou mot de passe incorrect." });
         }
+        loginRateLimiter.recordSuccess({ email: input.email });
         await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
         const { signLocalSession } = await import("./_core/localAuth");
         const token = await signLocalSession({

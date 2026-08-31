@@ -38,6 +38,17 @@ async function startServer() {
   const helmet = (await import("helmet")).default;
   const cors = (await import("cors")).default;
   const rateLimit = (await import("express-rate-limit")).default;
+  // Derrière un reverse proxy (Caddy/nginx en production), `req.ip` vaut sinon
+  // l'IP du proxy pour TOUT LE MONDE : les compteurs par IP deviennent alors un
+  // compteur unique partagé (un attaquant bloquerait tous les utilisateurs).
+  // Activé uniquement sur déclaration explicite de l'opérateur, car faire
+  // confiance à `X-Forwarded-For` sans proxy devant permettrait de l'usurper.
+  // Voir `_core/clientIp.ts` et `docs/AUTH-email-password.md`.
+  const trustProxyRaw = (process.env.TRUST_PROXY ?? "").trim();
+  if (trustProxyRaw && trustProxyRaw !== "0" && trustProxyRaw.toLowerCase() !== "false") {
+    const hops = Number.parseInt(trustProxyRaw, 10);
+    app.set("trust proxy", Number.isFinite(hops) && hops > 0 ? hops : 1);
+  }
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(",") ?? true, credentials: true }));
   app.use("/api/", rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true }));
