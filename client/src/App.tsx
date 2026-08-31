@@ -23,6 +23,7 @@ const ClientPortalPage = lazy(() => import("./pages/ClientPortalPage"));
 const ProjectCostsPage = lazy(() => import("./pages/ProjectCostsPage"));
 const ReceivablesPage = lazy(() => import("./pages/ReceivablesPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 const RemindersPage = lazy(() => import("./pages/RemindersPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 
@@ -51,6 +52,7 @@ function Router() {
         <Route path="/creances" component={ReceivablesPage} />
         <Route path="/portail-client" component={ClientPortalPage} />
         <Route path={"/parametres"} component={SettingsPage} />
+        <Route path={"/compte/mot-de-passe"} component={ChangePasswordPage} />
         <Route path={"/relances"} component={RemindersPage} />
         <Route path={"/login"} component={LoginPage} />
         <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />

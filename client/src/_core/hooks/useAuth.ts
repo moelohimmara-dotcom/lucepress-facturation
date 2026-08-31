@@ -34,6 +34,8 @@ export function useAuth(options?: UseAuthOptions) {
     },
   });
 
+  const changePasswordMutation = trpc.auth.changePassword.useMutation();
+
   const logout = useCallback(async () => {
     try {
       await logoutMutation.mutateAsync();
@@ -94,6 +96,7 @@ export function useAuth(options?: UseAuthOptions) {
     ...state,
     login: loginMutation.mutateAsync,
     register: registerMutation.mutateAsync,
+    changePassword: changePasswordMutation.mutateAsync,
     logout,
     refresh: () => meQuery.refetch(),
   };

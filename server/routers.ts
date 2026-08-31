@@ -335,6 +335,50 @@ export const appRouter = router({
         return { success: true };
       }),
     me: publicProcedure.query(opts => opts.ctx.user),
+    /**
+     * Changement de mot de passe par l'utilisateur connecté.
+     *
+     * Procédure PROTÉGÉE : on impose de connaître l'ancien mot de passe. Cela
+     * empêche qu'un attaquant ayant momentanément accès à la session (cookie
+     * volé non encore expiré) ne la verrouille pas en silence. Le nouveau mot de
+     * passe doit être suffisamment robuste.
+     */
+    changePassword: protectedProcedure
+      .input(z.object({
+        currentPassword: z.string().min(1).max(128),
+        newPassword: z.string().min(8).max(128),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const user = ctx.user;
+        if (!user) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Session introuvable." });
+        }
+
+        const db_user = await db.getUserByOpenId(user.openId);
+        if (!db_user || !db_user.passwordHash) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Ce compte n'utilise pas l'authentification par mot de passe.",
+          });
+        }
+
+        const { verifyPassword, hashPassword } = await import("./_core/password");
+        const ok = await verifyPassword(input.currentPassword, db_user.passwordHash);
+        if (!ok) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Mot de passe actuel incorrect." });
+        }
+
+        if (input.currentPassword === input.newPassword) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Le nouveau mot de passe doit être différent de l'actuel.",
+          });
+        }
+
+        const passwordHash = await hashPassword(input.newPassword);
+        await db.setUserPasswordHash(db_user.id, passwordHash);
+        return { success: true } as const;
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
