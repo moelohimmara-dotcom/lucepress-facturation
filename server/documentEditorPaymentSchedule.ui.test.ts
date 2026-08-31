@@ -39,6 +39,10 @@ vi.mock("@/lib/trpc", () => ({
 afterEach(() => { cleanup(); localStorage.clear(); state.created.mockReset(); state.navigate.mockReset(); state.savedDocument = null; });
 
 describe("éditeur de devis multi-services", () => {
+  // Délai relevé à 15 s : ce scénario rend un éditeur complet sous jsdom et
+  // dépassait régulièrement la limite par défaut de 5 s (mesuré entre 1,5 s en
+  // isolation et plus de 6 s quand la suite sature les cœurs CPU). Le test
+  // était donc intermittent selon la charge de la machine — pas selon le code.
   it("applique un modèle, modifie les lignes, enregistre l’échéancier et le restitue dans l’aperçu", async () => {
     const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
     const { unmount } = render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
@@ -60,7 +64,7 @@ describe("éditeur de devis multi-services", () => {
     expect(screen.getByText("Échéancier de règlement proposé")).toBeTruthy();
     expect(screen.getByText("Acompte · 30%")).toBeTruthy();
     expect(screen.getByText("Solde · 70%")).toBeTruthy();
-  });
+  }, 15_000);
 
   it("propose une galerie BTP et un guide de création relançable", async () => {
     const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");

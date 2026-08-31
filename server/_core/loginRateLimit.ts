@@ -64,6 +64,12 @@ export const DEFAULT_LOGIN_RATE_LIMIT: LoginRateLimitOptions = {
 
 type Bucket = {
   failures: number;
+  /**
+   * Nombre de blocages déjà infligés à cette clé. Sert de mémoire de récidive
+   * pour le repli exponentiel : survit à l'expiration d'une peine, contrairement
+   * à `failures` qui est remis à zéro pour rouvrir l'accès.
+   */
+  blocks: number;
   windowStartedAt: number;
   blockedUntil: number;
   lastSeenAt: number;
@@ -87,19 +93,78 @@ export class LoginRateLimiter {
     this.options = { ...DEFAULT_LOGIN_RATE_LIMIT, ...options };
   }
 
-  /** À appeler AVANT de vérifier le mot de passe. */
+  /**
+   * À appeler AVANT de vérifier le mot de passe.
+   *
+   * ATOMICITÉ (corrige une faille TOCTOU vérifiée en production)
+   * -----------------------------------------------------------
+   * Cette méthode RÉSERVE la tentative : elle incrémente le compteur
+   * immédiatement, avant tout `await` de l'appelant.
+   *
+   * Une première version se contentait de LIRE le compteur, la comptabilisation
+   * n'intervenant qu'ensuite via `recordFailure`. Or tRPC exécute les appels d'un
+   * même lot `httpBatchLink` EN PARALLÈLE : les N `check()` s'exécutaient tous
+   * avant le premier `recordFailure`, lisaient donc un compteur encore vierge et
+   * repartaient tous « autorisés ». Mesuré sur le serveur : 20 mots de passe
+   * testés dans UNE seule requête HTTP avant tout blocage.
+   *
+   * En réservant dès la lecture, la N-ième tentative concurrente voit déjà les
+   * N-1 précédentes. `recordSuccess` libère ensuite les réservations du compte.
+   */
   check(input: { email: string; ip: string }): RateLimitVerdict {
     const now = this.options.now();
-    const emailVerdict = this.inspect(this.emailBuckets, normalizeEmailKey(input.email), now, "email");
-    if (!emailVerdict.allowed) return emailVerdict;
-    return this.inspect(this.ipBuckets, input.ip, now, "ip");
+    const emailKey = normalizeEmailKey(input.email);
+
+    // ORDRE IMPORTANT : le quota IP est réservé EN PREMIER.
+    //
+    // L'inverse (e-mail puis IP, avec restitution en cas de refus IP) laissait
+    // une fuite : la restitution ramenait `failures` à sa valeur d'avant, mais si
+    // la réservation e-mail venait de CRÉER le compteur, la clé subsistait avec
+    // une fenêtre déjà démarrée. Un balayage d'IP pouvait ainsi entamer l'état du
+    // compteur d'un compte légitime — exactement le déni de service croisé que ce
+    // limiteur doit empêcher.
+    const ipVerdict = this.reserve(
+      this.ipBuckets,
+      input.ip,
+      now,
+      this.options.maxFailuresPerIp,
+      "ip"
+    );
+    if (!ipVerdict.allowed) return ipVerdict;
+
+    const emailVerdict = this.reserve(
+      this.emailBuckets,
+      emailKey,
+      now,
+      this.options.maxFailuresPerEmail,
+      "email"
+    );
+    if (!emailVerdict.allowed) {
+      // Le compte est bloqué : on rend la réservation IP prise juste au-dessus,
+      // sinon marteler un seul compte déjà verrouillé consommerait le quota IP
+      // et bloquerait tous les autres utilisateurs partageant cette sortie
+      // Internet (bureau, NAT d'entreprise).
+      this.release(this.ipBuckets, input.ip);
+    }
+    return emailVerdict;
   }
 
-  /** À appeler après un échec (mot de passe faux OU e-mail inconnu). */
+  /**
+   * À appeler après un échec (mot de passe faux OU e-mail inconnu).
+   *
+   * La tentative a déjà été comptée par `check()`. Cette méthode CONFIRME
+   * l'échec : elle transforme la réservation en échec définitif et arme le
+   * blocage à repli exponentiel si le seuil est franchi.
+   */
   recordFailure(input: { email: string; ip: string }): void {
     const now = this.options.now();
-    this.bump(this.emailBuckets, normalizeEmailKey(input.email), now, this.options.maxFailuresPerEmail);
-    this.bump(this.ipBuckets, input.ip, now, this.options.maxFailuresPerIp);
+    this.confirmFailure(
+      this.emailBuckets,
+      normalizeEmailKey(input.email),
+      now,
+      this.options.maxFailuresPerEmail
+    );
+    this.confirmFailure(this.ipBuckets, input.ip, now, this.options.maxFailuresPerIp);
   }
 
   /**
@@ -118,16 +183,42 @@ export class LoginRateLimiter {
     this.ipBuckets.clear();
   }
 
-  private inspect(
+  /**
+   * Réserve une tentative de façon atomique (aucun `await` à l'intérieur : le
+   * modèle mono-thread de Node garantit qu'aucun autre appel ne s'intercale).
+   *
+   * Renvoie `allowed: false` si le quota est déjà consommé ou si un blocage court.
+   */
+  private reserve(
     store: Map<string, Bucket>,
     key: string,
     now: number,
+    maxFailures: number,
     scope: "email" | "ip"
   ): RateLimitVerdict {
-    const bucket = store.get(key);
-    if (!bucket) return { allowed: true };
+    let bucket = store.get(key);
 
-    if (bucket.blockedUntil > now) {
+    if (bucket) {
+      const blocageTermine = bucket.blockedUntil > 0 && bucket.blockedUntil <= now;
+      const fenetreEcoulee = now - bucket.windowStartedAt >= this.options.windowMs;
+
+      if (blocageTermine) {
+        // La peine a été purgée : on rouvre l'accès. Sans cette remise à zéro,
+        // `failures` restait au-dessus du seuil et le compte était bloqué à vie
+        // (le blocage expirait, mais le compteur le réarmait aussitôt).
+        // `blocks` est CONSERVÉ : il porte la mémoire du repli exponentiel, pour
+        // qu'un attaquant persistant ne retrouve pas une peine minimale.
+        bucket.failures = 0;
+        bucket.blockedUntil = 0;
+        bucket.windowStartedAt = now;
+      } else if (bucket.blockedUntil === 0 && fenetreEcoulee) {
+        // Fenêtre écoulée sans incident : le compteur repart totalement à neuf.
+        store.delete(key);
+        bucket = undefined;
+      }
+    }
+
+    if (bucket && bucket.blockedUntil > now) {
       return {
         allowed: false,
         retryAfterSeconds: Math.max(1, Math.ceil((bucket.blockedUntil - now) / 1000)),
@@ -135,36 +226,79 @@ export class LoginRateLimiter {
       };
     }
 
-    // Fenêtre expirée et plus de blocage actif : on repart de zéro.
-    if (now - bucket.windowStartedAt >= this.options.windowMs) {
-      store.delete(key);
+    if (!bucket) {
+      bucket = { failures: 0, blocks: 0, windowStartedAt: now, blockedUntil: 0, lastSeenAt: now };
+      store.set(key, bucket);
     }
-    return { allowed: true };
-  }
 
-  private bump(store: Map<string, Bucket>, key: string, now: number, maxFailures: number): void {
-    let bucket = store.get(key);
-
-    if (!bucket || now - bucket.windowStartedAt >= this.options.windowMs) {
-      bucket = { failures: 0, windowStartedAt: now, blockedUntil: 0, lastSeenAt: now };
+    // Quota déjà consommé (y compris par des tentatives encore « en vol » du
+    // même lot) : on arme le blocage sans laisser passer celle-ci.
+    if (bucket.failures >= maxFailures) {
+      bucket.lastSeenAt = now;
+      this.armBlock(bucket, now);
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.max(1, Math.ceil((bucket.blockedUntil - now) / 1000)),
+        scope,
+      };
     }
 
     bucket.failures += 1;
     bucket.lastSeenAt = now;
-
-    if (bucket.failures >= maxFailures) {
-      // Repli exponentiel : 1er blocage = baseBlockMs, puis x2 par échec
-      // supplémentaire, plafonné à maxBlockMs.
-      const overshoot = bucket.failures - maxFailures;
-      const blockMs = Math.min(
-        this.options.maxBlockMs,
-        this.options.baseBlockMs * 2 ** overshoot
-      );
-      bucket.blockedUntil = now + blockMs;
-    }
-
-    store.set(key, bucket);
     this.evictIfNeeded(store, now);
+    return { allowed: true };
+  }
+
+  /** Rend une réservation prise à tort (ex. refus par l'autre compteur). */
+  private release(store: Map<string, Bucket>, key: string): void {
+    const bucket = store.get(key);
+    if (!bucket) return;
+    bucket.failures = Math.max(0, bucket.failures - 1);
+    // `blocks` doit être nul aussi : sinon on effacerait la mémoire de récidive
+    // d'une clé déjà sanctionnée, offrant un moyen de repartir à peine minimale.
+    if (bucket.failures === 0 && bucket.blockedUntil === 0 && bucket.blocks === 0) {
+      store.delete(key);
+    }
+  }
+
+  /**
+   * Confirme un échec déjà réservé : arme le blocage si le seuil est franchi.
+   * N'incrémente PAS le compteur (`reserve` l'a fait), pour éviter tout
+   * double comptage.
+   */
+  private confirmFailure(
+    store: Map<string, Bucket>,
+    key: string,
+    now: number,
+    maxFailures: number
+  ): void {
+    const bucket = store.get(key);
+    if (!bucket) return;
+
+    bucket.lastSeenAt = now;
+    if (bucket.failures >= maxFailures) {
+      this.armBlock(bucket, now);
+    }
+    this.evictIfNeeded(store, now);
+  }
+
+  /**
+   * Arme (ou prolonge) le blocage avec un repli exponentiel : chaque blocage
+   * successif double la peine, plafonnée à `maxBlockMs`.
+   *
+   * Le compteur `blocks` sert de mémoire de récidive : il survit à l'expiration
+   * d'une peine, de sorte qu'un attaquant qui revient après chaque déblocage
+   * subit une attente croissante plutôt que de repartir au minimum.
+   */
+  private armBlock(bucket: Bucket, now: number): void {
+    if (bucket.blockedUntil > now) return; // Blocage déjà en cours.
+
+    const blockMs = Math.min(
+      this.options.maxBlockMs,
+      this.options.baseBlockMs * 2 ** bucket.blocks
+    );
+    bucket.blocks += 1;
+    bucket.blockedUntil = now + blockMs;
   }
 
   /**
