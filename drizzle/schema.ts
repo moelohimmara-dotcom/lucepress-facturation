@@ -25,6 +25,25 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
+/**
+ * Invitations par e-mail (token + lien sécurisé).
+ * Le token brut est généré côté serveur et ne circule qu'une fois (dans le lien
+ * envoyé à l'invité). En base on ne stocke QUE son empreinte (scrypt), jamais le
+ * token en clair, pour limiter l'impact d'une fuite de la table.
+ */
+export const invitations = mysqlTable("invitations", {
+  id: int("id").autoincrement().primaryKey(),
+  tokenHash: varchar("tokenHash", { length: 255 }).notNull().unique(),
+  email: varchar("email", { length: 320 }).notNull(),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  invitedBy: int("invitedBy").notNull(),
+  status: mysqlEnum("status", ["pending", "accepted", "revoked"]).default("pending").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+  acceptedByUser: int("acceptedByUser"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [index("invitations_email_idx").on(table.email), index("invitations_status_idx").on(table.status)]);
+
 export const clients = mysqlTable(
   "clients",
   {

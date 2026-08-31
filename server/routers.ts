@@ -15,6 +15,14 @@ import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
 import { BATCH_REMINDER_LIMIT, normalizeBatchReminderDocumentIds, normalizeBatchReminderInstruction } from "../shared/batchReminders";
 
+/** Reconstruit l'origine (https://...) à partir de la requête Express. */
+function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
+  const proto = req.get?.("x-forwarded-proto") || req.protocol || "https";
+  const host = req.get?.("host") || req.get?.("x-forwarded-host");
+  if (!host) return (process.env.APP_PUBLIC_URL || "https://lucepress.213.156.135.139.sslip.io").replace(/\/$/, "");
+  return `${proto}://${host}`;
+}
+
 const optionalText = z.string().trim().max(2000).optional();
 const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const quotePaymentScheduleSchema = z.object({
@@ -457,7 +465,103 @@ export const appRouter = router({
         }
         return { success: true } as const;
       }),
+    /**
+     * Invitation par e-mail : génère un token sécurisé (jamais stocké en clair),
+     * renvoie le lien complet à l'admin qui le transmet lui-même à l'invité.
+     * L'admin ne saisit PAS le mot de passe du collaborateur — l'invité le définit
+     * à l'acceptation (procédure `acceptInvitation`, publique).
+     */
+    invite: adminProcedure
+      .input(z.object({
+        email: z.string().email().max(320),
+        name: z.string().trim().min(2).max(180).optional(),
+        role: z.enum(["admin", "user"]).default("user"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const existant = await db.getUserByEmail(input.email);
+        if (existant) {
+          throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
+        }
+        const enAttente = await db.listInvitations();
+        for (const inv of enAttente) {
+          if (inv.email === input.email && inv.status === "pending") {
+            await db.revokeInvitation(inv.id);
+          }
+        }
+
+        const crypto = await import("node:crypto");
+        const { hashPassword } = await import("./_core/password");
+        const token = crypto.randomBytes(32).toString("hex");
+        const tokenHash = await hashPassword(token);
+
+        await db.createInvitation({
+          tokenHash,
+          email: input.email,
+          role: input.role,
+          invitedBy: ctx.user.id,
+        });
+
+        const origin = getRequestOrigin(ctx.req);
+        return {
+          success: true,
+          invitationLink: `${origin}/invitation?token=${token}`,
+          email: input.email,
+          role: input.role,
+        } as const;
+      }),
+    listInvitations: adminProcedure.query(() => db.listInvitations()),
+    revokeInvitation: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        await db.revokeInvitation(input.id);
+        return { success: true } as const;
+      }),
+    deleteInvitation: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        await db.deleteInvitation(input.id);
+        return { success: true } as const;
+      }),
   }),
+  /**
+   * Acceptation d'une invitation (publique : l'invité n'est pas encore connecté).
+   * Le collaborateur définit son nom + mot de passe ; le compte est créé à ce
+   * moment-là. Le token est vérifié (empreinte scrypt) et à usage unique.
+   */
+  acceptInvitation: publicProcedure
+    .input(z.object({
+      token: z.string().min(8).max(128),
+      name: z.string().trim().min(2).max(180),
+      password: z.string().min(8).max(128),
+    }))
+    .mutation(async ({ input }) => {
+      const { verifyPassword } = await import("./_core/password");
+      const enAttente = await db.listInvitations();
+      let cible: (typeof enAttente)[number] | undefined;
+      for (const inv of enAttente) {
+        if (inv.status !== "pending") continue;
+        const ok = await verifyPassword(input.token, inv.tokenHash);
+        if (ok) { cible = inv; break; }
+      }
+      if (!cible || cible.status !== "pending" || cible.expiresAt.getTime() <= Date.now()) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invitation invalide ou expirée." });
+      }
+      const existant = await db.getUserByEmail(cible.email);
+      if (existant) {
+        await db.revokeInvitation(cible.id);
+        throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
+      }
+      const { hashPassword } = await import("./_core/password");
+      const passwordHash = await hashPassword(input.password);
+      const user = await db.createLocalUser({
+        email: cible.email,
+        passwordHash,
+        name: input.name,
+        role: cible.role,
+      });
+      await db.markInvitationAccepted(cible.tokenHash, user.id);
+      return { success: true, openId: user.openId, id: user.id } as const;
+    }),
   billing: router({
     dashboard: adminProcedure.query(() => db.getDashboardData()),
     clients: router({

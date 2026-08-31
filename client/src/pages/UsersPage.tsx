@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { ShieldCheck, Trash2, UserCog, UserPlus, KeyRound } from "lucide-react";
+import { ShieldCheck, Trash2, UserCog, UserPlus, KeyRound, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 
@@ -43,15 +43,27 @@ export default function UsersPage() {
   const { data: users = [], isLoading } = trpc.users.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
+  const { data: invitations = [] } = trpc.users.listInvitations.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
 
-  const [openDialog, setOpenDialog] = useState<null | "create" | "reset" | "remove">(null);
+  const [openDialog, setOpenDialog] = useState<null | "create" | "reset" | "remove" | "invite">(null);
   const [selected, setSelected] = useState<UserRow | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const createMutation = trpc.users.create.useMutation({
     onSuccess: () => {
       toast.success("Compte collaborateur créé.");
       setOpenDialog(null);
       utils.users.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const inviteMutation = trpc.users.invite.useMutation({
+    onSuccess: (data) => {
+      setInviteLink(data.invitationLink);
+      utils.users.listInvitations.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -84,6 +96,14 @@ export default function UsersPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const revokeMutation = trpc.users.revokeInvitation.useMutation({
+    onSuccess: () => {
+      toast.success("Invitation révoquée.");
+      utils.users.listInvitations.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   if (user?.role !== "admin") {
     return (
       <DashboardLayout>
@@ -110,9 +130,14 @@ export default function UsersPage() {
               bloqué ou révoquez un accès.
             </p>
           </div>
-          <Button onClick={() => setOpenDialog("create")} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
-            <UserPlus className="mr-2 h-4 w-4" /> Nouveau compte
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => { setInviteLink(null); setOpenDialog("invite"); }} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+              <Mail className="mr-2 h-4 w-4" /> Inviter par e-mail
+            </Button>
+            <Button variant="outline" onClick={() => setOpenDialog("create")} className="h-10 rounded-xl font-bold">
+              <UserPlus className="mr-2 h-4 w-4" /> Nouveau compte
+            </Button>
+          </div>
         </header>
 
         <Card className="mt-6">
@@ -177,6 +202,43 @@ export default function UsersPage() {
             )}
           </CardContent>
         </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Invitations en attente</CardTitle>
+            <CardDescription>
+              Liens valables 72 heures. Transmettez-les vous-même à vos collaborateurs (e-mail, WhatsApp…).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {invitations.filter((i) => i.status === "pending").length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune invitation en attente.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {invitations
+                  .filter((i) => i.status === "pending")
+                  .map((inv) => (
+                    <li key={inv.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{inv.email}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Expire le {formatDate(inv.expiresAt)} · {inv.role === "admin" ? "Admin" : "Membre"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => revokeMutation.mutate({ id: inv.id })}
+                        disabled={revokeMutation.isPending}
+                      >
+                        Révoquer
+                      </Button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Dialog création */}
@@ -190,6 +252,43 @@ export default function UsersPage() {
             onSubmit={(values) => createMutation.mutate(values)}
             pending={createMutation.isPending}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog invitation */}
+      <Dialog open={openDialog === "invite"} onOpenChange={(o) => !o && setOpenDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Inviter un collaborateur</DialogTitle>
+            <DialogDescription>
+              Un lien sécurisé (valable 72 h) est généré. Copiez-le et transmettez-le à la personne invitée :
+              elle définira elle-même son mot de passe.
+            </DialogDescription>
+          </DialogHeader>
+          {inviteLink ? (
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Lien d'invitation :</p>
+              <div className="flex gap-2">
+                <Input readOnly value={inviteLink} className="font-mono text-xs" />
+                <Button
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteLink);
+                    toast.success("Lien copié.");
+                  }}
+                >
+                  Copier
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Transmettez ce lien par e-mail, WhatsApp ou tout autre canal. Ne le partagez pas publiquement.
+              </p>
+            </div>
+          ) : (
+            <InviteForm
+              onSubmit={(values) => inviteMutation.mutate(values)}
+              pending={inviteMutation.isPending}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -309,6 +408,45 @@ function ResetForm({
       {error && <p className="text-sm font-medium text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Réinitialisation…" : "Définir le nouveau mot de passe"}
+      </Button>
+    </form>
+  );
+}
+
+function InviteForm({
+  onSubmit,
+  pending,
+}: {
+  onSubmit: (v: { email: string; name?: string; role: "admin" | "user" }) => void;
+  pending: boolean;
+}) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "user">("user");
+  const [error, setError] = useState<string | null>(null);
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setError("Adresse e-mail invalide.");
+    setError(null);
+    onSubmit({ email, role });
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="inv-email">E-mail du collaborateur *</Label>
+        <Input id="inv-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Rôle</Label>
+        <div className="flex gap-2">
+          <Button type="button" variant={role === "user" ? "default" : "outline"} size="sm" onClick={() => setRole("user")}>Membre</Button>
+          <Button type="button" variant={role === "admin" ? "default" : "outline"} size="sm" onClick={() => setRole("admin")}>Admin</Button>
+        </div>
+      </div>
+      {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? "Génération du lien…" : "Générer le lien d'invitation"}
       </Button>
     </form>
   );

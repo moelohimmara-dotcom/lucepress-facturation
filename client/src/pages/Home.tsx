@@ -1,7 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
-import { demoDocuments, isDemoMode } from "@/lib/demoData";
 import { formatGnf } from "@shared/billing";
 import { isCollectionReminderTomorrow } from "@shared/collectionFollowUp";
 import { buildCollectionReminderLoad } from "@shared/collectionReminderLoad";
@@ -21,7 +20,7 @@ export default function Home() {
   const [hasReviewedReceivables, setHasReviewedReceivables] = useState(() => localStorage.getItem("lucepress-getting-started-receivables") === "true");
   const { data: dashboard, isLoading } = trpc.billing.dashboard.useQuery(undefined, { refetchInterval: 60_000 });
   const { data: documentsReal = [] } = trpc.billing.documents.list.useQuery(undefined, { refetchInterval: 60_000 });
-  const documents = isDemoMode() && documentsReal.length === 0 && !isLoading ? demoDocuments as any : documentsReal;
+  const documents = documentsReal;
   const { data: clients = [] } = trpc.billing.clients.list.useQuery(undefined, { staleTime: 60_000 });
   const { data: receivables } = trpc.billing.receivables.useQuery(undefined, { refetchInterval: 60_000 });
   const { data: assignees = [] } = trpc.billing.collection.assignees.useQuery(undefined, { staleTime: 60_000 });

@@ -13,9 +13,5 @@ export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 // with "invalid oauth state". It returns void by design, so there is no URL to
 // stash across renders.
 export const startLogin = () => {
-  // Controle local - Manus retire : acces direct sans OAuth externe
-  try {
-    localStorage.setItem("lucepress-dev-bypass", "true");
-  } catch {}
-  window.location.href = "/";
+  window.location.href = "/login";
 };

@@ -5,22 +5,37 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 
-export default function LoginPage() {
-  const { login } = useAuth();
-  const [, navigate] = useLocation();
-  const [email, setEmail] = useState("");
+export default function InvitationAcceptPage() {
+  const [params] = useLocation();
+  const token = new URLSearchParams(params.split("?")[1] ?? "").get("token") ?? "";
+  const accept = trpc.acceptInvitation.useMutation();
+
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
+
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Lien d'invitation invalide</CardTitle>
+            <CardDescription>Ce lien ne contient pas de jeton d'invitation.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPending(true);
     try {
-      await login({ email, password });
-      toast.success("Connexion réussie.");
-      navigate("/");
+      const result = await accept.mutateAsync({ token, name, password });
+      toast.success("Compte créé. Connectez-vous avec votre mot de passe.");
+      window.location.href = "/login";
     } catch (err: any) {
       const msg = err?.message || "Une erreur est survenue.";
       toast.error(msg);
@@ -33,21 +48,22 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Lucepres — Espace sécurisé</CardTitle>
-          <CardDescription>Connectez-vous avec votre e-mail et mot de passe.</CardDescription>
+          <CardTitle className="text-2xl">Rejoindre Lucepres</CardTitle>
+          <CardDescription>
+            Définissez votre nom et votre mot de passe pour activer votre compte.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
+              <Label htmlFor="name">Votre nom</Label>
               <Input
-                id="email"
-                type="email"
+                id="name"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="vous@entreprise.gn"
-                autoComplete="email"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Prénom Nom"
+                autoComplete="name"
               />
             </div>
             <div className="space-y-2">
@@ -58,13 +74,13 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Votre mot de passe"
-                autoComplete="current-password"
+                placeholder="Au moins 8 caractères"
+                autoComplete="new-password"
                 minLength={8}
               />
             </div>
             <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? "Veuillez patienter…" : "Se connecter"}
+              {pending ? "Création en cours…" : "Activer mon compte"}
             </Button>
           </form>
         </CardContent>

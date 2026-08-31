@@ -130,16 +130,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="font-editorial text-3xl font-semibold leading-tight">Votre gestion commerciale, avec précision.</h1>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">Connectez-vous pour accéder aux devis, factures et chantiers de l’entreprise.</p>
           <Button onClick={() => startLogin()} size="lg" className="mt-8 h-12 w-full rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-150 active:scale-[0.97]">Accéder à l’espace Lucepres</Button>
-          <button
-            onClick={() => {
-              localStorage.setItem("lucepress-dev-bypass", "true");
-              window.location.reload();
-            }}
-            className="mt-3 h-10 w-full rounded-xl border border-dashed border-primary/30 bg-primary/5 text-xs font-bold text-primary hover:bg-primary/10"
-          >
-            → Entrer en mode démo local (sans mot de passe)
-          </button>
-          <p className="mt-2 text-[10px] leading-3 text-muted-foreground">Mode démo : visite des interfaces sans base de données. Les listes seront vides.</p>
         </div>
       </div>
     );
@@ -352,9 +342,6 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
         />
       </div>
       <SidebarInset className="bg-background">
-        {typeof window !== "undefined" && localStorage.getItem("lucepress-dev-bypass") === "true" && (
-          <div className="bg-amber-100 px-4 py-2 text-center text-xs font-bold text-amber-900">Mode démo actif — données d'exemple (3 clients, 3 documents) — <button onClick={() => { localStorage.removeItem("lucepress-dev-bypass"); window.location.reload(); }} className="underline">quitter</button></div>
-        )}
         <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between gap-3 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6 lg:px-8"><div className="flex min-w-0 items-center gap-3">{isMobile && <SidebarTrigger className="h-9 w-9 shrink-0 rounded-xl border border-border bg-card" />}<div><p className="font-editorial text-lg font-semibold leading-none">{isMobile ? LUCEPRES_PUBLIC_PROFILE.displayName : activeMenuItem?.label ?? "Gestion"}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{isMobile ? activeMenuItem?.label ?? "Gestion" : "Recherche et accès rapides"}</p></div></div><div className="flex shrink-0 items-center gap-2"><button type="button" data-testid="workspace-search-trigger" onClick={() => setWorkspaceSearchOpen(true)} className="flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-2.5 text-xs font-bold text-muted-foreground shadow-sm transition-colors hover:border-primary/35 hover:text-primary sm:min-w-56"><Search className="h-4 w-4 text-primary" /><span className="hidden sm:inline">Rechercher…</span><CommandShortcut className="hidden text-[10px] sm:inline">⌘K</CommandShortcut></button>{isMobile && <><button type="button" onClick={() => { setGuidanceStep(0); setShowSidebarHelp(true); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label="Ouvrir le guide d’accueil"><CircleHelp className="h-4 w-4" /></button><button type="button" onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm" aria-label={theme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button></>}</div></header>
         <main id="main-content" tabIndex={-1} className="min-h-screen flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </SidebarInset>

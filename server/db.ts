@@ -23,6 +23,7 @@ import {
   integrationProviders,
   integrationWebhookEvents,
   InsertUser,
+  invitations,
   payments,
   paymentPromises,
   projectCostAttachments,
@@ -225,6 +226,67 @@ export async function deleteUser(userId: number): Promise<{ deleted: boolean; re
 
   await db.delete(users).where(eq(users.id, userId));
   return { deleted: true };
+}
+
+/* ------------------------------------------------------------------ */
+/* Invitations par e-mail (token + lien sécurisé, admin ne tape pas mdp) */
+/* ------------------------------------------------------------------ */
+
+/** Durée de validité d'un lien d'invitation (72h). */
+export const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
+
+export type NewInvitation = {
+  tokenHash: string;
+  email: string;
+  role: "user" | "admin";
+  invitedBy: number;
+};
+
+export async function createInvitation(input: NewInvitation): Promise<{ id: number }> {
+  const db = await requireDb();
+  const [row] = await db
+    .insert(invitations)
+    .values({
+      tokenHash: input.tokenHash,
+      email: input.email,
+      role: input.role,
+      invitedBy: input.invitedBy,
+      status: "pending",
+      expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
+    })
+    .$returningId();
+  return { id: row.id };
+}
+
+export async function getInvitationByTokenHash(
+  tokenHash: string
+): Promise<typeof invitations.$inferSelect | undefined> {
+  const db = await requireDb();
+  const [row] = await db.select().from(invitations).where(eq(invitations.tokenHash, tokenHash)).limit(1);
+  return row;
+}
+
+export async function markInvitationAccepted(tokenHash: string, acceptedByUser: number): Promise<void> {
+  const db = await requireDb();
+  await db
+    .update(invitations)
+    .set({ status: "accepted", acceptedAt: new Date(), acceptedByUser })
+    .where(eq(invitations.tokenHash, tokenHash));
+}
+
+export async function revokeInvitation(id: number): Promise<void> {
+  const db = await requireDb();
+  await db.update(invitations).set({ status: "revoked" }).where(eq(invitations.id, id));
+}
+
+export async function listInvitations(): Promise<(typeof invitations.$inferSelect)[]> {
+  const db = await requireDb();
+  return db.select().from(invitations).orderBy(desc(invitations.createdAt));
+}
+
+export async function deleteInvitation(id: number): Promise<void> {
+  const db = await requireDb();
+  await db.delete(invitations).where(eq(invitations.id, id));
 }
 
 export async function listClients() {
