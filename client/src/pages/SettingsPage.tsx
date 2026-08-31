@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { validateCompanyFinancialDetails } from "@shared/companySettingsValidation";
-import { AlertTriangle, Building2, Landmark, Loader2, Save, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Building2, Landmark, Loader2, Save, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -33,9 +33,12 @@ export default function SettingsPage() {
   return <DashboardLayout><div className="mx-auto max-w-5xl"><header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Administration</p><h1 className="font-editorial mt-2 text-3xl font-semibold">Paramètres entreprise</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Personnalisez les coordonnées affichées sur les documents Lucepres et validez les données nécessaires au règlement.</p></div><Button form="company-settings" type="submit" disabled={save.isPending} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground"><Save className="mr-2 h-4 w-4" />{save.isPending ? "Enregistrement…" : "Enregistrer"}</Button></header>
         <section className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
           <SectionHeading icon={ShieldCheck} title="Mon compte" text="Sécurité de l'accès à cet espace." />
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-3">
             <Button variant="outline" onClick={() => { window.location.href = "/compte/mot-de-passe"; }}>
               <ShieldCheck className="mr-2 h-4 w-4" /> Changer mon mot de passe
+            </Button>
+            <Button variant="outline" onClick={() => { window.location.href = "/parametres/utilisateurs"; }}>
+              <UserCog className="mr-2 h-4 w-4" /> Gérer les comptes
             </Button>
           </div>
         </section>

@@ -385,6 +385,79 @@ export const appRouter = router({
       return { success: true } as const;
     }),
   }),
+  /**
+   * Gestion des collaborateurs (réservée aux administrateurs).
+   * Dans l'architecture mono-tenant actuelle, un « collaborateur » est un compte
+   * `users` avec `role: "user"`. Les procédures ci-dessous permettent à un admin
+   * de lister, créer, promouvoir/rétrograder, réinitialiser le mot de passe et
+   * révoquer ces comptes — sans jamais exposer le hash des mots de passe.
+   */
+  users: router({
+    list: adminProcedure.query(() => db.listUsers()),
+    create: adminProcedure
+      .input(z.object({
+        email: z.string().email().max(320),
+        name: z.string().trim().min(2).max(180).optional(),
+        password: z.string().min(8).max(128),
+        role: z.enum(["admin", "user"]).default("user"),
+      }))
+      .mutation(async ({ input }) => {
+        const existant = await db.getUserByEmail(input.email);
+        if (existant) {
+          throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
+        }
+        const { hashPassword } = await import("./_core/password");
+        const passwordHash = await hashPassword(input.password);
+        const user = await db.createLocalUser({
+          email: input.email,
+          passwordHash,
+          name: input.name ?? null,
+          role: input.role,
+        });
+        return { success: true, openId: user.openId, id: user.id } as const;
+      }),
+    setRole: adminProcedure
+      .input(z.object({ userId: z.number().int().positive(), role: z.enum(["admin", "user"]) }))
+      .mutation(async ({ ctx, input }) => {
+        // Garde-fou : un admin ne peut pas se rétrograder lui-même et laisser
+        // l'instance sans administrateur.
+        if (ctx.user.id === input.userId && input.role === "user") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Vous ne pouvez pas retirer votre propre rôle d'administrateur.",
+          });
+        }
+        await db.setUserRole(input.userId, input.role);
+        return { success: true } as const;
+      }),
+    resetPassword: adminProcedure
+      .input(z.object({ userId: z.number().int().positive(), newPassword: z.string().min(8).max(128) }))
+      .mutation(async ({ input }) => {
+        const { hashPassword } = await import("./_core/password");
+        const passwordHash = await hashPassword(input.newPassword);
+        await db.resetUserPassword(input.userId, passwordHash);
+        return { success: true } as const;
+      }),
+    remove: adminProcedure
+      .input(z.object({ userId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        // Un admin ne peut pas se supprimer lui-même.
+        if (ctx.user.id === input.userId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Vous ne pouvez pas supprimer votre propre compte." });
+        }
+        const result = await db.deleteUser(input.userId);
+        if (!result.deleted) {
+          const msg =
+            result.reason === "dernier_admin"
+              ? "Impossible de supprimer le dernier administrateur de l'instance."
+              : result.reason === "compte_introuvable"
+                ? "Compte introuvable."
+                : "Suppression impossible.";
+          throw new TRPCError({ code: "BAD_REQUEST", message: msg });
+        }
+        return { success: true } as const;
+      }),
+  }),
   billing: router({
     dashboard: adminProcedure.query(() => db.getDashboardData()),
     clients: router({

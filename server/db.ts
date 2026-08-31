@@ -164,6 +164,69 @@ export async function setUserPasswordHash(userId: number, passwordHash: string):
   await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
 }
 
+/**
+ * Liste des comptes de l'instance (gestion des collaborateurs).
+ * Retourne des champs sûrs : jamais le hash du mot de passe.
+ */
+export async function listUsers(): Promise<
+  Array<{ id: number; openId: string; name: string | null; email: string | null; role: "admin" | "user"; loginMethod: string | null; lastSignedIn: Date; createdAt: Date }>
+> {
+  const db = await requireDb();
+  return db
+    .select({
+      id: users.id,
+      openId: users.openId,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      loginMethod: users.loginMethod,
+      lastSignedIn: users.lastSignedIn,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(asc(users.name), asc(users.email));
+}
+
+/** Change le rôle d'un compte (admin -> user ou user -> admin). */
+export async function setUserRole(userId: number, role: "admin" | "user"): Promise<void> {
+  const db = await requireDb();
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
+/**
+ * Réinitialise le mot de passe d'un compte sans connaître l'ancien.
+ * Utilisé par un admin qui aide un collaborateur bloqué. Le nouveau mot de passe
+ * est fourni déjà haché par l'appelant (scrypt, cf. `_core/password`).
+ */
+export async function resetUserPassword(userId: number, passwordHash: string): Promise<void> {
+  const db = await requireDb();
+  await db.update(users).set({ passwordHash, loginMethod: "email" }).where(eq(users.id, userId));
+}
+
+/**
+ * Supprime un compte (révocation d'un collaborateur).
+ * GARDE-FOU : interdit de supprimer le tout dernier compte admin, sinon
+ * l'instance se retrouverait sans aucun administrateur (porte close).
+ */
+export async function deleteUser(userId: number): Promise<{ deleted: boolean; reason?: string }> {
+  const db = await requireDb();
+  const [cible] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!cible) return { deleted: false, reason: "compte_introuvable" };
+
+  if (cible.role === "admin") {
+    const [restant] = await db
+      .select({ value: sql<number>`count(*)` })
+      .from(users)
+      .where(and(eq(users.role, "admin"), sql`${users.passwordHash} is not null`));
+    if (Number(restant?.value ?? 0) <= 1) {
+      return { deleted: false, reason: "dernier_admin" };
+    }
+  }
+
+  await db.delete(users).where(eq(users.id, userId));
+  return { deleted: true };
+}
+
 export async function listClients() {
   const db = await requireDb();
   return db.select().from(clients).orderBy(asc(clients.companyName));
