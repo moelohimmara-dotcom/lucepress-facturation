@@ -68,7 +68,7 @@ export async function getDb() {
   return _db;
 }
 
-async function requireDb() {
+export async function requireDb() {
   const db = await getDb();
   if (!db) throw new Error("La base de données Lucepress est indisponible.");
   return db;
