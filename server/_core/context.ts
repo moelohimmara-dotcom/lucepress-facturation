@@ -1,6 +1,8 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
-import { sdk } from "./sdk";
+import { verifyLocalSession } from "./localAuth";
+import * as db from "../db";
+import { COOKIE_NAME } from "@shared/const";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -8,36 +10,37 @@ export type TrpcContext = {
   user: User | null;
 };
 
+function parseCookies(cookieHeader: string | undefined): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!cookieHeader) return map;
+  for (const part of cookieHeader.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    if (key) map.set(key, decodeURIComponent(value));
+  }
+  return map;
+}
+
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
   let user: User | null = null;
 
-  try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    user = null;
+  const cookies = parseCookies(opts.req.headers.cookie);
+  const token = cookies.get(COOKIE_NAME) ?? null;
+
+  const session = await verifyLocalSession(token);
+  if (session) {
+    user = await db.getUserByOpenId(session.openId);
   }
 
-  // Controle local - Manus retire : utilisateur admin par defaut si pas de session
+  // Aucune dépendance à Manus n'est active : anciens cookies OAuth ignorés.
+
   if (!user) {
-    const now = new Date();
-    user = {
-      id: 1,
-      openId: "local-admin",
-      name: "Admin Lucepress",
-      email: "admin@lucepress.local",
-      loginMethod: "local",
-      role: "admin",
-      createdAt: now,
-      updatedAt: now,
-      lastSignedIn: now,
-    } as User;
+    return { req: opts.req, res: opts.res, user: null };
   }
 
-  return {
-    req: opts.req,
-    res: opts.res,
-    user,
-  };
+  return { req: opts.req, res: opts.res, user };
 }

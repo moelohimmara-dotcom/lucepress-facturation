@@ -11,7 +11,7 @@ const plugins = [
   jsxLocPlugin(),
   VitePWA({
     registerType: "autoUpdate",
-    includeAssets: ["manus-storage/lucepress-emblem_bfa24e8e.png"],
+    includeAssets: ["lucepress-emblem.png"],
     manifest: {
       name: "Lucepres — Devis & Factures",
       short_name: "Lucepres",
@@ -19,7 +19,7 @@ const plugins = [
       theme_color: "#113b35",
       background_color: "#f6faf8",
       display: "standalone",
-      icons: [{ src: "manus-storage/lucepress-emblem_bfa24e8e.png", sizes: "512x512", type: "image/png" }],
+      icons: [{ src: "lucepress-emblem.png", sizes: "512x512", type: "image/png" }],
     },
     workbox: {
       globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
@@ -69,11 +69,6 @@ export default defineConfig({
   server: {
     host: true,
     allowedHosts: [
-      ".manuspre.computer",
-      ".manus.computer",
-      ".manus-asia.computer",
-      ".manuscomputer.ai",
-      ".manusvm.computer",
       "localhost",
       "127.0.0.1",
     ],

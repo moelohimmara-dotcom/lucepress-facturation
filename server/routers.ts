@@ -237,6 +237,52 @@ const proposalSchema = {
 export const appRouter = router({
   system: systemRouter,
   auth: router({
+    register: publicProcedure
+      .input(z.object({
+        email: z.string().email().max(320),
+        password: z.string().min(8).max(128),
+        name: z.string().trim().min(2).max(180).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const existing = await db.getUserByEmail(input.email);
+        if (existing) {
+          throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
+        }
+        const { hashPassword } = await import("./_core/password");
+        const passwordHash = await hashPassword(input.password);
+        const user = await db.createLocalUser({
+          email: input.email,
+          passwordHash,
+          name: input.name ?? null,
+        });
+        return { success: true, openId: user.openId };
+      }),
+    login: publicProcedure
+      .input(z.object({
+        email: z.string().email().max(320),
+        password: z.string().min(1).max(128),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await db.getUserByEmail(input.email);
+        if (!user || !user.passwordHash) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou mot de passe incorrect." });
+        }
+        const { verifyPassword } = await import("./_core/password");
+        const ok = await verifyPassword(input.password, user.passwordHash);
+        if (!ok) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou mot de passe incorrect." });
+        }
+        await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+        const { signLocalSession } = await import("./_core/localAuth");
+        const token = await signLocalSession({
+          openId: user.openId,
+          email: user.email ?? "",
+          name: user.name ?? "",
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+        return { success: true };
+      }),
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);

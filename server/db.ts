@@ -109,6 +109,37 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result[0];
+}
+
+export async function createLocalUser(input: {
+  email: string;
+  passwordHash: string;
+  name?: string | null;
+}): Promise<{ id: number; openId: string }> {
+  const db = await requireDb();
+  const openId = `local_${randomBytes(12).toString("hex")}`;
+  const result = await db.insert(users).values({
+    openId,
+    email: input.email,
+    passwordHash: input.passwordHash,
+    name: input.name ?? null,
+    loginMethod: "email",
+    role: "admin",
+    lastSignedIn: new Date(),
+  } as any);
+  return { id: Number(result[0].insertId), openId };
+}
+
+export async function setUserPasswordHash(userId: number, passwordHash: string): Promise<void> {
+  const db = await requireDb();
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+}
+
 export async function listClients() {
   const db = await requireDb();
   return db.select().from(clients).orderBy(asc(clients.companyName));

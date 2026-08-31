@@ -4,15 +4,7 @@ import path from "node:path";
 import { ENV } from "./env";
 
 export function registerStorageProxy(app: Express) {
-  app.get("/manus-storage/*", async (req, res) => {
-    // Controle local : auth requise mais sans Forge on sert local
-    const cookie = req.headers.cookie ?? "";
-    // En mode local-admin, on autorise meme sans cookie (dev bypass)
-    const isLocalBypass = true; // Manus retire
-    if (!isLocalBypass && !cookie.includes("app_session_id") && !req.headers.authorization) {
-      res.status(401).send("Auth required");
-      return;
-    }
+  app.get("/storage/*", async (req, res) => {
     const key = (req.params as Record<string, string>)[0];
     if (!key || key.includes("..") || key.includes("//")) {
       res.status(400).send("Invalid storage key");
@@ -33,7 +25,7 @@ export function registerStorageProxy(app: Express) {
     try {
       const forgeUrl = new URL(
         "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/",
+        ENV.forgeApiUrl.replace(/\/+$/, "/"),
       );
       forgeUrl.searchParams.set("path", key);
 

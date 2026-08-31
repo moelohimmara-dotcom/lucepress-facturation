@@ -72,11 +72,8 @@ const callForge = async <T>(
     "content-type": "application/json",
     "connect-protocol-version": "1",
   };
-  // userSession is the decoded `app_session_id` cookie value (NOT the raw
-  // Cookie header). Empty string falls back to the project owner identity.
-  if (userSession) {
-    headers["x-manus-user-session"] = userSession;
-  }
+  // Note: the forge API key already scopes requests to this project; no
+  // external user-session header is forwarded (Manus-specific behavior removed).
 
   let response: Response;
   try {
