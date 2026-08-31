@@ -342,7 +342,10 @@ export const appRouter = router({
         ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
         return { success: true };
       }),
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(({ ctx }) => {
+      const { passwordHash, ...safeUser } = ctx.user ?? {};
+      return safeUser;
+    }),
     /**
      * Changement de mot de passe par l'utilisateur connecté.
      *
