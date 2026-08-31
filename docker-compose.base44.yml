@@ -55,6 +55,8 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       PNPM_HOME: /pnpm
       PNPM_STORE_DIR: /pnpm/store
+    env_file:
+      - /run/base44/app.env
     depends_on:
       migrate:
         condition: service_completed_successfully

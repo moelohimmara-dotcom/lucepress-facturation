@@ -2,5 +2,16 @@
   "previewPort": 3000,
   "healthPath": "/",
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
-  "secrets": []
+  "secrets": [
+    {
+      "name": "MONEROO_SECRET_KEY",
+      "description": "Clé API secrète Moneroo (Dashboard Moneroo > Developer > API Keys)",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "MONEROO_WEBHOOK_SECRET",
+      "description": "Secret de webhook Moneroo pour valider les signatures (Dashboard Moneroo > Developer > Webhooks)",
+      "requiredAtBoot": false
+    }
+  ]
 }
