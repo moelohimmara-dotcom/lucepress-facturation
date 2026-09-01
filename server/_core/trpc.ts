@@ -22,7 +22,6 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
   }
 
-  // Porte le tenant courant dans le contexte async pour filtrer les tables métier.
   return runWithTenant(ctx.tenantId, () =>
     next({
       ctx: {
@@ -47,7 +46,33 @@ export const adminProcedure = t.procedure.use(
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
     }
 
-    // Porte le tenant courant dans le contexte async pour filtrer les tables métier.
+    return runWithTenant(ctx.tenantId, () =>
+      next({
+        ctx: {
+          ...ctx,
+          user: ctx.user,
+        },
+      }),
+    );
+  }),
+);
+
+/**
+ * Procédure pour les administrateurs ET directeurs.
+ * Accès étendu sauf gestion des utilisateurs (réservée aux admins).
+ */
+export const directionProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user || (ctx.user.role !== 'admin' && ctx.user.role !== 'directeur')) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Accès réservé à la direction." });
+    }
+
+    if (!ctx.tenantId) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
+    }
+
     return runWithTenant(ctx.tenantId, () =>
       next({
         ctx: {

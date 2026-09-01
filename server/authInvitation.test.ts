@@ -48,7 +48,7 @@ vi.mock("./_core/password", () => ({
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-function ctxFor(openId: string, role: "admin" | "user", id = 1): TrpcContext {
+function ctxFor(openId: string, role: "admin" | "cadre", id = 1): TrpcContext {
   return {
     user: { openId, email: "x@lucepress.com", role, name: "X", id } as any,
     tenantId: 1,
@@ -68,7 +68,7 @@ beforeEach(() => {
 describe("users.invite (admin)", () => {
   it("génère un lien d'invitation sans stocker le token en clair", async () => {
     const caller = appRouter.createCaller(ctxFor("admin", "admin", 1));
-    const res = await caller.users.invite({ email: "invite@x.com", role: "user" });
+    const res = await caller.users.invite({ email: "invite@x.com", role: "cadre" });
     expect(res.success).toBe(true);
     expect(res.invitationLink).toContain("/invitation?token=");
     // Le token brut ne doit PAS être stocké tel quel (on stocke l'empreinte scrypt).
@@ -87,14 +87,14 @@ describe("users.invite (admin)", () => {
 describe("users.acceptInvitation (public)", () => {
   it("crée le compte de l'invité avec son propre mot de passe", async () => {
     const admin = appRouter.createCaller(ctxFor("admin", "admin", 1));
-    const inv = await admin.users.invite({ email: "nouveau@x.com", role: "user" });
+    const inv = await admin.users.invite({ email: "nouveau@x.com", role: "cadre" });
     const token = inv.invitationLink.split("token=")[1];
 
-    const caller = appRouter.createCaller(ctxFor("personne", "user", 99)); // pas connecté en théorie
+    const caller = appRouter.createCaller(ctxFor("personne", "cadre", 99)); // pas connecté en théorie
     const res = await caller.acceptInvitation({ token, name: "Nouveau", password: "MonMotDePasse123" });
     expect(res.success).toBe(true);
     expect(mocks.createLocalUser).toHaveBeenCalledWith(
-      expect.objectContaining({ email: "nouveau@x.com", role: "user", name: "Nouveau" })
+      expect.objectContaining({ email: "nouveau@x.com", role: "cadre", name: "Nouveau" })
     );
     expect(mocks.markInvitationAccepted).toHaveBeenCalled();
     // Le mot de passe n'est jamais stocké en clair.
@@ -104,9 +104,9 @@ describe("users.acceptInvitation (public)", () => {
 
   it("un token déjà utilisé est refusé (usage unique)", async () => {
     const admin = appRouter.createCaller(ctxFor("admin", "admin", 1));
-    const inv = await admin.users.invite({ email: "once@x.com", role: "user" });
+    const inv = await admin.users.invite({ email: "once@x.com", role: "cadre" });
     const token = inv.invitationLink.split("token=")[1];
-    const caller = appRouter.createCaller(ctxFor("p", "user", 5));
+    const caller = appRouter.createCaller(ctxFor("p", "cadre", 5));
     await caller.acceptInvitation({ token, name: "Once", password: "MotDePasse123" });
     mocks.getUserByEmail.mockResolvedValue(undefined);
     await expect(

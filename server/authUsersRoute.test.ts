@@ -31,7 +31,7 @@ vi.mock("./_core/password", () => ({
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-function ctxFor(openId: string, role: "admin" | "user", id = 1): TrpcContext {
+function ctxFor(openId: string, role: "admin" | "cadre", id = 1): TrpcContext {
   return {
     user: { openId, email: "x@lucepress.com", role, name: "X", id } as any,
     tenantId: 1,
@@ -46,14 +46,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.listUsers.mockResolvedValue([
     { id: 1, openId: "local_a", name: "A", email: "a@x.com", role: "admin", loginMethod: "email", lastSignedIn: new Date().toISOString(), createdAt: new Date().toISOString() },
-    { id: 2, openId: "local_b", name: "B", email: "b@x.com", role: "user", loginMethod: "email", lastSignedIn: new Date().toISOString(), createdAt: new Date().toISOString() },
+    { id: 2, openId: "local_b", name: "B", email: "b@x.com", role: "cadre", loginMethod: "email", lastSignedIn: new Date().toISOString(), createdAt: new Date().toISOString() },
   ]);
   mocks.deleteUser.mockResolvedValue({ deleted: true });
 });
 
 describe("users — accès réservé aux admins", () => {
   it("refuse toute action à un simple membre", async () => {
-    const caller = appRouter.createCaller(ctxFor("local_b", "user", 2));
+    const caller = appRouter.createCaller(ctxFor("local_b", "cadre", 2));
     await expect(caller.users.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       caller.users.create({ email: "n@x.com", password: "MotDePasse123" })
@@ -66,11 +66,11 @@ describe("users.create", () => {
     mocks.getUserByEmail.mockResolvedValue(undefined);
     const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
     await expect(
-      caller.users.create({ email: "nouveau@x.com", name: "Nouveau", password: "MotDePasse123", role: "user" })
+      caller.users.create({ email: "nouveau@x.com", name: "Nouveau", password: "MotDePasse123", role: "cadre" })
     ).resolves.toMatchObject({ success: true });
 
     expect(mocks.createLocalUser).toHaveBeenCalledWith(
-      expect.objectContaining({ email: "nouveau@x.com", role: "user" })
+      expect.objectContaining({ email: "nouveau@x.com", role: "cadre" })
     );
     // Le mot de passe ne doit jamais être stocké en clair.
     const hash = mocks.createLocalUser.mock.calls[0][0].passwordHash as string;
@@ -92,7 +92,7 @@ describe("users.setRole", () => {
   it("refuse qu'un admin se retire son propre rôle", async () => {
     const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
     await expect(
-      caller.users.setRole({ userId: 1, role: "user" })
+      caller.users.setRole({ userId: 1, role: "cadre" })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(mocks.setUserRole).not.toHaveBeenCalled();
   });

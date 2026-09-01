@@ -8,7 +8,7 @@ import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { sendMail, invitationTemplate } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { parse as parseCookieHeader } from "cookie";
@@ -395,7 +395,7 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
+      return { success: true, redirectTo: "/login" } as const;
     }),
     /**
      * Demande de réinitialisation du mot de passe (flux "Mot de passe oublié").
@@ -475,7 +475,7 @@ export const appRouter = router({
         email: z.string().email().max(320),
         name: z.string().trim().min(2).max(180).optional(),
         password: z.string().min(8).max(128),
-        role: z.enum(["admin", "user"]).default("user"),
+        role: z.enum(["admin", "directeur", "cadre"]).default("cadre"),
       }))
       .mutation(async ({ input }) => {
         const existant = await db.getUserByEmail(input.email);
@@ -493,11 +493,11 @@ export const appRouter = router({
         return { success: true, openId: user.openId, id: user.id } as const;
       }),
     setRole: adminProcedure
-      .input(z.object({ userId: z.number().int().positive(), role: z.enum(["admin", "user"]) }))
+      .input(z.object({ userId: z.number().int().positive(), role: z.enum(["admin", "directeur", "cadre"]) }))
       .mutation(async ({ ctx, input }) => {
         // Garde-fou : un admin ne peut pas se rétrograder lui-même et laisser
         // l'instance sans administrateur.
-        if (ctx.user.id === input.userId && input.role === "user") {
+        if (ctx.user.id === input.userId && input.role !== "admin") {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Vous ne pouvez pas retirer votre propre rôle d'administrateur.",
@@ -543,7 +543,7 @@ export const appRouter = router({
       .input(z.object({
         email: z.string().email().max(320),
         name: z.string().trim().min(2).max(180).optional(),
-        role: z.enum(["admin", "user"]).default("user"),
+        role: z.enum(["admin", "directeur", "cadre"]).default("cadre"),
       }))
       .mutation(async ({ ctx, input }) => {
         const existant = await db.getUserByEmail(input.email);
@@ -659,12 +659,12 @@ export const appRouter = router({
   billing: router({
     dashboard: adminProcedure.query(() => db.getDashboardData()),
     clients: router({
-      list: adminProcedure.query(() => db.listClients()),
-      duplicates: adminProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
-      create: adminProcedure
+      list: directionProcedure.query(() => db.listClients()),
+      duplicates: directionProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
+      create: directionProcedure
         .input(clientInputSchema)
         .mutation(({ input }) => db.createClient(input)),
-      update: adminProcedure
+      update: directionProcedure
         .input(clientInputSchema.extend({ id: z.number().int().positive() }))
         .mutation(({ input }) => db.updateClient(input.id, input)),
       attachments: router({
