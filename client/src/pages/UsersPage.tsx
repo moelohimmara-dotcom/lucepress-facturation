@@ -368,7 +368,7 @@ function CreateUserForm({
       <div className="space-y-2">
         <Label>Rôle</Label>
         <div className="flex gap-2">
-          <Button type="button" variant={role === "user" ? "default" : "outline"} size="sm" onClick={() => setRole("user")}>Membre</Button>
+          <Button type="button" variant={role === "cadre" ? "default" : "outline"} size="sm" onClick={() => setRole("cadre")}>Cadre</Button>
           <Button type="button" variant={role === "admin" ? "default" : "outline"} size="sm" onClick={() => setRole("admin")}>Admin</Button>
         </div>
       </div>
@@ -417,11 +417,11 @@ function InviteForm({
   onSubmit,
   pending,
 }: {
-  onSubmit: (v: { email: string; name?: string; role: "admin" | "user" }) => void;
+  onSubmit: (v: { email: string; name?: string; role: "admin" | "cadre" }) => void;
   pending: boolean;
 }) {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "user">("user");
+  const [role, setRole] = useState<"admin" | "cadre">("cadre");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: FormEvent) {
@@ -440,7 +440,7 @@ function InviteForm({
       <div className="space-y-2">
         <Label>Rôle</Label>
         <div className="flex gap-2">
-          <Button type="button" variant={role === "user" ? "default" : "outline"} size="sm" onClick={() => setRole("user")}>Membre</Button>
+          <Button type="button" variant={role === "cadre" ? "default" : "outline"} size="sm" onClick={() => setRole("cadre")}>Cadre</Button>
           <Button type="button" variant={role === "admin" ? "default" : "outline"} size="sm" onClick={() => setRole("admin")}>Admin</Button>
         </div>
       </div>
