@@ -272,6 +272,26 @@ export async function getInvitationByTokenHash(
   return row;
 }
 
+/**
+ * Recherche une invitation par token (hash scrypt) SANS filtre tenant.
+ * Utilisé pour acceptInvitation (procédure publique — pas encore authentifié).
+ * Le token est unique (contrainte DB), pas de risque de fuite inter-tenant.
+ */
+export async function findInvitationByToken(
+  token: string
+): Promise<typeof invitations.$inferSelect | undefined> {
+  const db = await requireDb();
+  const { verifyPassword } = await import("./_core/password");
+  const all = await db.select().from(invitations);
+  for (const inv of all) {
+    if (inv.status !== "pending") continue;
+    if (inv.expiresAt.getTime() <= Date.now()) continue;
+    const ok = await verifyPassword(token, inv.tokenHash);
+    if (ok) return inv;
+  }
+  return undefined;
+}
+
 export async function markInvitationAccepted(tokenHash: string, acceptedByUser: number): Promise<void> {
   const db = await requireDb();
   await db
@@ -302,7 +322,7 @@ export async function listClients() {
 
 export async function listCollectionAssignees() {
   const db = await requireDb();
-  return db.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).orderBy(asc(users.name));
+  return db.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).where(eq(users.tenantId, currentTenant())).orderBy(asc(users.name));
 }
 
 export async function getClientById(id: number) {
@@ -799,6 +819,7 @@ export async function listIntegrationAuditLogs() {
     .leftJoin(integrationConnections, eq(integrationAuditLogs.connectionId, integrationConnections.id))
     .leftJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id))
     .leftJoin(users, eq(integrationAuditLogs.actorId, users.id))
+    .where(eq(integrationConnections.tenantId, currentTenant()))
     .orderBy(desc(integrationAuditLogs.createdAt))
     .limit(30);
 }
@@ -875,7 +896,7 @@ export async function listPendingIntegrationApprovals() {
   }).from(integrationJobs)
     .innerJoin(integrationConnections, eq(integrationJobs.connectionId, integrationConnections.id))
     .innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id))
-    .where(eq(integrationJobs.status, "queued"))
+    .where(and(eq(integrationJobs.status, "queued"), eq(integrationConnections.tenantId, currentTenant())))
     .orderBy(asc(integrationJobs.createdAt));
 }
 
@@ -961,8 +982,8 @@ export async function getAgentOperatorAccess(userId: number, systemRole: "admin"
 export async function listAgentOperators() {
   const db = await requireDb();
   const [people, grants] = await Promise.all([
-    db.select({ id: users.id, name: users.name, email: users.email, systemRole: users.role }).from(users).orderBy(asc(users.name)),
-    db.select().from(agentOperatorGrants).orderBy(desc(agentOperatorGrants.updatedAt)),
+    db.select({ id: users.id, name: users.name, email: users.email, systemRole: users.role }).from(users).where(eq(users.tenantId, currentTenant())).orderBy(asc(users.name)),
+    db.select().from(agentOperatorGrants).where(eq(agentOperatorGrants.tenantId, currentTenant())).orderBy(desc(agentOperatorGrants.updatedAt)),
   ]);
   return people.map(person => ({
     ...person,
@@ -981,9 +1002,10 @@ export async function upsertAgentOperatorGrant(input: {
   grantedById: number;
 }) {
   const db = await requireDb();
-  const subject = await db.select({ id: users.id }).from(users).where(eq(users.id, input.userId)).limit(1);
+  const subject = await db.select({ id: users.id }).from(users).where(and(eq(users.id, input.userId), eq(users.tenantId, currentTenant()))).limit(1);
   if (!subject[0]) throw new Error("Utilisateur introuvable pour cette habilitation.");
   const values = {
+    tenantId: currentTenant(),
     userId: input.userId,
     role: input.role,
     canApprove: input.canApprove ? "oui" as const : "non" as const,

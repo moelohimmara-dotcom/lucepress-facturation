@@ -562,15 +562,8 @@ export const appRouter = router({
       password: z.string().min(8).max(128),
     }))
     .mutation(async ({ input }) => {
-      const { verifyPassword } = await import("./_core/password");
-      const enAttente = await db.listInvitations();
-      let cible: (typeof enAttente)[number] | undefined;
-      for (const inv of enAttente) {
-        if (inv.status !== "pending") continue;
-        const ok = await verifyPassword(input.token, inv.tokenHash);
-        if (ok) { cible = inv; break; }
-      }
-      if (!cible || cible.status !== "pending" || cible.expiresAt.getTime() <= Date.now()) {
+      const cible = await db.findInvitationByToken(input.token);
+      if (!cible) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Invitation invalide ou expirée." });
       }
       const existant = await db.getUserByEmail(cible.email);
@@ -585,6 +578,7 @@ export const appRouter = router({
         passwordHash,
         name: input.name,
         role: cible.role,
+        tenantId: cible.tenantId,
       });
       await db.markInvitationAccepted(cible.tokenHash, user.id);
       return { success: true, openId: user.openId, id: user.id } as const;

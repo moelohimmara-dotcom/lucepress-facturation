@@ -522,6 +522,7 @@ export const agentOperatorGrants = mysqlTable(
   "agent_operator_grants",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     role: mysqlEnum("role", ["directeur_general", "responsable_commercial"]).notNull(),
     canApprove: mysqlEnum("canApprove", ["oui", "non"]).default("oui").notNull(),

@@ -34,16 +34,9 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // P0 security headers + rate limit
   const helmet = (await import("helmet")).default;
   const cors = (await import("cors")).default;
   const rateLimit = (await import("express-rate-limit")).default;
-  // Derrière un reverse proxy (Caddy/nginx en production), `req.ip` vaut sinon
-  // l'IP du proxy pour TOUT LE MONDE : les compteurs par IP deviennent alors un
-  // compteur unique partagé (un attaquant bloquerait tous les utilisateurs).
-  // Activé uniquement sur déclaration explicite de l'opérateur, car faire
-  // confiance à `X-Forwarded-For` sans proxy devant permettrait de l'usurper.
-  // Voir `_core/clientIp.ts` et `docs/AUTH-email-password.md`.
   const trustProxyRaw = (process.env.TRUST_PROXY ?? "").trim();
   if (trustProxyRaw && trustProxyRaw !== "0" && trustProxyRaw.toLowerCase() !== "false") {
     const hops = Number.parseInt(trustProxyRaw, 10);
@@ -52,15 +45,14 @@ async function startServer() {
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(",") ?? true, credentials: true }));
   app.use("/api/", rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true }));
-  // Configure body parser with sane limits (P0: 50mb -> DoS)
-  app.use(express.json({ limit: "1mb" }));
-  app.use(express.urlencoded({ limit: "1mb", extended: true }));
+
   registerStorageProxy(app);
   registerClientAttachmentRoutes(app);
   registerProjectCostAttachmentRoutes(app);
   registerIntegrationExternalRoutes(app);
   registerAgentCampaignScheduleRoutes(app);
-  // tRPC API
+
+  // tRPC API – gère son propre parsing du body
   app.use(
     "/api/trpc",
     createExpressMiddleware({
@@ -68,7 +60,6 @@ async function startServer() {
       createContext,
     })
   );
-  // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
