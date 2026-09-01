@@ -11,6 +11,9 @@ import type { TrpcContext } from "./_core/context";
 
 const createContext = (role: "admin" | "user") => ({
   user: { id: 3, openId: `workspace-${role}`, name: "Responsable", email: "responsable@lucepress.example", loginMethod: "manus", role, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+  tenantId: 1,
+  tenantId: 1,
+  tenantId: 1,
   req: {} as TrpcContext["req"],
   res: {} as TrpcContext["res"],
 }) as TrpcContext;

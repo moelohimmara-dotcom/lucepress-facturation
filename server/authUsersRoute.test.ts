@@ -34,6 +34,9 @@ import type { TrpcContext } from "./_core/context";
 function ctxFor(openId: string, role: "admin" | "user", id = 1): TrpcContext {
   return {
     user: { openId, email: "x@lucepress.com", role, name: "X", id } as any,
+    tenantId: 1,
+    tenantId: 1,
+    tenantId: 1,
     req: { headers: {}, ip: "41.66.1.9", socket: { remoteAddress: "41.66.1.9" }, protocol: "https" } as TrpcContext["req"],
     res: { cookie: () => undefined, clearCookie: () => undefined } as unknown as TrpcContext["res"],
   } as TrpcContext;

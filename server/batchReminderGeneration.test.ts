@@ -18,7 +18,7 @@ import type { TrpcContext } from "./_core/context";
 
 describe("assistant.prepareBatchReminders", () => {
   it("prépare des brouillons personnalisés et enregistre seulement leur trace d’activité", async () => {
-    const ctx = { user: { id: 1, openId: "admin-batch-reminders", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
+    const ctx = { user: { id: 1, openId: "admin-batch-reminders", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, tenantId: 1, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
     const result = await appRouter.createCaller(ctx).billing.assistant.prepareBatchReminders({ documentIds: [4, 8, 4], tone: "courtois", instruction: "  rappeler le point de contact  " });
     expect(result).toMatchObject({ requiresReview: true, delivery: "brouillons_uniquement" });
     expect(result.reminders.map(reminder => reminder.documentId)).toEqual([4, 8]);

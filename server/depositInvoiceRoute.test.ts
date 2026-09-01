@@ -6,7 +6,7 @@ vi.mock("./db", () => ({ createDepositInvoiceFromQuote: mocks.createDepositInvoi
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-const adminContext = { user: { id: 3, openId: "admin-deposit", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
+const adminContext = { user: { id: 3, openId: "admin-deposit", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, tenantId: 1, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
 
 describe("billing.documents.createDepositInvoice", () => {
   it("demande une facture d’acompte pour un devis avec l’auteur connecté", async () => {

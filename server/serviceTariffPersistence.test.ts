@@ -9,7 +9,7 @@ vi.mock("drizzle-orm/mysql2", () => ({
   drizzle: () => {
     const fakeDb = {
       select: (projection?: Record<string, unknown>) => ({
-        from: () => projection && "code" in projection ? Promise.resolve(state.catalog.map(service => ({ code: service.code }))) : ({ where: () => ({ limit: async () => state.catalog.map(service => ({ ...service })) }), orderBy: async () => state.catalog }),
+        from: () => projection && "code" in projection ? Promise.resolve(state.catalog.map(service => ({ code: service.code }))) : ({ where: () => ({ limit: async () => state.catalog.map(service => ({ ...service })), orderBy: async () => state.catalog }), orderBy: async () => state.catalog }),
       }),
       insert: () => ({ values: async (values: Array<Record<string, unknown>> | Record<string, unknown>) => { if (Array.isArray(values)) state.catalog.push(...values); else state.revisions.push(values); } }),
       update: () => ({ set: (values: Record<string, unknown>) => ({ where: async () => { Object.assign(state.catalog[0], values); } }) }),

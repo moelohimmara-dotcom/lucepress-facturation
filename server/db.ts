@@ -111,10 +111,13 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
-export async function getUserByEmail(email: string) {
+export async function getUserByEmail(email: string, tenantId?: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(and(eq(users.email, email), eq(users.tenantId, currentTenant() ?? 1))).limit(1);
+  const filter = tenantId != null
+    ? and(eq(users.email, email), eq(users.tenantId, tenantId))
+    : eq(users.email, email);
+  const result = await db.select().from(users).where(filter).limit(1);
   return result[0];
 }
 

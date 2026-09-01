@@ -49,6 +49,9 @@ const storedHashFor = (plain: string) => `hash:${plain}`;
 function ctxFor(ip: string): TrpcContext {
   return {
     user: null,
+    tenantId: 1,
+    tenantId: 1,
+    tenantId: 1,
     req: { headers: {}, ip, socket: { remoteAddress: ip }, protocol: "https" } as TrpcContext["req"],
     res: { cookie: () => undefined, clearCookie: () => undefined } as unknown as TrpcContext["res"],
   } as TrpcContext;

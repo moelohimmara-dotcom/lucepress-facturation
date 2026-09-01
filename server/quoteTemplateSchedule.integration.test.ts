@@ -7,7 +7,7 @@ vi.mock("./db", () => ({ createDocument: mocks.createDocument }));
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-const adminContext = { user: { id: 4, openId: "admin-template", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
+const adminContext = { user: { id: 4, openId: "admin-template", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, tenantId: 1, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
 
 describe("modèle de devis avec échéancier", () => {
   it("enregistre les lignes personnalisables d’un modèle et les dates d’acompte et solde", async () => {

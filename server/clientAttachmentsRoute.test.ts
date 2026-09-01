@@ -37,13 +37,13 @@ describe("route de pièces jointes client", () => {
   });
 
   it("refuse un client inexistant", async () => {
-    registerRoute(); mocks.authenticateRequest.mockResolvedValueOnce({ id: 1, role: "admin" }); mocks.getClientById.mockResolvedValueOnce(undefined);
+    registerRoute(); mocks.authenticateRequest.mockResolvedValueOnce({ id: 1, role: "admin", tenantId: 1 }); mocks.getClientById.mockResolvedValueOnce(undefined);
     const res = response(); await handler(request(), res);
     expect(res.statusCode).toBe(400); expect(res.body).toEqual({ error: "Le client sélectionné est introuvable." });
   });
 
   it("stocke les métadonnées après un dépôt valide", async () => {
-    registerRoute(); mocks.authenticateRequest.mockResolvedValueOnce({ id: 1, role: "admin" }); mocks.getClientById.mockResolvedValueOnce({ id: 1 }); mocks.storagePut.mockResolvedValueOnce({ key: "client-attachments/1/contrat_a1.pdf", url: "/manus-storage/client-attachments/1/contrat_a1.pdf" }); mocks.createClientAttachment.mockResolvedValueOnce({ id: 5 });
+    registerRoute(); mocks.authenticateRequest.mockResolvedValueOnce({ id: 1, role: "admin", tenantId: 1 }); mocks.getClientById.mockResolvedValueOnce({ id: 1 }); mocks.storagePut.mockResolvedValueOnce({ key: "client-attachments/1/contrat_a1.pdf", url: "/manus-storage/client-attachments/1/contrat_a1.pdf" }); mocks.createClientAttachment.mockResolvedValueOnce({ id: 5 });
     const res = response(); await handler(request(), res);
     expect(res.statusCode).toBe(201); expect(mocks.createClientAttachment).toHaveBeenCalledWith(expect.objectContaining({ clientId: 1, fileName: "contrat.pdf", createdById: 1 }));
   });

@@ -34,6 +34,7 @@ vi.mock("./db", () => ({
   revokeInvitation: mocks.revokeInvitation,
   createInvitation: mocks.createInvitation,
   listInvitations: mocks.listInvitations,
+  findInvitationByToken: vi.fn(async (token: string) => { const i = mocks._invitations.find(x => x.status === 'pending'); return i; }),
 }));
 vi.mock("./_core/password", () => ({
   verifyPassword: mocks.verifyPassword,
@@ -46,6 +47,9 @@ import type { TrpcContext } from "./_core/context";
 function ctxFor(openId: string, role: "admin" | "user", id = 1): TrpcContext {
   return {
     user: { openId, email: "x@lucepress.com", role, name: "X", id } as any,
+    tenantId: 1,
+    tenantId: 1,
+    tenantId: 1,
     req: { headers: {}, ip: "41.66.1.9", socket: { remoteAddress: "41.66.1.9" }, protocol: "https", get: () => "lucepress.213.156.135.139.sslip.io" } as TrpcContext["req"],
     res: { cookie: () => undefined, clearCookie: () => undefined } as unknown as TrpcContext["res"],
   } as TrpcContext;

@@ -13,7 +13,7 @@ vi.mock("./db", () => ({ updateServiceTariff: mocks.updateServiceTariff, listSer
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-const adminContext = { user: { id: 1, openId: "admin-tariff-read", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
+const adminContext = { user: { id: 1, openId: "admin-tariff-read", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, tenantId: 1, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
 
 describe("tarif personnalisé du catalogue", () => {
   it("met à jour puis relit le même tarif via les procédures tRPC", async () => {

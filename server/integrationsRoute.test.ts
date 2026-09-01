@@ -11,6 +11,9 @@ import type { TrpcContext } from "./_core/context";
 
 const adminContext = {
   user: { id: 6, openId: "admin-integrations", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+  tenantId: 1,
+  tenantId: 1,
+  tenantId: 1,
   req: {} as TrpcContext["req"],
   res: {} as TrpcContext["res"],
 } as TrpcContext;

@@ -16,7 +16,7 @@ vi.mock("./db", () => ({
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-const ctx = { user: { id: 1, openId: "collection-admin", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
+const ctx = { user: { id: 1, openId: "collection-admin", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, tenantId: 1, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
 
 describe("routes de supervision des créances", () => {
   it("renvoie les responsables et transmet une mise à jour de suivi avec l’auteur", async () => {

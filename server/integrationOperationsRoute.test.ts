@@ -13,7 +13,7 @@ vi.mock("./db", () => ({
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-const adminContext = { user: { id: 12, openId: "admin-operations", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
+const adminContext = { user: { id: 12, openId: "admin-operations", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, tenantId: 1, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
 
 describe("procédures OAuth et approbations d’intégration", () => {
   it("démarre OAuth Google avec les seuls paramètres autorisés et l’administrateur courant", async () => {

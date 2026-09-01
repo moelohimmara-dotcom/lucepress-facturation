@@ -33,6 +33,9 @@ const storedHashFor = (plain: string) => `hash:${plain}`;
 function ctxFor(openId: string, role: "admin" | "user" = "admin"): TrpcContext {
   return {
     user: { openId, email: "dg@lucepress.com", role, name: "Direction" },
+    tenantId: 1,
+    tenantId: 1,
+    tenantId: 1,
     req: { headers: {}, ip: "41.66.1.9", socket: { remoteAddress: "41.66.1.9" }, protocol: "https" } as TrpcContext["req"],
     res: { cookie: () => undefined, clearCookie: () => undefined } as unknown as TrpcContext["res"],
   } as TrpcContext;
@@ -95,6 +98,9 @@ describe("auth.changePassword — intégration", () => {
   it("exige une session authentifiée (procédure protégée)", async () => {
     const ctxSansUser = {
       user: null,
+      tenantId: 1,
+      tenantId: 1,
+      tenantId: 1,
       req: { headers: {}, ip: "41.66.1.9", socket: { remoteAddress: "41.66.1.9" }, protocol: "https" } as TrpcContext["req"],
       res: { cookie: () => undefined, clearCookie: () => undefined } as unknown as TrpcContext["res"],
     } as TrpcContext;

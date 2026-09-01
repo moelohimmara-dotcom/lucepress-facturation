@@ -15,7 +15,7 @@ import type { TrpcContext } from "./_core/context";
 
 describe("assistant.generateReminder", () => {
   it("prépare un modèle de relance à relire sans envoyer d’e-mail", async () => {
-    const ctx = { user: { id: 1, openId: "admin-reminder", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
+    const ctx = { user: { id: 1, openId: "admin-reminder", name: "Admin", email: "admin@example.com", loginMethod: "manus", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, tenantId: 1, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } as TrpcContext;
     const result = await appRouter.createCaller(ctx).billing.assistant.generateReminder({ documentId: 4, tone: "courtois" });
     expect(result.requiresReview).toBe(true);
     expect(result.reminder.subject).toContain("FAC-2026-0004");
