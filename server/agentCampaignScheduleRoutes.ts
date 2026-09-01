@@ -1,13 +1,18 @@
 import type { Express, Request, Response } from "express";
-import { deliverScheduledAgentCampaignToTestInbox } from "./db";
-import { sdk } from "./_core/sdk";
+import { deliverScheduledAgentCampaignToTestInbox, getAgentCampaignByScheduleTaskUid } from "./db";
 
 export function registerAgentCampaignScheduleRoutes(app: Express) {
   app.post("/api/scheduled/agent-test-email", async (req: Request, res: Response) => {
     try {
-      const user = await sdk.authenticateRequest(req);
-      if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only" });
-      const result = await deliverScheduledAgentCampaignToTestInbox(user.taskUid);
+      // Route déclenchée par le planificateur interne (heartbeat cron). Pas d'auth
+      // externe : le serveur s'appelle lui-même. On récupère le tenant de la campagne
+      // pour étiqueter les écritures sans fuite inter-tenant.
+      const taskUid = (req.body?.taskUid ?? req.query?.taskUid) as string | undefined;
+      if (!taskUid) return res.status(400).json({ error: "taskUid requis" });
+      const record = await getAgentCampaignByScheduleTaskUid(taskUid);
+      if (!record) return res.status(404).json({ error: "Campagne introuvable" });
+      const tenantId = record.campaign?.tenantId ?? null;
+      const result = await deliverScheduledAgentCampaignToTestInbox(taskUid, tenantId);
       return res.json({ ok: true, ...result, externalDispatch: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erreur inconnue du traitement e-mail de test.";

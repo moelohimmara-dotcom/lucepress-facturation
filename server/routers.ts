@@ -337,6 +337,7 @@ export const appRouter = router({
           openId: user.openId,
           email: user.email ?? "",
           name: user.name ?? "",
+          tenantId: user.tenantId ?? 1,
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });

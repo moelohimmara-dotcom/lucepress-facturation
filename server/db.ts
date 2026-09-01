@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
+import { currentTenant, runWithTenant } from "./_core/tenantContext";
 import { drizzle } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import {
@@ -127,6 +128,7 @@ export async function createLocalUser(input: {
    * à tout compte créé via `auth.register` (procédure publique).
    */
   role: "admin" | "user";
+  tenantId?: number;
 }): Promise<{ id: number; openId: string }> {
   const db = await requireDb();
   const openId = `local_${randomBytes(12).toString("hex")}`;
@@ -137,6 +139,7 @@ export async function createLocalUser(input: {
     name: input.name ?? null,
     loginMethod: "email",
     role: input.role,
+    tenantId: input.tenantId ?? 1,
     lastSignedIn: new Date(),
   } as any);
   return { id: Number(result[0].insertId), openId };
@@ -291,7 +294,9 @@ export async function deleteInvitation(id: number): Promise<void> {
 
 export async function listClients() {
   const db = await requireDb();
-  return db.select().from(clients).orderBy(asc(clients.companyName));
+  const tid = currentTenant();
+  console.error("[TENANT-DIAG] listClients currentTenant=", tid);
+  return db.select().from(clients).where(eq(clients.tenantId, tid)).orderBy(asc(clients.companyName));
 }
 
 export async function listCollectionAssignees() {
@@ -301,7 +306,7 @@ export async function listCollectionAssignees() {
 
 export async function getClientById(id: number) {
   const db = await requireDb();
-  const result = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+  const result = await db.select().from(clients).where(and(eq(clients.id, id), eq(clients.tenantId, currentTenant()))).limit(1);
   return result[0];
 }
 
@@ -316,7 +321,7 @@ export async function createClient(input: {
   defaultDiscountPercent?: number;
 }) {
   const db = await requireDb();
-  const result = await db.insert(clients).values({
+  const result = await db.insert(clients).values({ tenantId: currentTenant(),
     companyName: input.companyName,
     contactName: input.contactName || null,
     email: input.email || null,
@@ -351,7 +356,7 @@ export async function updateClient(id: number, input: ClientInput) {
     taxId: input.taxId || null,
     notes: input.notes || null,
     defaultDiscountPercent: input.defaultDiscountPercent ?? 0,
-  }).where(eq(clients.id, id));
+  }).where(and(eq(clients.id, id), eq(clients.tenantId, currentTenant())));
   return { success: true };
 }
 
@@ -369,27 +374,27 @@ export async function findClientDuplicates(input: ClientDuplicateCandidate, excl
 
 export async function listClientAttachments(clientId: number) {
   const db = await requireDb();
-  return db.select().from(clientAttachments).where(eq(clientAttachments.clientId, clientId)).orderBy(desc(clientAttachments.createdAt));
+  return db.select().from(clientAttachments).where(and(eq(clientAttachments.clientId, clientId), eq(clientAttachments.tenantId, currentTenant()))).orderBy(desc(clientAttachments.createdAt));
 }
 
 export async function createClientAttachment(input: { clientId: number; fileName: string; contentType: string; size: number; storageKey: string; storageUrl: string; createdById: number }) {
   const db = await requireDb();
-  const result = await db.insert(clientAttachments).values(input);
+  const result = await db.insert(clientAttachments).values({ ...input, tenantId: currentTenant() });
   return { id: Number(result[0].insertId) };
 }
 
 export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement" | "date_rappel_recouvrement"; title: string; description?: string; createdById: number }) {
   const db = await requireDb();
-  const result = await db.insert(clientActivities).values({ ...input, documentId: input.documentId ?? null, description: input.description ?? null });
+  const result = await db.insert(clientActivities).values({ tenantId: currentTenant(), ...input, documentId: input.documentId ?? null, description: input.description ?? null });
   return { id: Number(result[0].insertId) };
 }
 
 export async function listClientActivities(clientId: number) {
   const db = await requireDb();
   const [activities, clientDocuments, clientPayments] = await Promise.all([
-    db.select().from(clientActivities).where(eq(clientActivities.clientId, clientId)).orderBy(desc(clientActivities.createdAt)),
-    db.select({ id: documents.id, kind: documents.kind, number: documents.number, total: documents.total, status: documents.status, createdAt: documents.createdAt }).from(documents).where(eq(documents.clientId, clientId)).orderBy(desc(documents.createdAt)),
-    db.select({ id: payments.id, documentId: payments.documentId, documentNumber: documents.number, amount: payments.amount, method: payments.method, reference: payments.reference, paidAt: payments.paidAt, createdAt: payments.createdAt }).from(payments).innerJoin(documents, eq(payments.documentId, documents.id)).where(eq(documents.clientId, clientId)).orderBy(desc(payments.paidAt)),
+    db.select().from(clientActivities).where(and(eq(clientActivities.clientId, clientId), eq(clientActivities.tenantId, currentTenant()))).orderBy(desc(clientActivities.createdAt)),
+    db.select({ id: documents.id, kind: documents.kind, number: documents.number, total: documents.total, status: documents.status, createdAt: documents.createdAt }).from(documents).where(and(eq(documents.clientId, clientId), eq(documents.tenantId, currentTenant()))).orderBy(desc(documents.createdAt)),
+    db.select({ id: payments.id, documentId: payments.documentId, documentNumber: documents.number, amount: payments.amount, method: payments.method, reference: payments.reference, paidAt: payments.paidAt, createdAt: payments.createdAt }).from(payments).innerJoin(documents, eq(payments.documentId, documents.id)).where(and(eq(documents.clientId, clientId), eq(documents.tenantId, currentTenant()))).orderBy(desc(payments.paidAt)),
   ]);
   return buildClientActivityTimeline(clientId, clientDocuments, activities, clientPayments);
 }
@@ -451,15 +456,15 @@ function normalizeCompanySettings(input: CompanySettingsInput): typeof companySe
 
 export async function getCompanySettings() {
   const db = await requireDb();
-  const result = await db.select().from(companySettings).limit(1);
+  const result = await db.select().from(companySettings).where(eq(companySettings.tenantId, currentTenant())).limit(1);
   return result[0] ?? emptyCompanySettings();
 }
 
 export async function saveCompanySettings(input: CompanySettingsInput) {
   const db = await requireDb();
   const values = normalizeCompanySettings(input);
-  const existing = await db.select({ id: companySettings.id }).from(companySettings).limit(1);
-  if (existing[0]) await db.update(companySettings).set(values).where(eq(companySettings.id, existing[0].id));
+  const existing = await db.select({ id: companySettings.id }).from(companySettings).where(eq(companySettings.tenantId, currentTenant())).limit(1);
+  if (existing[0]) await db.update(companySettings).set(values).where(and(eq(companySettings.id, existing[0].id), eq(companySettings.tenantId, currentTenant())));
   else await db.insert(companySettings).values(values);
   return getCompanySettings();
 }
@@ -483,7 +488,7 @@ export async function listProjects() {
     })
     .from(projects)
     .innerJoin(clients, eq(projects.clientId, clients.id))
-    .orderBy(desc(projects.createdAt));
+    .where(eq(projects.tenantId, currentTenant())).orderBy(desc(projects.createdAt));
 }
 
 export async function createProject(input: {
@@ -495,7 +500,7 @@ export async function createProject(input: {
   description?: string;
 }) {
   const db = await requireDb();
-  const result = await db.insert(projects).values({
+  const result = await db.insert(projects).values({ tenantId: currentTenant(),
     ...input,
     reference: input.reference || null,
     location: input.location || null,
@@ -506,17 +511,17 @@ export async function createProject(input: {
 
 export async function updateProjectPlannedBudget(input: { id: number; plannedBudget: number }) {
   const db = await requireDb();
-  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.id)).limit(1);
+  const project = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.id), eq(projects.tenantId, currentTenant()))).limit(1);
   if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
-  await db.update(projects).set({ plannedBudget: input.plannedBudget }).where(eq(projects.id, input.id));
+  await db.update(projects).set({ plannedBudget: input.plannedBudget }).where(and(eq(projects.id, input.id), eq(projects.tenantId, currentTenant())));
   return { success: true };
 }
 
 export async function updateProjectFinancialTargets(input: { id: number; plannedBudget: number; minimumMarginRate: number | null }) {
   const db = await requireDb();
-  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.id)).limit(1);
+  const project = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.id), eq(projects.tenantId, currentTenant()))).limit(1);
   if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
-  await db.update(projects).set({ plannedBudget: input.plannedBudget, minimumMarginRate: input.minimumMarginRate }).where(eq(projects.id, input.id));
+  await db.update(projects).set({ plannedBudget: input.plannedBudget, minimumMarginRate: input.minimumMarginRate }).where(and(eq(projects.id, input.id), eq(projects.tenantId, currentTenant())));
   return { success: true };
 }
 
@@ -535,51 +540,51 @@ export async function listProjectCosts(projectId?: number) {
     id: projectCosts.id, projectId: projectCosts.projectId, projectName: projects.name, clientName: clients.companyName,
     category: projectCosts.category, description: projectCosts.description, amount: projectCosts.amount, incurredAt: projectCosts.incurredAt, createdAt: projectCosts.createdAt,
   }).from(projectCosts).innerJoin(projects, eq(projectCosts.projectId, projects.id)).innerJoin(clients, eq(projects.clientId, clients.id));
-  return projectId ? query.where(eq(projectCosts.projectId, projectId)).orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt)) : query.orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt));
+  return projectId ? query.where(and(eq(projectCosts.projectId, projectId), eq(projectCosts.tenantId, currentTenant()))).orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt)) : query.orderBy(desc(projectCosts.incurredAt), desc(projectCosts.createdAt));
 }
 
 export async function createProjectCost(input: ProjectCostInput) {
   const db = await requireDb();
-  const project = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
+  const project = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.projectId), eq(projects.tenantId, currentTenant()))).limit(1);
   if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
-  const result = await db.insert(projectCosts).values({ ...input, incurredAt: new Date(input.incurredAt) });
+  const result = await db.insert(projectCosts).values({ tenantId: currentTenant(), ...input, incurredAt: new Date(input.incurredAt) });
   return { id: Number(result[0].insertId) };
 }
 
 export async function deleteProjectCost(id: number) {
   const db = await requireDb();
-  await db.delete(projectCosts).where(eq(projectCosts.id, id));
+  await db.delete(projectCosts).where(and(eq(projectCosts.id, id), eq(projectCosts.tenantId, currentTenant())));
   return { success: true };
 }
 
 export async function getProjectCostById(id: number) {
   const db = await requireDb();
-  const result = await db.select({ id: projectCosts.id, projectId: projectCosts.projectId }).from(projectCosts).where(eq(projectCosts.id, id)).limit(1);
+  const result = await db.select({ id: projectCosts.id, projectId: projectCosts.projectId }).from(projectCosts).where(and(eq(projectCosts.id, id), eq(projectCosts.tenantId, currentTenant()))).limit(1);
   return result[0] ?? null;
 }
 
 export async function listProjectCostAttachments(projectCostId: number) {
   const db = await requireDb();
-  return db.select({ id: projectCostAttachments.id, projectCostId: projectCostAttachments.projectCostId, fileName: projectCostAttachments.fileName, contentType: projectCostAttachments.contentType, size: projectCostAttachments.size, storageUrl: projectCostAttachments.storageUrl, createdAt: projectCostAttachments.createdAt }).from(projectCostAttachments).where(eq(projectCostAttachments.projectCostId, projectCostId)).orderBy(desc(projectCostAttachments.createdAt));
+  return db.select({ id: projectCostAttachments.id, projectCostId: projectCostAttachments.projectCostId, fileName: projectCostAttachments.fileName, contentType: projectCostAttachments.contentType, size: projectCostAttachments.size, storageUrl: projectCostAttachments.storageUrl, createdAt: projectCostAttachments.createdAt }).from(projectCostAttachments).where(and(eq(projectCostAttachments.projectCostId, projectCostId), eq(projectCostAttachments.tenantId, currentTenant()))).orderBy(desc(projectCostAttachments.createdAt));
 }
 
 export async function createProjectCostAttachment(input: { projectCostId: number; fileName: string; contentType: string; size: number; storageKey: string; storageUrl: string; createdById: number }) {
   const db = await requireDb();
-  const result = await db.insert(projectCostAttachments).values(input);
+  const result = await db.insert(projectCostAttachments).values({ ...input, tenantId: currentTenant() });
   return { id: Number(result[0].insertId) };
 }
 
 export async function deleteProjectCostAttachment(id: number) {
   const db = await requireDb();
-  await db.delete(projectCostAttachments).where(eq(projectCostAttachments.id, id));
+  await db.delete(projectCostAttachments).where(and(eq(projectCostAttachments.id, id), eq(projectCostAttachments.tenantId, currentTenant())));
   return { success: true };
 }
 
 export async function listProjectProfitability() {
   const db = await requireDb();
   const [projectRows, costRows, paymentRows, plannedRevenueRows] = await Promise.all([
-    db.select({ id: projects.id, name: projects.name, reference: projects.reference, status: projects.status, clientName: clients.companyName, plannedBudget: projects.plannedBudget, minimumMarginRate: projects.minimumMarginRate }).from(projects).innerJoin(clients, eq(projects.clientId, clients.id)).orderBy(desc(projects.createdAt)),
-    db.select({ projectId: projectCosts.projectId, costTotal: sql<number>`coalesce(sum(${projectCosts.amount}), 0)` }).from(projectCosts).groupBy(projectCosts.projectId),
+    db.select({ id: projects.id, name: projects.name, reference: projects.reference, status: projects.status, clientName: clients.companyName, plannedBudget: projects.plannedBudget, minimumMarginRate: projects.minimumMarginRate }).from(projects).innerJoin(clients, eq(projects.clientId, clients.id)).where(eq(projects.tenantId, currentTenant())).orderBy(desc(projects.createdAt)),
+    db.select({ projectId: projectCosts.projectId, costTotal: sql<number>`coalesce(sum(${projectCosts.amount}), 0)` }).from(projectCosts).where(eq(projectCosts.tenantId, currentTenant())).groupBy(projectCosts.projectId),
     db.select({ projectId: documents.projectId, revenueCollected: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(documents).innerJoin(payments, eq(payments.documentId, documents.id)).where(and(eq(documents.kind, "facture"), sql`${documents.projectId} is not null`, sql`${documents.status} <> 'annule'`)).groupBy(documents.projectId),
     db.select({ projectId: documents.projectId, plannedRevenue: sql<number>`coalesce(sum(${documents.total}), 0)` }).from(documents).where(and(eq(documents.kind, "devis"), eq(documents.status, "accepte"), sql`${documents.projectId} is not null`)).groupBy(documents.projectId),
   ]);
@@ -593,8 +598,8 @@ export async function listServices() {
   const db = await requireDb();
   const existingCodes = await db.select({ code: services.code }).from(services);
   const missingDefaults = getMissingDefaultServices(existingCodes.map(service => service.code));
-  if (missingDefaults.length) await db.insert(services).values(missingDefaults);
-  return db.select().from(services).orderBy(asc(services.category), asc(services.name));
+  if (missingDefaults.length) await db.insert(services).values(missingDefaults.map(d => ({ ...d, tenantId: currentTenant() })));
+  return db.select().from(services).where(eq(services.tenantId, currentTenant())).orderBy(asc(services.category), asc(services.name));
 }
 
 export async function createService(input: {
@@ -607,7 +612,7 @@ export async function createService(input: {
   defaultTaxRate: number;
 }) {
   const db = await requireDb();
-  const result = await db.insert(services).values({
+  const result = await db.insert(services).values({ tenantId: currentTenant(),
     ...input,
     description: input.description || null,
   });
@@ -617,25 +622,25 @@ export async function createService(input: {
 export async function updateServiceTariff(input: { id: number; defaultUnitPrice: number; defaultTaxRate: number; changedById: number }) {
   const db = await requireDb();
   return db.transaction(async tx => {
-    const current = await tx.select().from(services).where(eq(services.id, input.id)).limit(1);
+    const current = await tx.select().from(services).where(and(eq(services.id, input.id), eq(services.tenantId, currentTenant()))).limit(1);
     const service = current[0];
     if (!service) throw new Error("Prestation introuvable.");
     const changed = service.defaultUnitPrice !== input.defaultUnitPrice || service.defaultTaxRate !== input.defaultTaxRate;
     if (!changed) return { success: true, revisionCreated: false };
-    await tx.update(services).set({ defaultUnitPrice: input.defaultUnitPrice, defaultTaxRate: input.defaultTaxRate }).where(eq(services.id, input.id));
-    await tx.insert(servicePriceRevisions).values({ serviceId: service.id, previousUnitPrice: service.defaultUnitPrice, nextUnitPrice: input.defaultUnitPrice, previousTaxRate: service.defaultTaxRate, nextTaxRate: input.defaultTaxRate, changedById: input.changedById });
+    await tx.update(services).set({ defaultUnitPrice: input.defaultUnitPrice, defaultTaxRate: input.defaultTaxRate }).where(and(eq(services.id, input.id), eq(services.tenantId, currentTenant())));
+    await tx.insert(servicePriceRevisions).values({ tenantId: currentTenant(), serviceId: service.id, previousUnitPrice: service.defaultUnitPrice, nextUnitPrice: input.defaultUnitPrice, previousTaxRate: service.defaultTaxRate, nextTaxRate: input.defaultTaxRate, changedById: input.changedById });
     return { success: true, revisionCreated: true };
   });
 }
 
 export async function listServicePriceRevisions(serviceId: number) {
   const db = await requireDb();
-  return db.select({ id: servicePriceRevisions.id, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(eq(servicePriceRevisions.serviceId, serviceId)).orderBy(desc(servicePriceRevisions.createdAt));
+  return db.select({ id: servicePriceRevisions.id, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(and(eq(servicePriceRevisions.serviceId, serviceId), eq(servicePriceRevisions.tenantId, currentTenant()))).orderBy(desc(servicePriceRevisions.createdAt));
 }
 
 export async function listAllServicePriceRevisions() {
   const db = await requireDb();
-  return db.select({ id: servicePriceRevisions.id, serviceCode: services.code, serviceName: services.name, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).innerJoin(services, eq(servicePriceRevisions.serviceId, services.id)).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).orderBy(desc(servicePriceRevisions.createdAt));
+  return db.select({ id: servicePriceRevisions.id, serviceCode: services.code, serviceName: services.name, previousUnitPrice: servicePriceRevisions.previousUnitPrice, nextUnitPrice: servicePriceRevisions.nextUnitPrice, previousTaxRate: servicePriceRevisions.previousTaxRate, nextTaxRate: servicePriceRevisions.nextTaxRate, createdAt: servicePriceRevisions.createdAt, changedByName: users.name }).from(servicePriceRevisions).innerJoin(services, eq(servicePriceRevisions.serviceId, services.id)).leftJoin(users, eq(servicePriceRevisions.changedById, users.id)).where(eq(servicePriceRevisions.tenantId, currentTenant())).orderBy(desc(servicePriceRevisions.createdAt));
 }
 
 async function ensureDefaultIntegrationProviders() {
@@ -729,16 +734,16 @@ export async function prepareIntegrationConnection(providerSlug: string, userId:
     if (provider.isSupported !== "oui") throw new Error("Cette intégration MCP est documentée mais n’est pas encore disponible dans Lucepres.");
     if (!resolveIntegrationAdapter(provider.slug)) throw new Error("Aucun adaptateur applicatif sécurisé n’est disponible pour ce fournisseur.");
 
-    const existingRows = await tx.select().from(integrationConnections).where(eq(integrationConnections.providerId, provider.id)).limit(1);
+    const existingRows = await tx.select().from(integrationConnections).where(and(eq(integrationConnections.providerId, provider.id), eq(integrationConnections.tenantId, currentTenant()))).limit(1);
     const existing = existingRows[0];
     if (existing && existing.status !== "disabled" && existing.status !== "revoked") return { id: existing.id, status: existing.status, reused: true };
 
     let connectionId: number;
     if (existing) {
       connectionId = existing.id;
-      await tx.update(integrationConnections).set(createPreparedIntegrationConnectionValues(userId)).where(eq(integrationConnections.id, connectionId));
+      await tx.update(integrationConnections).set(createPreparedIntegrationConnectionValues(userId)).where(and(eq(integrationConnections.id, connectionId), eq(integrationConnections.tenantId, currentTenant())));
     } else {
-      const result = await tx.insert(integrationConnections).values({ providerId: provider.id, ...createPreparedIntegrationConnectionValues(userId) });
+      const result = await tx.insert(integrationConnections).values({ tenantId: currentTenant(), providerId: provider.id, ...createPreparedIntegrationConnectionValues(userId) });
       connectionId = Number(result[0].insertId);
     }
     await tx.insert(integrationAuditLogs).values({ connectionId, actorId: userId, action: "connection_prepared", target: provider.slug, decision: "information", metadata: JSON.stringify({ transport: provider.transport, authType: provider.authType }) });
@@ -753,7 +758,7 @@ export async function prepareIntegrationConnection(providerSlug: string, userId:
 export async function activateIntegrationConnection(input: { connectionId: number; secretRef: string; grantedScopes: string[]; userId: number }) {
   const db = await requireDb();
   const secretRef = assertOpaqueIntegrationSecretReference(input.secretRef);
-  const existing = await db.select({ id: integrationConnections.id }).from(integrationConnections).where(eq(integrationConnections.id, input.connectionId)).limit(1);
+  const existing = await db.select({ id: integrationConnections.id }).from(integrationConnections).where(and(eq(integrationConnections.id, input.connectionId), eq(integrationConnections.tenantId, currentTenant()))).limit(1);
   if (!existing[0]) throw new Error("Connexion d’intégration introuvable.");
   await db.transaction(async tx => {
     await tx.update(integrationConnections).set({
@@ -762,7 +767,7 @@ export async function activateIntegrationConnection(input: { connectionId: numbe
       grantedScopes: JSON.stringify(input.grantedScopes),
       lastError: null,
       enabledById: input.userId,
-    }).where(eq(integrationConnections.id, input.connectionId));
+    }).where(and(eq(integrationConnections.id, input.connectionId), eq(integrationConnections.tenantId, currentTenant())));
     await tx.insert(integrationAuditLogs).values({ connectionId: input.connectionId, actorId: input.userId, action: "connection_activation_prepared", decision: "information" });
   });
   return { success: true };
@@ -770,10 +775,10 @@ export async function activateIntegrationConnection(input: { connectionId: numbe
 
 export async function disableIntegrationConnection(connectionId: number, userId: number) {
   const db = await requireDb();
-  const existing = await db.select({ id: integrationConnections.id }).from(integrationConnections).where(eq(integrationConnections.id, connectionId)).limit(1);
+  const existing = await db.select({ id: integrationConnections.id }).from(integrationConnections).where(and(eq(integrationConnections.id, connectionId), eq(integrationConnections.tenantId, currentTenant()))).limit(1);
   if (!existing[0]) throw new Error("Connexion d’intégration introuvable.");
   await db.transaction(async tx => {
-    await tx.update(integrationConnections).set({ status: "disabled", grantedScopes: null, secretRef: null, lastError: null }).where(eq(integrationConnections.id, connectionId));
+    await tx.update(integrationConnections).set({ status: "disabled", grantedScopes: null, secretRef: null, lastError: null }).where(and(eq(integrationConnections.id, connectionId), eq(integrationConnections.tenantId, currentTenant())));
     await tx.insert(integrationAuditLogs).values({ connectionId, actorId: userId, action: "connection_disabled", decision: "autorise" });
   });
   return { success: true };
@@ -895,7 +900,7 @@ export async function recordWhatsAppWebhookEvent(input: { connectionId: number; 
   const connectionRows = await db.select({ id: integrationConnections.id })
     .from(integrationConnections)
     .innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id))
-    .where(eq(integrationConnections.id, input.connectionId))
+    .where(and(eq(integrationConnections.id, input.connectionId), eq(integrationConnections.tenantId, currentTenant())))
     .limit(1);
   if (!connectionRows[0]) throw new Error("Connexion WhatsApp introuvable.");
   const result = await db.insert(integrationWebhookEvents).values({
@@ -914,7 +919,7 @@ export async function getIntegrationOperationsDashboard() {
   const db = await requireDb();
   const [connections, approvals, webhookEvents] = await Promise.all([
     db.select({ id: integrationConnections.id, status: integrationConnections.status, lastHealthCheckAt: integrationConnections.lastHealthCheckAt, lastError: integrationConnections.lastError, providerName: integrationProviders.name, providerSlug: integrationProviders.slug })
-      .from(integrationConnections).innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id)).orderBy(asc(integrationProviders.sortOrder)),
+      .from(integrationConnections).innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id)).where(eq(integrationConnections.tenantId, currentTenant())).orderBy(asc(integrationProviders.sortOrder)),
     listPendingIntegrationApprovals(),
     db.select({ id: integrationWebhookEvents.id, eventType: integrationWebhookEvents.eventType, deliveryStatus: integrationWebhookEvents.deliveryStatus, signatureStatus: integrationWebhookEvents.signatureStatus, processingStatus: integrationWebhookEvents.processingStatus, summary: integrationWebhookEvents.summary, error: integrationWebhookEvents.error, receivedAt: integrationWebhookEvents.receivedAt, occurredAt: integrationWebhookEvents.occurredAt })
       .from(integrationWebhookEvents).innerJoin(integrationConnections, eq(integrationWebhookEvents.connectionId, integrationConnections.id)).innerJoin(integrationProviders, eq(integrationConnections.providerId, integrationProviders.id)).where(eq(integrationProviders.slug, "whatsapp-business")).orderBy(desc(integrationWebhookEvents.receivedAt)).limit(30),
@@ -989,7 +994,7 @@ export async function upsertAgentOperatorGrant(input: {
   };
   await db.transaction(async tx => {
     await tx.insert(agentOperatorGrants).values(values).onDuplicateKeyUpdate({ set: { ...values, updatedAt: new Date() } });
-    await tx.insert(agentAuditLogs).values({ actorId: input.grantedById, action: "operator_grant_upserted", target: `user:${input.userId}`, decision: "autorise", metadata: JSON.stringify({ role: input.role, scope: input.scope, canApprove: input.canApprove, canActivate: input.canActivate, status: input.status, expiresAt: input.expiresAt ?? null }) });
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), actorId: input.grantedById, action: "operator_grant_upserted", target: `user:${input.userId}`, decision: "autorise", metadata: JSON.stringify({ role: input.role, scope: input.scope, canApprove: input.canApprove, canActivate: input.canActivate, status: input.status, expiresAt: input.expiresAt ?? null }) });
   });
   return { success: true };
 }
@@ -999,16 +1004,16 @@ export async function listAgentDelegationCenter() {
   const [delegations, campaigns, jobs, audit, operatorGrants, testEmailDeliveries] = await Promise.all([
     db.select({
       id: agentDelegations.id, name: agentDelegations.name, purpose: agentDelegations.purpose, channel: agentDelegations.channel, tone: agentDelegations.tone, status: agentDelegations.status, startsAt: agentDelegations.startsAt, expiresAt: agentDelegations.expiresAt, dailyLimit: agentDelegations.dailyLimit, contactCooldownDays: agentDelegations.contactCooldownDays, requiresSecondApproval: agentDelegations.requiresSecondApproval, policyVersion: agentDelegations.policyVersion, ownerId: agentDelegations.ownerId, ownerName: users.name, approvedById: agentDelegations.approvedById, approvedAt: agentDelegations.approvedAt, secondApprovedById: agentDelegations.secondApprovedById, secondApprovedAt: agentDelegations.secondApprovedAt, activatedById: agentDelegations.activatedById, suspendedById: agentDelegations.suspendedById, createdAt: agentDelegations.createdAt, updatedAt: agentDelegations.updatedAt,
-    }).from(agentDelegations).innerJoin(users, eq(agentDelegations.ownerId, users.id)).orderBy(desc(agentDelegations.updatedAt)),
+    }).from(agentDelegations).innerJoin(users, eq(agentDelegations.ownerId, users.id)).where(eq(agentDelegations.tenantId, currentTenant())).orderBy(desc(agentDelegations.updatedAt)),
     db.select({
       id: agentCampaigns.id, delegationId: agentCampaigns.delegationId, delegationName: agentDelegations.name, purpose: agentDelegations.purpose, channel: agentDelegations.channel, name: agentCampaigns.name, status: agentCampaigns.status, scheduledFor: agentCampaigns.scheduledFor, scheduleCronTaskUid: agentCampaigns.scheduleCronTaskUid, scheduleCronExpression: agentCampaigns.scheduleCronExpression, scheduleTimeZone: agentCampaigns.scheduleTimeZone, nextExecutionAt: agentCampaigns.nextExecutionAt, lastExecutedAt: agentCampaigns.lastExecutedAt, lastExecutionStatus: agentCampaigns.lastExecutionStatus, eligibleCount: agentCampaigns.eligibleCount, preparedById: agentCampaigns.preparedById, approvedById: agentCampaigns.approvedById, approvedAt: agentCampaigns.approvedAt, secondApprovedById: agentCampaigns.secondApprovedById, secondApprovedAt: agentCampaigns.secondApprovedAt, activatedById: agentCampaigns.activatedById, suspendedById: agentCampaigns.suspendedById, createdAt: agentCampaigns.createdAt, updatedAt: agentCampaigns.updatedAt,
-    }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).orderBy(desc(agentCampaigns.updatedAt)).limit(40),
+    }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(eq(agentCampaigns.tenantId, currentTenant())).orderBy(desc(agentCampaigns.updatedAt)).limit(40),
     db.select({
       id: agentMessageJobs.id, campaignId: agentMessageJobs.campaignId, clientId: agentMessageJobs.clientId, clientName: clients.companyName, documentId: agentMessageJobs.documentId, documentNumber: documents.number, subject: agentMessageJobs.subject, body: agentMessageJobs.body, status: agentMessageJobs.status, blockedReason: agentMessageJobs.blockedReason, scheduledFor: agentMessageJobs.scheduledFor, createdAt: agentMessageJobs.createdAt,
-    }).from(agentMessageJobs).innerJoin(clients, eq(agentMessageJobs.clientId, clients.id)).innerJoin(documents, eq(agentMessageJobs.documentId, documents.id)).orderBy(desc(agentMessageJobs.createdAt)).limit(80),
-    db.select({ id: agentAuditLogs.id, delegationId: agentAuditLogs.delegationId, campaignId: agentAuditLogs.campaignId, action: agentAuditLogs.action, target: agentAuditLogs.target, decision: agentAuditLogs.decision, metadata: agentAuditLogs.metadata, createdAt: agentAuditLogs.createdAt, actorName: users.name }).from(agentAuditLogs).leftJoin(users, eq(agentAuditLogs.actorId, users.id)).orderBy(desc(agentAuditLogs.createdAt)).limit(100),
+    }).from(agentMessageJobs).innerJoin(clients, eq(agentMessageJobs.clientId, clients.id)).innerJoin(documents, eq(agentMessageJobs.documentId, documents.id)).where(eq(agentMessageJobs.tenantId, currentTenant())).orderBy(desc(agentMessageJobs.createdAt)).limit(80),
+    db.select({ id: agentAuditLogs.id, delegationId: agentAuditLogs.delegationId, campaignId: agentAuditLogs.campaignId, action: agentAuditLogs.action, target: agentAuditLogs.target, decision: agentAuditLogs.decision, metadata: agentAuditLogs.metadata, createdAt: agentAuditLogs.createdAt, actorName: users.name }).from(agentAuditLogs).leftJoin(users, eq(agentAuditLogs.actorId, users.id)).where(eq(agentAuditLogs.tenantId, currentTenant())).orderBy(desc(agentAuditLogs.createdAt)).limit(100),
     db.select().from(agentOperatorGrants).orderBy(desc(agentOperatorGrants.updatedAt)),
-    db.select({ id: agentTestEmailDeliveries.id, campaignId: agentTestEmailDeliveries.campaignId, messageJobId: agentTestEmailDeliveries.messageJobId, campaignName: agentCampaigns.name, clientName: clients.companyName, documentNumber: documents.number, testRecipient: agentTestEmailDeliveries.testRecipient, subject: agentTestEmailDeliveries.subject, body: agentTestEmailDeliveries.body, status: agentTestEmailDeliveries.status, deliveredAt: agentTestEmailDeliveries.deliveredAt, createdAt: agentTestEmailDeliveries.createdAt }).from(agentTestEmailDeliveries).innerJoin(agentCampaigns, eq(agentTestEmailDeliveries.campaignId, agentCampaigns.id)).innerJoin(agentMessageJobs, eq(agentTestEmailDeliveries.messageJobId, agentMessageJobs.id)).innerJoin(clients, eq(agentMessageJobs.clientId, clients.id)).innerJoin(documents, eq(agentMessageJobs.documentId, documents.id)).orderBy(desc(agentTestEmailDeliveries.createdAt)).limit(100),
+    db.select({ id: agentTestEmailDeliveries.id, campaignId: agentTestEmailDeliveries.campaignId, messageJobId: agentTestEmailDeliveries.messageJobId, campaignName: agentCampaigns.name, clientName: clients.companyName, documentNumber: documents.number, testRecipient: agentTestEmailDeliveries.testRecipient, subject: agentTestEmailDeliveries.subject, body: agentTestEmailDeliveries.body, status: agentTestEmailDeliveries.status, deliveredAt: agentTestEmailDeliveries.deliveredAt, createdAt: agentTestEmailDeliveries.createdAt }).from(agentTestEmailDeliveries).innerJoin(agentCampaigns, eq(agentTestEmailDeliveries.campaignId, agentCampaigns.id)).innerJoin(agentMessageJobs, eq(agentTestEmailDeliveries.messageJobId, agentMessageJobs.id)).innerJoin(clients, eq(agentMessageJobs.clientId, clients.id)).innerJoin(documents, eq(agentMessageJobs.documentId, documents.id)).where(eq(agentTestEmailDeliveries.tenantId, currentTenant())).orderBy(desc(agentTestEmailDeliveries.createdAt)).limit(100),
   ]);
   return {
     delegations,
@@ -1047,9 +1052,9 @@ export async function createAgentDelegation(input: {
   if (Object.keys(errors).length) throw new Error(Object.values(errors)[0]);
   const db = await requireDb();
   const result = await db.transaction(async tx => {
-    const created = await tx.insert(agentDelegations).values({ ...input, status: "brouillon", requiresSecondApproval: "non" });
+    const created = await tx.insert(agentDelegations).values({ tenantId: currentTenant(), ...input, status: "brouillon", requiresSecondApproval: "non" });
     const delegationId = Number(created[0].insertId);
-    await tx.insert(agentAuditLogs).values({ delegationId, actorId: input.ownerId, action: "delegation_created", target: input.name, decision: "information", metadata: JSON.stringify({ purpose: input.purpose, channel: input.channel, expiresAt: input.expiresAt, dailyLimit: input.dailyLimit, contactCooldownDays: input.contactCooldownDays }) });
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId, actorId: input.ownerId, action: "delegation_created", target: input.name, decision: "information", metadata: JSON.stringify({ purpose: input.purpose, channel: input.channel, expiresAt: input.expiresAt, dailyLimit: input.dailyLimit, contactCooldownDays: input.contactCooldownDays }) });
     return { id: delegationId };
   });
   return result;
@@ -1057,50 +1062,50 @@ export async function createAgentDelegation(input: {
 
 export async function submitAgentDelegationForApproval(delegationId: number, actorId: number) {
   const db = await requireDb();
-  const rows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, delegationId)).limit(1);
+  const rows = await db.select().from(agentDelegations).where(and(eq(agentDelegations.id, delegationId), eq(agentDelegations.tenantId, currentTenant()))).limit(1);
   const delegation = rows[0];
   if (!delegation) throw new Error("Délégation introuvable.");
   if (delegation.status !== "brouillon" && delegation.status !== "suspendue") throw new Error("Seule une délégation brouillon ou suspendue peut être soumise à approbation.");
   await db.transaction(async tx => {
-    await tx.update(agentDelegations).set({ status: "a_approuver" }).where(eq(agentDelegations.id, delegationId));
-    await tx.insert(agentAuditLogs).values({ delegationId, actorId, action: "delegation_submitted", target: delegation.name, decision: "information" });
+    await tx.update(agentDelegations).set({ status: "a_approuver" }).where(and(eq(agentDelegations.id, delegationId), eq(agentDelegations.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId, actorId, action: "delegation_submitted", target: delegation.name, decision: "information" });
   });
   return { success: true };
 }
 
 export async function approveAgentDelegation(delegationId: number, actorId: number) {
   const db = await requireDb();
-  const rows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, delegationId)).limit(1);
+  const rows = await db.select().from(agentDelegations).where(and(eq(agentDelegations.id, delegationId), eq(agentDelegations.tenantId, currentTenant()))).limit(1);
   const delegation = rows[0];
   if (!delegation) throw new Error("Délégation introuvable.");
   if (delegation.status !== "a_approuver") throw new Error("Cette délégation ne peut pas être approuvée dans son état actuel.");
   if (delegation.expiresAt <= new Date()) throw new Error("Cette délégation est expirée et ne peut pas être activée.");
   await db.transaction(async tx => {
-    await tx.update(agentDelegations).set({ status: "active_simulation", approvedById: actorId, approvedAt: new Date(), activatedById: actorId }).where(eq(agentDelegations.id, delegationId));
-    await tx.insert(agentAuditLogs).values({ delegationId, actorId, action: "delegation_approved_simulation", target: delegation.name, decision: "autorise", metadata: JSON.stringify({ mode: "simulation", externalDispatch: false }) });
+    await tx.update(agentDelegations).set({ status: "active_simulation", approvedById: actorId, approvedAt: new Date(), activatedById: actorId }).where(and(eq(agentDelegations.id, delegationId), eq(agentDelegations.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId, actorId, action: "delegation_approved_simulation", target: delegation.name, decision: "autorise", metadata: JSON.stringify({ mode: "simulation", externalDispatch: false }) });
   });
   return { success: true, status: "active_simulation" as const };
 }
 
 export async function suspendAgentDelegation(delegationId: number, actorId: number) {
   const db = await requireDb();
-  const rows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, delegationId)).limit(1);
+  const rows = await db.select().from(agentDelegations).where(and(eq(agentDelegations.id, delegationId), eq(agentDelegations.tenantId, currentTenant()))).limit(1);
   const delegation = rows[0];
   if (!delegation) throw new Error("Délégation introuvable.");
   if (delegation.status === "revoquee" || delegation.status === "expiree") throw new Error("Cette délégation ne peut plus être suspendue.");
   await db.transaction(async tx => {
-    const campaignIds = (await tx.select({ id: agentCampaigns.id }).from(agentCampaigns).where(eq(agentCampaigns.delegationId, delegationId))).map(campaign => campaign.id);
-    await tx.update(agentDelegations).set({ status: "suspendue", suspendedById: actorId }).where(eq(agentDelegations.id, delegationId));
-    await tx.update(agentCampaigns).set({ status: "suspendue", suspendedById: actorId }).where(eq(agentCampaigns.delegationId, delegationId));
+    const campaignIds = (await tx.select({ id: agentCampaigns.id }).from(agentCampaigns).where(and(eq(agentCampaigns.delegationId, delegationId), eq(agentCampaigns.tenantId, currentTenant())))).map(campaign => campaign.id);
+    await tx.update(agentDelegations).set({ status: "suspendue", suspendedById: actorId }).where(and(eq(agentDelegations.id, delegationId), eq(agentDelegations.tenantId, currentTenant())));
+    await tx.update(agentCampaigns).set({ status: "suspendue", suspendedById: actorId }).where(and(eq(agentCampaigns.delegationId, delegationId), eq(agentCampaigns.tenantId, currentTenant())));
     if (campaignIds.length) await tx.update(agentMessageJobs).set({ status: "annulee", blockedReason: "Délégation suspendue par un responsable habilité." }).where(inArray(agentMessageJobs.campaignId, campaignIds));
-    await tx.insert(agentAuditLogs).values({ delegationId, actorId, action: "delegation_suspended", target: delegation.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId, actorId, action: "delegation_suspended", target: delegation.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
   });
   return { success: true };
 }
 
 export async function createAgentCampaignSimulation(input: { delegationId: number; name: string; scheduledFor?: Date | null; preparedById: number }) {
   const db = await requireDb();
-  const delegationRows = await db.select().from(agentDelegations).where(eq(agentDelegations.id, input.delegationId)).limit(1);
+  const delegationRows = await db.select().from(agentDelegations).where(and(eq(agentDelegations.id, input.delegationId), eq(agentDelegations.tenantId, currentTenant()))).limit(1);
   const delegation = delegationRows[0];
   if (!delegation) throw new Error("Délégation introuvable.");
   if (delegation.status !== "active_simulation") throw new Error("La délégation doit être approuvée en mode simulation avant de préparer une campagne.");
@@ -1127,92 +1132,92 @@ export async function createAgentCampaignSimulation(input: { delegationId: numbe
   const createdAt = new Date();
   const skippedCount = Math.max(0, matchingDocuments.length - eligible.length);
   return db.transaction(async tx => {
-    const created = await tx.insert(agentCampaigns).values({ delegationId: delegation.id, name: input.name, status: "simulee", scheduledFor: effectiveScheduledFor, eligibleCount: eligible.length, preparedById: input.preparedById });
+    const created = await tx.insert(agentCampaigns).values({ tenantId: currentTenant(), delegationId: delegation.id, name: input.name, status: "simulee", scheduledFor: effectiveScheduledFor, eligibleCount: eligible.length, preparedById: input.preparedById });
     const campaignId = Number(created[0].insertId);
     for (const document of eligible) {
       const draft = createAgentMessageDraft({ purpose: delegation.purpose, tone: delegation.tone, documentNumber: document.number, clientName: document.clientName, balanceDue: document.balanceDue, dueDate: document.dueDate, validUntil: document.validUntil });
       const contentHash = createHash("sha256").update(`${draft.subject}\n${draft.body}`).digest("hex");
-      await tx.insert(agentMessageJobs).values({ campaignId, clientId: document.clientId, documentId: document.id, idempotencyKey: `simulation:${campaignId}:${document.id}`, subject: draft.subject, body: draft.body, contentHash, status: "simulation_prete", scheduledFor: effectiveScheduledFor, policySnapshot: JSON.stringify({ policyVersion: delegation.policyVersion, dailyLimit: delegation.dailyLimit, contactCooldownDays: delegation.contactCooldownDays, channel: delegation.channel, purpose: delegation.purpose, mode: "simulation" }) });
+      await tx.insert(agentMessageJobs).values({ tenantId: currentTenant(), campaignId, clientId: document.clientId, documentId: document.id, idempotencyKey: `simulation:${campaignId}:${document.id}`, subject: draft.subject, body: draft.body, contentHash, status: "simulation_prete", scheduledFor: effectiveScheduledFor, policySnapshot: JSON.stringify({ policyVersion: delegation.policyVersion, dailyLimit: delegation.dailyLimit, contactCooldownDays: delegation.contactCooldownDays, channel: delegation.channel, purpose: delegation.purpose, mode: "simulation" }) });
     }
-    await tx.insert(agentAuditLogs).values({ delegationId: delegation.id, campaignId, actorId: input.preparedById, action: "campaign_simulated", target: input.name, decision: "information", metadata: JSON.stringify({ eligibleCount: eligible.length, skippedCount, remainingDailyCapacity, requiresSecondApproval: requiresSecondApproval(eligible.length), externalDispatch: false }) });
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: delegation.id, campaignId, actorId: input.preparedById, action: "campaign_simulated", target: input.name, decision: "information", metadata: JSON.stringify({ eligibleCount: eligible.length, skippedCount, remainingDailyCapacity, requiresSecondApproval: requiresSecondApproval(eligible.length), externalDispatch: false }) });
     return { id: campaignId, eligibleCount: eligible.length, skippedCount, requiresSecondApproval: requiresSecondApproval(eligible.length) };
   });
 }
 
 export async function submitAgentCampaignForApproval(campaignId: number, actorId: number) {
   const db = await requireDb();
-  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const rows = await db.select().from(agentCampaigns).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant()))).limit(1);
   const campaign = rows[0];
   if (!campaign) throw new Error("Campagne introuvable.");
   if (campaign.status !== "simulee") throw new Error("Seule une campagne simulée peut être soumise à approbation.");
   await db.transaction(async tx => {
-    await tx.update(agentCampaigns).set({ status: "a_approuver" }).where(eq(agentCampaigns.id, campaignId));
-    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_submitted", target: campaign.name, decision: "information", metadata: JSON.stringify({ eligibleCount: campaign.eligibleCount, requiresSecondApproval: requiresSecondApproval(campaign.eligibleCount) }) });
+    await tx.update(agentCampaigns).set({ status: "a_approuver" }).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_submitted", target: campaign.name, decision: "information", metadata: JSON.stringify({ eligibleCount: campaign.eligibleCount, requiresSecondApproval: requiresSecondApproval(campaign.eligibleCount) }) });
   });
   return { success: true };
 }
 
 export async function approveAgentCampaign(campaignId: number, actorId: number) {
   const db = await requireDb();
-  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const rows = await db.select().from(agentCampaigns).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant()))).limit(1);
   const campaign = rows[0];
   if (!campaign) throw new Error("Campagne introuvable.");
   if (campaign.status !== "a_approuver") throw new Error("Cette campagne ne peut pas être approuvée dans son état actuel.");
   const secondApprovalNeeded = requiresSecondApproval(campaign.eligibleCount);
   if (!campaign.approvedById) {
     await db.transaction(async tx => {
-      await tx.update(agentCampaigns).set({ approvedById: actorId, approvedAt: new Date(), status: secondApprovalNeeded ? "a_approuver" : "approuvee" }).where(eq(agentCampaigns.id, campaignId));
-      await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_first_approval", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ secondApprovalNeeded }) });
+      await tx.update(agentCampaigns).set({ approvedById: actorId, approvedAt: new Date(), status: secondApprovalNeeded ? "a_approuver" : "approuvee" }).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant())));
+      await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_first_approval", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ secondApprovalNeeded }) });
     });
     return { success: true, awaitingSecondApproval: secondApprovalNeeded };
   }
   if (!secondApprovalNeeded) throw new Error("Cette campagne a déjà été approuvée.");
   if (campaign.approvedById === actorId) throw new Error("Un second responsable distinct doit confirmer cette campagne.");
   await db.transaction(async tx => {
-    await tx.update(agentCampaigns).set({ secondApprovedById: actorId, secondApprovedAt: new Date(), status: "approuvee" }).where(eq(agentCampaigns.id, campaignId));
-    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_second_approval", target: campaign.name, decision: "autorise" });
+    await tx.update(agentCampaigns).set({ secondApprovedById: actorId, secondApprovedAt: new Date(), status: "approuvee" }).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_second_approval", target: campaign.name, decision: "autorise" });
   });
   return { success: true, awaitingSecondApproval: false };
 }
 
 export async function activateAgentCampaignSimulation(campaignId: number, actorId: number) {
   const db = await requireDb();
-  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const rows = await db.select().from(agentCampaigns).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant()))).limit(1);
   const campaign = rows[0];
   if (!campaign) throw new Error("Campagne introuvable.");
   if (campaign.status !== "approuvee") throw new Error("La campagne doit être entièrement approuvée avant activation simulée.");
   if (requiresSecondApproval(campaign.eligibleCount) && !campaign.secondApprovedById) throw new Error("Une seconde approbation distincte est requise pour cette campagne.");
   await db.transaction(async tx => {
-    await tx.update(agentCampaigns).set({ status: "active_simulation", activatedById: actorId }).where(eq(agentCampaigns.id, campaignId));
-    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_activated_simulation", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
+    await tx.update(agentCampaigns).set({ status: "active_simulation", activatedById: actorId }).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_activated_simulation", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
   });
   return { success: true };
 }
 
 export async function suspendAgentCampaign(campaignId: number, actorId: number) {
   const db = await requireDb();
-  const rows = await db.select().from(agentCampaigns).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const rows = await db.select().from(agentCampaigns).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant()))).limit(1);
   const campaign = rows[0];
   if (!campaign) throw new Error("Campagne introuvable.");
   if (campaign.status === "archivee") throw new Error("Cette campagne est déjà archivée.");
   await db.transaction(async tx => {
-    await tx.update(agentCampaigns).set({ status: "suspendue", suspendedById: actorId }).where(eq(agentCampaigns.id, campaignId));
-    await tx.update(agentMessageJobs).set({ status: "annulee", blockedReason: "Campagne suspendue par un responsable habilité." }).where(eq(agentMessageJobs.campaignId, campaignId));
-    await tx.insert(agentAuditLogs).values({ delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_suspended", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
+    await tx.update(agentCampaigns).set({ status: "suspendue", suspendedById: actorId }).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant())));
+    await tx.update(agentMessageJobs).set({ status: "annulee", blockedReason: "Campagne suspendue par un responsable habilité." }).where(and(eq(agentMessageJobs.campaignId, campaignId), eq(agentMessageJobs.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: campaign.delegationId, campaignId, actorId, action: "campaign_suspended", target: campaign.name, decision: "autorise", metadata: JSON.stringify({ externalDispatch: false }) });
   });
   return { success: true };
 }
 
 export async function setAgentCampaignSchedule(input: { campaignId: number; scheduleCronTaskUid: string; scheduleCronExpression: string; nextExecutionAt: Date | null; actorId: number }) {
   const db = await requireDb();
-  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(eq(agentCampaigns.id, input.campaignId)).limit(1);
+  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(and(eq(agentCampaigns.id, input.campaignId), eq(agentCampaigns.tenantId, currentTenant()))).limit(1);
   const record = rows[0];
   if (!record) throw new Error("Campagne introuvable.");
   if (record.campaign.status !== "active_simulation") throw new Error("La campagne doit être activée en simulation avant de pouvoir être programmée.");
   if (record.delegation.channel !== "email") throw new Error("La programmation de test est disponible pour les campagnes e-mail uniquement.");
   await db.transaction(async tx => {
-    await tx.update(agentCampaigns).set({ scheduleCronTaskUid: input.scheduleCronTaskUid, scheduleCronExpression: input.scheduleCronExpression, scheduleTimeZone: "Africa/Conakry", nextExecutionAt: input.nextExecutionAt, lastExecutionStatus: "pending" }).where(eq(agentCampaigns.id, input.campaignId));
-    await tx.insert(agentAuditLogs).values({ delegationId: record.campaign.delegationId, campaignId: input.campaignId, actorId: input.actorId, action: "campaign_schedule_created", target: record.campaign.name, decision: "autorise", metadata: JSON.stringify({ mode: "test_email", cron: input.scheduleCronExpression, timeZone: "Africa/Conakry", externalDispatch: false }) });
+    await tx.update(agentCampaigns).set({ scheduleCronTaskUid: input.scheduleCronTaskUid, scheduleCronExpression: input.scheduleCronExpression, scheduleTimeZone: "Africa/Conakry", nextExecutionAt: input.nextExecutionAt, lastExecutionStatus: "pending" }).where(and(eq(agentCampaigns.id, input.campaignId), eq(agentCampaigns.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: record.campaign.delegationId, campaignId: input.campaignId, actorId: input.actorId, action: "campaign_schedule_created", target: record.campaign.name, decision: "autorise", metadata: JSON.stringify({ mode: "test_email", cron: input.scheduleCronExpression, timeZone: "Africa/Conakry", externalDispatch: false }) });
   });
   return { success: true };
 }
@@ -1228,7 +1233,7 @@ export async function assertAgentCampaignCanBeScheduled(campaignId: number) {
 
 export async function getAgentCampaignByScheduleTaskUid(taskUid: string) {
   const db = await requireDb();
-  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(eq(agentCampaigns.scheduleCronTaskUid, taskUid)).limit(1);
+  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(and(eq(agentCampaigns.scheduleCronTaskUid, taskUid), eq(agentCampaigns.tenantId, currentTenant()))).limit(1);
   return rows[0] ?? null;
 }
 
@@ -1242,23 +1247,23 @@ async function deliverAgentCampaignToTestInbox(input: { campaignId: number; runK
   const jobs = await db.select().from(agentMessageJobs).where(and(eq(agentMessageJobs.campaignId, input.campaignId), eq(agentMessageJobs.status, "simulation_prete")));
   const deliveredAt = new Date();
   if (!jobs.length) {
-    await db.update(agentCampaigns).set({ lastExecutedAt: deliveredAt, lastExecutionStatus: "skipped" }).where(eq(agentCampaigns.id, input.campaignId));
+    await db.update(agentCampaigns).set({ lastExecutedAt: deliveredAt, lastExecutionStatus: "skipped" }).where(and(eq(agentCampaigns.id, input.campaignId), eq(agentCampaigns.tenantId, currentTenant())));
     return { status: "skipped" as const, delivered: 0, reason: "Aucun brouillon de test n’est disponible." };
   }
   await db.transaction(async tx => {
     for (const job of jobs) {
-      await tx.insert(agentTestEmailDeliveries).values({ campaignId: input.campaignId, messageJobId: job.id, subject: job.subject, body: job.body, status: "remis_test", runKey: `${input.runKeyPrefix}:${job.id}`, deliveredAt }).onDuplicateKeyUpdate({ set: { status: "remis_test", deliveredAt } });
-      await tx.update(agentMessageJobs).set({ status: "remis_test" }).where(eq(agentMessageJobs.id, job.id));
+      await tx.insert(agentTestEmailDeliveries).values({ tenantId: currentTenant(), campaignId: input.campaignId, messageJobId: job.id, subject: job.subject, body: job.body, status: "remis_test", runKey: `${input.runKeyPrefix}:${job.id}`, deliveredAt }).onDuplicateKeyUpdate({ set: { status: "remis_test", deliveredAt } });
+      await tx.update(agentMessageJobs).set({ status: "remis_test" }).where(and(eq(agentMessageJobs.id, job.id), eq(agentMessageJobs.tenantId, currentTenant())));
     }
-    await tx.update(agentCampaigns).set({ lastExecutedAt: deliveredAt, lastExecutionStatus: "success" }).where(eq(agentCampaigns.id, input.campaignId));
-    await tx.insert(agentAuditLogs).values({ delegationId: record.campaign.delegationId, campaignId: input.campaignId, actorId: input.actorId ?? null, action: "test_email_delivered", target: record.campaign.name, decision: "information", metadata: JSON.stringify({ delivered: jobs.length, mode: "test_inbox", externalDispatch: false }) });
+    await tx.update(agentCampaigns).set({ lastExecutedAt: deliveredAt, lastExecutionStatus: "success" }).where(and(eq(agentCampaigns.id, input.campaignId), eq(agentCampaigns.tenantId, currentTenant())));
+    await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId: record.campaign.delegationId, campaignId: input.campaignId, actorId: input.actorId ?? null, action: "test_email_delivered", target: record.campaign.name, decision: "information", metadata: JSON.stringify({ delivered: jobs.length, mode: "test_inbox", externalDispatch: false }) });
   });
   return { status: "success" as const, delivered: jobs.length };
 }
 
 async function getAgentCampaignById(campaignId: number) {
   const db = await requireDb();
-  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(eq(agentCampaigns.id, campaignId)).limit(1);
+  const rows = await db.select({ campaign: agentCampaigns, delegation: agentDelegations }).from(agentCampaigns).innerJoin(agentDelegations, eq(agentCampaigns.delegationId, agentDelegations.id)).where(and(eq(agentCampaigns.id, campaignId), eq(agentCampaigns.tenantId, currentTenant()))).limit(1);
   return rows[0] ?? null;
 }
 
@@ -1266,11 +1271,14 @@ export async function deliverAgentCampaignToTestInboxNow(campaignId: number, act
   return deliverAgentCampaignToTestInbox({ campaignId, actorId, runKeyPrefix: `manual-test:${campaignId}` });
 }
 
-export async function deliverScheduledAgentCampaignToTestInbox(taskUid: string) {
+export async function deliverScheduledAgentCampaignToTestInbox(taskUid: string, tenantId?: number | null) {
   const record = await getAgentCampaignByScheduleTaskUid(taskUid);
   if (!record) return { status: "orphan" as const, delivered: 0 };
   const dayKey = new Date().toISOString().slice(0, 10);
-  return deliverAgentCampaignToTestInbox({ campaignId: record.campaign.id, runKeyPrefix: `scheduled-test:${taskUid}:${dayKey}` });
+  // Porte le tenant dans le contexte async pour étiqueter les écritures.
+  return runWithTenant(tenantId ?? record.campaign?.tenantId ?? null, () =>
+    deliverAgentCampaignToTestInbox({ campaignId: record.campaign.id, runKeyPrefix: `scheduled-test:${taskUid}:${dayKey}` }),
+  );
 }
 
 export async function getAgentCopilotContext() {
@@ -1312,12 +1320,12 @@ export async function listDocuments(kind?: DocumentKind, opts?: { limit?: number
     .from(documents)
     .innerJoin(clients, eq(documents.clientId, clients.id))
     .leftJoin(projects, eq(documents.projectId, projects.id))
-    .$dynamic();
-  if (kind) query = query.where(eq(documents.kind, kind)) as typeof query;
+    .where(eq(documents.tenantId, currentTenant())).$dynamic();
+  if (kind) query = query.where(and(eq(documents.kind, kind), eq(documents.tenantId, currentTenant()))) as typeof query;
   query = query.orderBy(desc(documents.updatedAt)) as typeof query;
   if (opts?.limit) query = query.limit(opts.limit) as typeof query;
   const rows = await query;
-  const paymentRows = await db.select({ documentId: payments.documentId, paidAmount: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(payments).groupBy(payments.documentId);
+  const paymentRows = await db.select({ documentId: payments.documentId, paidAmount: sql<number>`coalesce(sum(${payments.amount}), 0)` }).from(payments).where(eq(payments.tenantId, currentTenant())).groupBy(payments.documentId);
   const paidByDocument = new Map(paymentRows.map(row => [row.documentId, Number(row.paidAmount)]));
   const enriched = rows.map(row => {
     const paidAmount = row.kind === "facture" ? (paidByDocument.get(row.id) ?? 0) : 0;
@@ -1366,7 +1374,7 @@ export async function updateCollectionFollowUp(input: { documentId: number; coll
   if (input.collectionStatus) values.collectionStatus = input.collectionStatus;
   if (input.collectionReminderDate !== undefined || (input.collectionStatus && effectiveStatus !== "a_rappeler")) values.collectionReminderDate = reminderDate;
   if (input.collectionOwnerId !== undefined) values.collectionOwnerId = input.collectionOwnerId;
-  await db.update(documents).set(values).where(eq(documents.id, input.documentId));
+  await db.update(documents).set(values).where(and(eq(documents.id, input.documentId), eq(documents.tenantId, currentTenant())));
   const activityWrites: Array<Promise<{ id: number }>> = [];
   if (input.collectionStatus) activityWrites.push(createClientActivity({ clientId: invoice.clientId, documentId: invoice.id, type: "statut_recouvrement", title: `Suivi recouvrement : ${collectionFollowUpLabels[input.collectionStatus]}`, description: `Facture ${invoice.number}`, createdById: input.updatedById }));
   if (input.collectionOwnerId !== undefined) {
@@ -1469,7 +1477,7 @@ export async function createClientPaymentPromise(input: { email?: string | null;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   if (Number.isNaN(promisedDate.getTime()) || promisedDate < today) throw new Error("La date prévue doit être aujourd’hui ou ultérieure.");
   const db = await requireDb();
-  await db.insert(paymentPromises).values({ documentId: input.documentId, promisedDate, note: input.note?.trim() || null, createdById: input.createdById }).onDuplicateKeyUpdate({ set: { promisedDate, note: input.note?.trim() || null, createdById: input.createdById, updatedAt: new Date() } });
+  await db.insert(paymentPromises).values({ tenantId: currentTenant(), documentId: input.documentId, promisedDate, note: input.note?.trim() || null, createdById: input.createdById }).onDuplicateKeyUpdate({ set: { promisedDate, note: input.note?.trim() || null, createdById: input.createdById, updatedAt: new Date() } });
   return { success: true };
 }
 
@@ -1511,11 +1519,11 @@ export async function getDocumentById(id: number) {
     .from(documents)
     .innerJoin(clients, eq(documents.clientId, clients.id))
     .leftJoin(projects, eq(documents.projectId, projects.id))
-    .where(eq(documents.id, id))
+    .where(and(eq(documents.id, id), eq(documents.tenantId, currentTenant())))
     .limit(1);
   if (!header[0]) return null;
-  const lines = await db.select().from(documentLines).where(eq(documentLines.documentId, id)).orderBy(asc(documentLines.position));
-  const paymentRows = await db.select().from(payments).where(eq(payments.documentId, id)).orderBy(desc(payments.paidAt), desc(payments.createdAt));
+  const lines = await db.select().from(documentLines).where(and(eq(documentLines.documentId, id), eq(documentLines.tenantId, currentTenant()))).orderBy(asc(documentLines.position));
+  const paymentRows = await db.select().from(payments).where(and(eq(payments.documentId, id), eq(payments.tenantId, currentTenant()))).orderBy(desc(payments.paidAt), desc(payments.createdAt));
   const paidAmount = paymentRows.reduce((sum, payment) => sum + payment.amount, 0);
   const balance = calculatePaymentBalance(header[0].total, paidAmount);
   const status = header[0].kind === "facture" ? invoicePaymentStatus(header[0].total, paidAmount, header[0].dueDate, header[0].status) : header[0].status;
@@ -1547,9 +1555,10 @@ export async function createDocument(input: {
       .insert(documentSequences)
       .values({ kind: input.kind, lastValue: 1 })
       .onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
-    const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, input.kind)).limit(1);
+    const sequence = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, input.kind), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const documentValues: typeof documents.$inferInsert = {
+      tenantId: currentTenant(),
       kind: input.kind,
       number: formatDocumentNumber(input.kind, new Date(input.issueDate).getUTCFullYear(), serial),
       clientId: input.clientId,
@@ -1579,6 +1588,7 @@ export async function createDocument(input: {
           const base = Math.round(line.quantity * line.unitPrice);
           const tax = Math.round((base * line.taxRate) / 100);
           return {
+            tenantId: currentTenant(),
             documentId,
             position: index + 1,
             description: line.description,
@@ -1599,14 +1609,14 @@ export async function createDocument(input: {
 
 export async function updateDocumentStatus(id: number, status: DocumentStatus) {
   const db = await requireDb();
-  await db.update(documents).set({ status }).where(eq(documents.id, id));
+  await db.update(documents).set({ status }).where(and(eq(documents.id, id), eq(documents.tenantId, currentTenant())));
   return { success: true };
 }
 
 export async function createDepositInvoiceFromQuote(quoteId: number, createdById: number) {
   const db = await requireDb();
   return db.transaction(async tx => {
-    const quoteRows = await tx.select().from(documents).where(eq(documents.id, quoteId)).limit(1);
+    const quoteRows = await tx.select().from(documents).where(and(eq(documents.id, quoteId), eq(documents.tenantId, currentTenant()))).limit(1);
     const quote = quoteRows[0];
     if (!quote || quote.kind !== "devis") throw new Error("Le devis demandé est introuvable.");
     if (quote.status !== "accepte") throw new Error("Seul un devis accepté peut générer une facture d’acompte.");
@@ -1614,11 +1624,11 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
     const existingDeposit = reuseExistingGeneratedInvoice(existing[0]);
     if (existingDeposit) return existingDeposit;
     const amount = calculateDepositInvoiceAmount(quote.total, quote.depositPercent);
-    await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
-    const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
+    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const sequence = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, "facture"), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
-    const result = await tx.insert(documents).values({
+    const result = await tx.insert(documents).values({ tenantId: currentTenant(),
       kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "acompte",
       status: "brouillon", issueDate: new Date(), dueDate: quote.depositDueDate ?? new Date(), validUntil: null,
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
@@ -1626,7 +1636,7 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
       notes: `Facture d’acompte de ${quote.depositPercent}% générée à partir du devis ${quote.number}.`, isAiDraft: "non", createdById,
     });
     const id = Number(result[0].insertId);
-    await tx.insert(documentLines).values({ documentId: id, position: 1, description: `Acompte de ${quote.depositPercent}% sur devis ${quote.number}`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
+    await tx.insert(documentLines).values({ tenantId: currentTenant(), documentId: id, position: 1, description: `Acompte de ${quote.depositPercent}% sur devis ${quote.number}`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
     return { id, number, existing: false };
   });
 }
@@ -1634,15 +1644,15 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
 export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, createdById: number) {
   const db = await requireDb();
   return db.transaction(async tx => {
-    const depositRows = await tx.select().from(documents).where(eq(documents.id, depositInvoiceId)).limit(1);
+    const depositRows = await tx.select().from(documents).where(and(eq(documents.id, depositInvoiceId), eq(documents.tenantId, currentTenant()))).limit(1);
     const deposit = depositRows[0];
     if (!deposit || deposit.kind !== "facture" || deposit.invoiceStage !== "acompte" || !deposit.relatedDocumentId) throw new Error("La facture d’acompte demandée est introuvable.");
 
-    const quoteRows = await tx.select().from(documents).where(eq(documents.id, deposit.relatedDocumentId)).limit(1);
+    const quoteRows = await tx.select().from(documents).where(and(eq(documents.id, deposit.relatedDocumentId), eq(documents.tenantId, currentTenant()))).limit(1);
     const quote = quoteRows[0];
     if (!quote || quote.kind !== "devis" || quote.status !== "accepte") throw new Error("Le devis d’origine doit être accepté.");
 
-    const depositPayments = await tx.select({ amount: payments.amount }).from(payments).where(eq(payments.documentId, deposit.id));
+    const depositPayments = await tx.select({ amount: payments.amount }).from(payments).where(and(eq(payments.documentId, deposit.id), eq(payments.tenantId, currentTenant())));
     const paidAmount = depositPayments.reduce((sum, payment) => sum + payment.amount, 0);
     assertDepositInvoiceIsFullyPaid(deposit.total, paidAmount);
 
@@ -1651,11 +1661,11 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
     if (existingBalance) return existingBalance;
 
     const amount = calculateBalanceInvoiceAmount(quote.total, deposit.total);
-    await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
-    const sequence = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
+    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const sequence = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, "facture"), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
-    const result = await tx.insert(documents).values({
+    const result = await tx.insert(documents).values({ tenantId: currentTenant(),
       kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: deposit.id, invoiceStage: "solde",
       status: "brouillon", issueDate: new Date(), dueDate: quote.balanceDueDate ?? new Date(), validUntil: null,
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
@@ -1663,7 +1673,7 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
       notes: `Facture de solde générée après règlement de l’acompte lié au devis ${quote.number}.`, isAiDraft: "non", createdById,
     });
     const id = Number(result[0].insertId);
-    await tx.insert(documentLines).values({ documentId: id, position: 1, description: `Solde sur devis ${quote.number} après acompte`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
+    await tx.insert(documentLines).values({ tenantId: currentTenant(), documentId: id, position: 1, description: `Solde sur devis ${quote.number} après acompte`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
     return { id, number, existing: false };
   });
 }
@@ -1671,18 +1681,18 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
 export async function createInvoiceFromQuote(quoteId: number, createdById: number) {
   const db = await requireDb();
   return db.transaction(async tx => {
-    const quoteRows = await tx.select().from(documents).where(eq(documents.id, quoteId)).limit(1);
+    const quoteRows = await tx.select().from(documents).where(and(eq(documents.id, quoteId), eq(documents.tenantId, currentTenant()))).limit(1);
     const quote = quoteRows[0];
     if (!quote || quote.kind !== "devis") throw new Error("Le devis est introuvable.");
     if (quote.status !== "accepte") throw new Error("Seul un devis accepté peut être converti en facture.");
     const existing = await tx.select({ id: documents.id }).from(documents).where(and(eq(documents.kind, "facture"), eq(documents.relatedDocumentId, quoteId), eq(documents.invoiceStage, "standard"))).limit(1);
     if (existing[0]) return { id: existing[0].id, existing: true };
-    const lines = await tx.select().from(documentLines).where(eq(documentLines.documentId, quoteId)).orderBy(documentLines.position);
+    const lines = await tx.select().from(documentLines).where(and(eq(documentLines.documentId, quoteId), eq(documentLines.tenantId, currentTenant()))).orderBy(documentLines.position);
     if (!lines.length) throw new Error("Le devis ne contient aucune ligne à facturer.");
-    await tx.insert(documentSequences).values({ kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
-    const seq = await tx.select().from(documentSequences).where(eq(documentSequences.kind, "facture")).limit(1);
+    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    const seq = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, "facture"), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const number = formatDocumentNumber("facture", new Date().getUTCFullYear(), seq[0]?.lastValue ?? 1);
-    const result = await tx.insert(documents).values({
+    const result = await tx.insert(documents).values({ tenantId: currentTenant(),
       kind: "facture", number, clientId: quote.clientId, projectId: quote.projectId, relatedDocumentId: quote.id, invoiceStage: "standard",
       status: "brouillon", issueDate: new Date(), dueDate: new Date(Date.now() + 14 * 24 * 3600 * 1000), validUntil: null,
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: quote.discountPercent, discountAmount: quote.discountAmount,
@@ -1708,18 +1718,18 @@ export async function recordPayment(input: {
 }) {
   const db = await requireDb();
   return db.transaction(async tx => {
-    const document = await tx.select().from(documents).where(eq(documents.id, input.documentId)).limit(1);
+    const document = await tx.select().from(documents).where(and(eq(documents.id, input.documentId), eq(documents.tenantId, currentTenant()))).limit(1);
     const invoice = document[0];
     if (!invoice || invoice.kind !== "facture") throw new Error("Seules les factures peuvent recevoir un paiement.");
     if (["annule", "refuse"].includes(invoice.status)) throw new Error("Cette facture ne peut plus recevoir de paiement.");
-    const existingPayments = await tx.select({ amount: payments.amount }).from(payments).where(eq(payments.documentId, input.documentId));
+    const existingPayments = await tx.select({ amount: payments.amount }).from(payments).where(and(eq(payments.documentId, input.documentId), eq(payments.tenantId, currentTenant())));
     const paidBefore = existingPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const balanceBefore = calculatePaymentBalance(invoice.total, paidBefore);
     if (input.amount > balanceBefore.balanceDue) throw new Error("Le montant saisi dépasse le solde restant dû.");
-    const result = await tx.insert(payments).values({ documentId: input.documentId, amount: input.amount, paidAt: new Date(`${input.paidAt}T00:00:00.000Z`), method: input.method, reference: input.reference || null, notes: input.notes || null, createdById: input.createdById });
+    const result = await tx.insert(payments).values({ tenantId: currentTenant(), documentId: input.documentId, amount: input.amount, paidAt: new Date(`${input.paidAt}T00:00:00.000Z`), method: input.method, reference: input.reference || null, notes: input.notes || null, createdById: input.createdById });
     const paidAfter = paidBefore + input.amount;
     const status = invoicePaymentStatus(invoice.total, paidAfter, invoice.dueDate, invoice.status);
-    await tx.update(documents).set({ status }).where(eq(documents.id, input.documentId));
+    await tx.update(documents).set({ status }).where(and(eq(documents.id, input.documentId), eq(documents.tenantId, currentTenant())));
     return { id: Number(result[0].insertId), paidAmount: paidAfter, balanceDue: calculatePaymentBalance(invoice.total, paidAfter).balanceDue, status };
   });
 }
@@ -1758,8 +1768,8 @@ export async function updateDocument(input: {
       discountPercent: totals.discountPercent,
       discountAmount: totals.discountAmount,
       notes: input.notes || null,
-    }).where(eq(documents.id, input.id));
-    await tx.delete(documentLines).where(eq(documentLines.documentId, input.id));
+    }).where(and(eq(documents.id, input.id), eq(documents.tenantId, currentTenant())));
+    await tx.delete(documentLines).where(and(eq(documentLines.documentId, input.id), eq(documentLines.tenantId, currentTenant())));
     await tx.insert(documentLines).values(input.lines.map((line, index) => {
       const base = Math.round(line.quantity * line.unitPrice);
       const tax = Math.round((base * line.taxRate) / 100);

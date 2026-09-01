@@ -12,8 +12,33 @@ import {
   varchar,
 } from "drizzle-orm/mysql-core";
 
+export const tenants = mysqlTable("tenants", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 180 }).notNull(),
+  plan: mysqlEnum("plan", ["trial", "pro", "enterprise"]).default("trial").notNull(),
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  trialEndsAt: timestamp("trialEndsAt"),
+  status: mysqlEnum("status", ["active", "trial", "suspended", "cancelled"]).default("trial").notNull(),
+  currency: varchar("currency", { length: 3 }).default("GNF").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const tenantMemberships = mysqlTable(
+  "tenant_memberships",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    role: mysqlEnum("role", ["admin", "member", "viewer"]).default("member").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [unique("tenant_memberships_user_tenant_unique").on(table.userId, table.tenantId)],
+);
+
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").references(() => tenants.id, { onDelete: "set null" }),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -48,6 +73,7 @@ export const clients = mysqlTable(
   "clients",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     companyName: varchar("companyName", { length: 180 }).notNull(),
     contactName: varchar("contactName", { length: 180 }),
     email: varchar("email", { length: 320 }),
@@ -66,6 +92,7 @@ export const projects = mysqlTable(
   "projects",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     clientId: int("clientId")
       .notNull()
       .references(() => clients.id, { onDelete: "restrict" }),
@@ -92,6 +119,7 @@ export const projectCosts = mysqlTable(
   "project_costs",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     projectId: int("projectId")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
@@ -109,6 +137,7 @@ export const projectCostAttachments = mysqlTable(
   "project_cost_attachments",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     projectCostId: int("projectCostId").notNull().references(() => projectCosts.id, { onDelete: "cascade" }),
     fileName: varchar("fileName", { length: 255 }).notNull(),
     contentType: varchar("contentType", { length: 120 }).notNull(),
@@ -125,6 +154,7 @@ export const services = mysqlTable(
   "services",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     code: varchar("code", { length: 50 }).notNull(),
     name: varchar("name", { length: 180 }).notNull(),
     category: mysqlEnum("category", [
@@ -152,6 +182,7 @@ export const servicePriceRevisions = mysqlTable(
   "service_price_revisions",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     serviceId: int("serviceId").notNull().references(() => services.id, { onDelete: "cascade" }),
     previousUnitPrice: bigint("previousUnitPrice", { mode: "number" }).notNull(),
     nextUnitPrice: bigint("nextUnitPrice", { mode: "number" }).notNull(),
@@ -167,6 +198,7 @@ export const documents = mysqlTable(
   "documents",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     kind: mysqlEnum("kind", ["devis", "facture"]).notNull(),
     number: varchar("number", { length: 80 }).notNull(),
     clientId: int("clientId")
@@ -226,6 +258,7 @@ export const documentLines = mysqlTable(
   "document_lines",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     documentId: int("documentId")
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
@@ -248,6 +281,7 @@ export const payments = mysqlTable(
   "payments",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     documentId: int("documentId")
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
@@ -271,6 +305,7 @@ export const paymentPromises = mysqlTable(
   "payment_promises",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     documentId: int("documentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
     promisedDate: date("promisedDate").notNull(),
     note: varchar("note", { length: 500 }),
@@ -283,6 +318,7 @@ export const paymentPromises = mysqlTable(
 
 export const companySettings = mysqlTable("company_settings", {
   id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   legalName: varchar("legalName", { length: 180 }).default("Lucepress").notNull(),
   legalAddress: text("legalAddress"),
   phone: varchar("phone", { length: 64 }),
@@ -304,6 +340,7 @@ export const clientAttachments = mysqlTable(
   "client_attachments",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     clientId: int("clientId")
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
@@ -322,6 +359,7 @@ export const clientActivities = mysqlTable(
   "client_activities",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     clientId: int("clientId")
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
@@ -372,6 +410,7 @@ export const integrationConnections = mysqlTable(
   "integration_connections",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     providerId: int("providerId").notNull().references(() => integrationProviders.id, { onDelete: "restrict" }),
     status: mysqlEnum("status", ["eligible", "credentials_pending", "testing", "active", "degraded", "revoked", "disabled"]).default("eligible").notNull(),
     grantedScopes: text("grantedScopes"),
@@ -504,6 +543,7 @@ export const agentDelegations = mysqlTable(
   "agent_delegations",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 180 }).notNull(),
     purpose: mysqlEnum("purpose", ["relance_facture", "suivi_devis"]).notNull(),
     channel: mysqlEnum("channel", ["email", "whatsapp"]).notNull(),
@@ -538,6 +578,7 @@ export const agentCampaigns = mysqlTable(
   "agent_campaigns",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     delegationId: int("delegationId").notNull().references(() => agentDelegations.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 180 }).notNull(),
     status: mysqlEnum("status", ["brouillon", "simulee", "a_approuver", "approuvee", "active_simulation", "suspendue", "archivee"]).default("brouillon").notNull(),
@@ -571,6 +612,7 @@ export const agentMessageJobs = mysqlTable(
   "agent_message_jobs",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     campaignId: int("campaignId").notNull().references(() => agentCampaigns.id, { onDelete: "cascade" }),
     clientId: int("clientId").notNull().references(() => clients.id, { onDelete: "restrict" }),
     documentId: int("documentId").notNull().references(() => documents.id, { onDelete: "restrict" }),
@@ -597,6 +639,7 @@ export const agentTestEmailDeliveries = mysqlTable(
   "agent_test_email_deliveries",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     campaignId: int("campaignId").notNull().references(() => agentCampaigns.id, { onDelete: "cascade" }),
     messageJobId: int("messageJobId").notNull().references(() => agentMessageJobs.id, { onDelete: "cascade" }),
     testRecipient: varchar("testRecipient", { length: 255 }).default("Boîte de test Lucepress").notNull(),
@@ -619,6 +662,7 @@ export const agentAuditLogs = mysqlTable(
   "agent_audit_logs",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     delegationId: int("delegationId").references(() => agentDelegations.id, { onDelete: "set null" }),
     campaignId: int("campaignId").references(() => agentCampaigns.id, { onDelete: "set null" }),
     actorId: int("actorId").references(() => users.id, { onDelete: "set null" }),
@@ -639,6 +683,7 @@ export const documentSequences = mysqlTable(
   "document_sequences",
   {
     id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     kind: mysqlEnum("kind", ["devis", "facture"]).notNull(),
     lastValue: int("lastValue").default(0).notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

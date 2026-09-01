@@ -18,7 +18,7 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
-  if (!ctx.tenantId && false) {
+  if (!ctx.tenantId) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
   }
 
@@ -43,7 +43,7 @@ export const adminProcedure = t.procedure.use(
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
-    if (!ctx.tenantId && false) {
+    if (!ctx.tenantId) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
     }
 

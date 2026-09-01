@@ -1,0 +1,15 @@
+import mysql from "mysql2/promise";
+import { readFileSync } from "node:fs";
+const raw = readFileSync(".env", "utf8");
+const line = raw.split("\n").map(l => l.trim()).find(l => l.startsWith("DATABASE_URL="));
+const url = line ? line.slice("DATABASE_URL=".length).replace(/^["']|["']$/g, "") : "";
+const c = await mysql.createConnection(url);
+const [r] = await c.query("SHOW TABLES LIKE 'tenants'");
+console.log("tenants:", r.length ? "PRESENTE" : "ABSENTE");
+const [r2] = await c.query("SHOW TABLES LIKE 'tenant_memberships'");
+console.log("tenant_memberships:", r2.length ? "PRESENTE" : "ABSENTE");
+const [r3] = await c.query("SELECT COUNT(*) as n FROM tenants");
+console.log("lignes tenants:", r3[0].n);
+const [r4] = await c.query("SHOW COLUMNS FROM users LIKE 'tenantId'");
+console.log("users.tenantId:", r4.length ? "PRESENTE" : "ABSENTE");
+await c.end();

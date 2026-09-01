@@ -8,6 +8,7 @@ export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User | null;
+  tenantId: number | null;
 };
 
 function parseCookies(cookieHeader: string | undefined): Map<string, string> {
@@ -55,15 +56,10 @@ export async function createContext(
 
   const session = await verifyLocalSession(token);
   if (session) {
-    // `?? null` : `getUserByEmail`/`getUserByOpenId` renvoient `undefined` quand
-    // le compte a été supprimé alors qu'un cookie valide circulait encore. Sans
-    // cette normalisation, `user` valait `undefined` et le typage `User | null`
-    // était trahi (erreur TS2322 préexistante, corrigée ici).
     user = (await db.getUserByOpenId(session.openId)) ?? null;
   }
 
-  // Aucune dépendance à Manus n'est active : anciens cookies OAuth ignorés.
-  // Aucun repli administrateur : pas de session valide => pas d'utilisateur.
+  const tenantId = session?.tenantId ?? user?.tenantId ?? null;
 
-  return { req: opts.req, res: opts.res, user };
+  return { req: opts.req, res: opts.res, user, tenantId };
 }
