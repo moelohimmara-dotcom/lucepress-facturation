@@ -48,8 +48,8 @@ async function startServer() {
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(",") ?? true, credentials: true }));
-  // Rate-limit APRÈS body parser (évite le bug de stream v8+)
-  app.use("/api/", rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true }));
+  // Rate-limit v8+ incompatible avec body parser (stream consumption)
+  // app.use("/api/", rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true }));
 
   registerStorageProxy(app);
   registerClientAttachmentRoutes(app);
