@@ -19,8 +19,8 @@ import { BATCH_REMINDER_LIMIT, normalizeBatchReminderDocumentIds, normalizeBatch
 /** Reconstruit l'origine (https://...) à partir de la requête Express. */
 function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
   const proto = req.get?.("x-forwarded-proto") || req.protocol || "https";
-  const host = req.get?.("host") || req.get?.("x-forwarded-host");
-  if (!host) return (process.env.APP_PUBLIC_URL || "https://lucepress.213.156.135.139.sslip.io").replace(/\/$/, "");
+  const host = req.get?.("x-forwarded-host") || req.get?.("host");
+  if (!host || host.includes("localhost")) return (process.env.APP_PUBLIC_URL || "https://lucepress.213.156.135.139.sslip.io").replace(/\/$/, "");
   return `${proto}://${host}`;
 }
 

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +7,7 @@ import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 
 export default function InvitationAcceptPage() {
-  const [params] = useLocation();
-  const token = new URLSearchParams(params.split("?")[1] ?? "").get("token") ?? "";
+  const token = new URLSearchParams(window.location.search).get("token") ?? "";
   const accept = trpc.acceptInvitation.useMutation();
 
   const [name, setName] = useState("");
