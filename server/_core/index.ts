@@ -42,8 +42,13 @@ async function startServer() {
     const hops = Number.parseInt(trustProxyRaw, 10);
     app.set("trust proxy", Number.isFinite(hops) && hops > 0 ? hops : 1);
   }
+  // Body parser en TOUT PREMIER — avant rate-limit
+  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ limit: "1mb", extended: true }));
+
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(",") ?? true, credentials: true }));
+  // Rate-limit APRÈS body parser (évite le bug de stream v8+)
   app.use("/api/", rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true }));
 
   registerStorageProxy(app);
@@ -52,7 +57,7 @@ async function startServer() {
   registerIntegrationExternalRoutes(app);
   registerAgentCampaignScheduleRoutes(app);
 
-  // tRPC API – gère son propre parsing du body
+  // tRPC API
   app.use(
     "/api/trpc",
     createExpressMiddleware({

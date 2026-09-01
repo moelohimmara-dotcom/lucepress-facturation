@@ -1,12 +1,11 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
 import type { TrpcContext } from "./context";
 import { runWithTenant } from "./tenantContext";
 
-const t = initTRPC.context<TrpcContext>().create({
-  transformer: superjson,
-});
+// NOTE: superjson retiré car incompatible avec body parser global
+// Les dates doivent être sérialisées manuellement si nécessaire
+const t = initTRPC.context<TrpcContext>().create({});
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

@@ -17,10 +17,29 @@ export function useAuth(options?: UseAuthOptions) {
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.redirectTo && typeof window !== "undefined") {
+        window.location.href = data.redirectTo;
+      }
+      // Broadcast logout to other tabs via localStorage (storage events are cross-tab)
+      try {
+        localStorage.setItem("lucepress-logged-out", Date.now().toString());
+      } catch {}
       utils.auth.me.setData(undefined, null);
     },
   });
+
+  // Single-shot listener for cross-tab logout broadcast
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === "lucepress-logged-out") {
+        utils.auth.me.setData(undefined, null);
+        utils.auth.me.invalidate();
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, [utils]);
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async () => {
