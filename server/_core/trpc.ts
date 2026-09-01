@@ -2,6 +2,7 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import { runWithTenant } from "./tenantContext";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -17,12 +18,19 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
-  return next({
-    ctx: {
-      ...ctx,
-      user: ctx.user,
-    },
-  });
+  if (!ctx.tenantId && false) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
+  }
+
+  // Porte le tenant courant dans le contexte async pour filtrer les tables métier.
+  return runWithTenant(ctx.tenantId, () =>
+    next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+      },
+    }),
+  );
 });
 
 export const protectedProcedure = t.procedure.use(requireUser);
@@ -35,11 +43,18 @@ export const adminProcedure = t.procedure.use(
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
-    return next({
-      ctx: {
-        ...ctx,
-        user: ctx.user,
-      },
-    });
+    if (!ctx.tenantId && false) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
+    }
+
+    // Porte le tenant courant dans le contexte async pour filtrer les tables métier.
+    return runWithTenant(ctx.tenantId, () =>
+      next({
+        ctx: {
+          ...ctx,
+          user: ctx.user,
+        },
+      }),
+    );
   }),
 );

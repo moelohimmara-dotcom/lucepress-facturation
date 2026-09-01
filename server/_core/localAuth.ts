@@ -7,6 +7,7 @@ export type LocalSessionPayload = {
   openId: string;
   email: string;
   name: string;
+  tenantId: number;
 };
 
 function getSecret(): Uint8Array {
@@ -22,6 +23,7 @@ export async function signLocalSession(
     openId: payload.openId,
     email: payload.email,
     name: payload.name,
+    tenantId: payload.tenantId,
   })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setExpirationTime(expirationSeconds)
@@ -34,11 +36,16 @@ export async function verifyLocalSession(
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] });
-    const { openId, email, name } = payload as Record<string, unknown>;
-    if (typeof openId !== "string" || typeof email !== "string" || typeof name !== "string") {
+    const { openId, email, name, tenantId } = payload as Record<string, unknown>;
+    if (
+      typeof openId !== "string" ||
+      typeof email !== "string" ||
+      typeof name !== "string" ||
+      (typeof tenantId !== "number" && tenantId != null)
+    ) {
       return null;
     }
-    return { openId, email, name };
+    return { openId, email, name, tenantId };
   } catch {
     return null;
   }
