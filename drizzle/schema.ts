@@ -58,6 +58,7 @@ export const users = mysqlTable("users", {
  */
 export const invitations = mysqlTable("invitations", {
   id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   tokenHash: varchar("tokenHash", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 320 }).notNull(),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),

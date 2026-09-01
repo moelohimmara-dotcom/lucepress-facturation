@@ -107,14 +107,14 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db.select().from(users).where(and(eq(users.openId, openId), eq(users.tenantId, currentTenant() ?? 1))).limit(1);
   return result[0];
 }
 
 export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const result = await db.select().from(users).where(and(eq(users.email, email), eq(users.tenantId, currentTenant() ?? 1))).limit(1);
   return result[0];
 }
 
@@ -165,7 +165,7 @@ export async function countUsersWithPassword(): Promise<number> {
 
 export async function setUserPasswordHash(userId: number, passwordHash: string): Promise<void> {
   const db = await requireDb();
-  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  await db.update(users).set({ passwordHash }).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant())));
 }
 
 /**
@@ -188,13 +188,14 @@ export async function listUsers(): Promise<
       createdAt: users.createdAt,
     })
     .from(users)
+    .where(eq(users.tenantId, currentTenant()))
     .orderBy(asc(users.name), asc(users.email));
 }
 
 /** Change le rôle d'un compte (admin -> user ou user -> admin). */
 export async function setUserRole(userId: number, role: "admin" | "user"): Promise<void> {
   const db = await requireDb();
-  await db.update(users).set({ role }).where(eq(users.id, userId));
+  await db.update(users).set({ role }).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant())));
 }
 
 /**
@@ -204,7 +205,7 @@ export async function setUserRole(userId: number, role: "admin" | "user"): Promi
  */
 export async function resetUserPassword(userId: number, passwordHash: string): Promise<void> {
   const db = await requireDb();
-  await db.update(users).set({ passwordHash, loginMethod: "email" }).where(eq(users.id, userId));
+  await db.update(users).set({ passwordHash, loginMethod: "email" }).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant())));
 }
 
 /**
@@ -214,7 +215,7 @@ export async function resetUserPassword(userId: number, passwordHash: string): P
  */
 export async function deleteUser(userId: number): Promise<{ deleted: boolean; reason?: string }> {
   const db = await requireDb();
-  const [cible] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+  const [cible] = await db.select({ id: users.id, role: users.role }).from(users).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant()))).limit(1);
   if (!cible) return { deleted: false, reason: "compte_introuvable" };
 
   if (cible.role === "admin") {
@@ -227,7 +228,7 @@ export async function deleteUser(userId: number): Promise<{ deleted: boolean; re
     }
   }
 
-  await db.delete(users).where(eq(users.id, userId));
+  await db.delete(users).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant())));
   return { deleted: true };
 }
 
@@ -243,6 +244,7 @@ export type NewInvitation = {
   email: string;
   role: "user" | "admin";
   invitedBy: number;
+  tenantId?: number;
 };
 
 export async function createInvitation(input: NewInvitation): Promise<{ id: number }> {
@@ -250,6 +252,7 @@ export async function createInvitation(input: NewInvitation): Promise<{ id: numb
   const [row] = await db
     .insert(invitations)
     .values({
+      tenantId: input.tenantId ?? currentTenant(),
       tokenHash: input.tokenHash,
       email: input.email,
       role: input.role,
@@ -279,24 +282,22 @@ export async function markInvitationAccepted(tokenHash: string, acceptedByUser: 
 
 export async function revokeInvitation(id: number): Promise<void> {
   const db = await requireDb();
-  await db.update(invitations).set({ status: "revoked" }).where(eq(invitations.id, id));
+  await db.update(invitations).set({ status: "revoked" }).where(and(eq(invitations.id, id), eq(invitations.tenantId, currentTenant())));
 }
 
 export async function listInvitations(): Promise<(typeof invitations.$inferSelect)[]> {
   const db = await requireDb();
-  return db.select().from(invitations).orderBy(desc(invitations.createdAt));
+  return db.select().from(invitations).where(eq(invitations.tenantId, currentTenant())).orderBy(desc(invitations.createdAt));
 }
 
 export async function deleteInvitation(id: number): Promise<void> {
   const db = await requireDb();
-  await db.delete(invitations).where(eq(invitations.id, id));
+  await db.delete(invitations).where(and(eq(invitations.id, id), eq(invitations.tenantId, currentTenant())));
 }
 
 export async function listClients() {
   const db = await requireDb();
-  const tid = currentTenant();
-  console.error("[TENANT-DIAG] listClients currentTenant=", tid);
-  return db.select().from(clients).where(eq(clients.tenantId, tid)).orderBy(asc(clients.companyName));
+  return db.select().from(clients).where(eq(clients.tenantId, currentTenant())).orderBy(asc(clients.companyName));
 }
 
 export async function listCollectionAssignees() {

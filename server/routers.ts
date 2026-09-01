@@ -503,6 +503,7 @@ export const appRouter = router({
           email: input.email,
           role: input.role,
           invitedBy: ctx.user.id,
+          tenantId: ctx.tenantId ?? undefined,
         });
 
         const origin = getRequestOrigin(ctx.req);
