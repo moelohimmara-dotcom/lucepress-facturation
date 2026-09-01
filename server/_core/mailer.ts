@@ -94,3 +94,47 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+/**
+ * Template HTML pour la réinitialisation du mot de passe.
+ */
+export function passwordResetTemplate(data: {
+  resetLink: string;
+}): string {
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Réinitialisation de mot de passe</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f6f9fc; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    h1 { color: #1a1a2e; font-size: 24px; margin: 0 0 24px; }
+    p { color: #444; line-height: 1.6; margin: 0 0 16px; }
+    .button { display: inline-block; padding: 14px 32px; background: #4f46e5; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 24px 0; }
+    .footer { margin-top: 32px; padding-top: 24px; border-top: 1px solid #eee; font-size: 13px; color: #888; }
+    .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; font-size: 14px; color: #92400e; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Réinitialisation de votre mot de passe</h1>
+    <p>Bonjour,</p>
+    <p>Nous avons reçu une demande de réinitialisation du mot de passe de votre compte Lucepress.</p>
+    <p style="text-align:center;">
+      <a class="button" href="${escapeHtml(data.resetLink)}">Créer un nouveau mot de passe</a>
+    </p>
+    <div class="warning">
+      ⏱ Ce lien expirera dans <strong>1 heure</strong> et ne peut être utilisé qu'une seule fois.
+    </div>
+    <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+    <p style="word-break:break-all; font-size:13px; color:#4f46e5;">${escapeHtml(data.resetLink)}</p>
+    <div class="footer">
+      <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet e-mail — votre mot de passe reste inchangé.</p>
+      <p>Cet e-mail a été envoyé automatiquement.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}

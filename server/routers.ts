@@ -397,6 +397,69 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    /**
+     * Demande de réinitialisation du mot de passe (flux "Mot de passe oublié").
+     * Toujours retourner {success: true} pour éviter de révéler si l'email existe.
+     */
+    forgotPassword: publicProcedure
+      .input(z.object({ email: z.string().email().max(320) }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await db.getUserByEmail(input.email);
+        if (!user) {
+          // Ne pas révéler si l'email existe ou pas
+          return { success: true };
+        }
+        if (!user.passwordHash) {
+          // Compte OAuth, pas de mot de passe local
+          return { success: true };
+        }
+        const crypto = await import("node:crypto");
+        const { hashPassword } = await import("./_core/password");
+        const token = crypto.randomBytes(32).toString("hex");
+        const tokenHash = await hashPassword(token);
+        await db.createPasswordReset({
+          userId: user.id,
+          tokenHash,
+          tenantId: user.tenantId ?? undefined,
+        });
+        const origin = getRequestOrigin(ctx.req);
+        const resetLink = `${origin}/reset-password?token=${token}`;
+        const { sendMail, passwordResetTemplate } = await import("./_core/mailer");
+        await sendMail({
+          to: input.email,
+          subject: "Réinitialisation de votre mot de passe Lucepress",
+          html: passwordResetTemplate({ resetLink }),
+          text: `Réinitialisation de votre mot de passe Lucepress\n\nCliquez sur ce lien pour créer un nouveau mot de passe : ${resetLink}\n\nCe lien expirera dans 1 heure.\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez cet e-mail.`,
+        }).catch(() => {
+          // Ne pas bloquer si l'envoi échoue, mais logger
+          console.warn(`[auth] Échec envoi email reset à ${input.email}`);
+        });
+        return { success: true };
+      }),
+    /**
+     * Réinitialisation effective : vérifie le token et définit un nouveau mot de passe.
+     * Publique (l'utilisateur n'est pas connecté). Le token est à usage unique.
+     */
+    resetPassword: publicProcedure
+      .input(z.object({
+        token: z.string().min(8).max(128),
+        newPassword: z.string().min(8).max(128),
+      }))
+      .mutation(async ({ input }) => {
+        const reset = await db.findPasswordResetByToken(input.token);
+        if (!reset) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Ce lien de réinitialisation est invalide ou a expiré. Demandez un nouveau lien.",
+          });
+        }
+        const { hashPassword } = await import("./_core/password");
+        const passwordHash = await hashPassword(input.newPassword);
+        await db.resetUserPassword(reset.userId, passwordHash);
+        // Marquer le reset comme utilisé (à usage unique)
+        await db.markPasswordResetUsed(reset.id);
+        return { success: true };
+      }),
   }),
   /**
    * Gestion des collaborateurs (réservée aux administrateurs).

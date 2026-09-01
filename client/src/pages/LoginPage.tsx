@@ -66,6 +66,11 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={pending}>
               {pending ? "Veuillez patienter…" : "Se connecter"}
             </Button>
+            <div className="text-center">
+              <a href="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground underline">
+                Mot de passe oublié ?
+              </a>
+            </div>
           </form>
         </CardContent>
       </Card>

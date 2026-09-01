@@ -25,6 +25,7 @@ import {
   integrationWebhookEvents,
   InsertUser,
   invitations,
+  passwordResets,
   payments,
   paymentPromises,
   projectCostAttachments,
@@ -334,6 +335,60 @@ export async function listInvitations(): Promise<(typeof invitations.$inferSelec
 export async function deleteInvitation(id: number): Promise<void> {
   const db = await requireDb();
   await db.delete(invitations).where(and(eq(invitations.id, id), eq(invitations.tenantId, currentTenant())));
+}
+
+/* ------------------------------------------------------------------ */
+/* Réinitialisation mot de passe (flux "Mot de passe oublié")           */
+/* ------------------------------------------------------------------ */
+
+/** Durée de validité d'un lien de réinitialisation (1h). */
+export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+
+export async function createPasswordReset(input: {
+  userId: number;
+  tokenHash: string;
+  tenantId?: number;
+}): Promise<{ id: number }> {
+  const db = await requireDb();
+  // Invalider les anciens resets non utilisés pour cet utilisateur
+  await db.update(passwordResets)
+    .set({ usedAt: new Date() })
+    .where(and(eq(passwordResets.userId, input.userId), sql`${passwordResets.usedAt} IS NULL`));
+  
+  const [row] = await db
+    .insert(passwordResets)
+    .values({
+      tenantId: input.tenantId ?? currentTenant(),
+      userId: input.userId,
+      tokenHash: input.tokenHash,
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+    })
+    .$returningId();
+  return { id: row.id };
+}
+
+/**
+ * Recherche un reset par token (hash scrypt) SANS filtre tenant.
+ * Retourne le reset valide (non utilisé, non expiré) ou undefined.
+ */
+export async function findPasswordResetByToken(
+  token: string
+): Promise<typeof passwordResets.$inferSelect | undefined> {
+  const db = await requireDb();
+  const { verifyPassword } = await import("./_core/password");
+  const all = await db.select().from(passwordResets);
+  for (const reset of all) {
+    if (reset.usedAt) continue;
+    if (reset.expiresAt.getTime() <= Date.now()) continue;
+    const ok = await verifyPassword(token, reset.tokenHash);
+    if (ok) return reset;
+  }
+  return undefined;
+}
+
+export async function markPasswordResetUsed(resetId: number): Promise<void> {
+  const db = await requireDb();
+  await db.update(passwordResets).set({ usedAt: new Date() }).where(eq(passwordResets.id, resetId));
 }
 
 export async function listClients() {

@@ -70,6 +70,21 @@ export const invitations = mysqlTable("invitations", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, table => [index("invitations_email_idx").on(table.email), index("invitations_status_idx").on(table.status)]);
 
+/**
+ * Réinitialisation de mot de passe (flux "Mot de passe oublié").
+ * Le token brut est généré côté serveur et ne circule qu'une fois (dans le lien
+ * envoyé à l'utilisateur). En base on ne stocke QUE son empreinte (scrypt).
+ */
+export const passwordResets = mysqlTable("password_resets", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: varchar("tokenHash", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [index("password_resets_user_idx").on(table.userId), index("password_resets_status_idx").on(table.expiresAt)]);
+
 export const clients = mysqlTable(
   "clients",
   {

@@ -26,6 +26,8 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 const UsersPage = lazy(() => import("./pages/UsersPage"));
 const InvitationAcceptPage = lazy(() => import("./pages/InvitationAcceptPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const RemindersPage = lazy(() => import("./pages/RemindersPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 
@@ -57,6 +59,8 @@ function Router() {
         <Route path={"/compte/mot-de-passe"} component={ChangePasswordPage} />
         <Route path={"/parametres/utilisateurs"} component={UsersPage} />
         <Route path={"/invitation"} component={InvitationAcceptPage} />
+        <Route path={"/forgot-password"} component={ForgotPasswordPage} />
+        <Route path={"/reset-password"} component={ResetPasswordPage} />
         <Route path={"/relances"} component={RemindersPage} />
         <Route path={"/login"} component={LoginPage} />
         <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
