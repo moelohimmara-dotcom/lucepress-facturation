@@ -107,7 +107,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(and(eq(users.openId, openId), eq(users.tenantId, currentTenant() ?? 1))).limit(1);
+  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result[0];
 }
 
