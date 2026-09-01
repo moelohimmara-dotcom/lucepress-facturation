@@ -18,8 +18,9 @@ export function useAuth(options?: UseAuthOptions) {
 
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: (data) => {
-      if (data?.redirectTo && typeof window !== "undefined") {
-        window.location.href = data.redirectTo;
+      // Forcer une navigation complète vers login
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
       }
       // Broadcast logout to other tabs via localStorage (storage events are cross-tab)
       try {

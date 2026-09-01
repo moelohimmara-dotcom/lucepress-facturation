@@ -394,7 +394,8 @@ export const appRouter = router({
       }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      // Effacer le cookie en définissant maxAge à 0 (expiration immédiate)
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: 0 });
       return { success: true, redirectTo: "/login" } as const;
     }),
     /**
