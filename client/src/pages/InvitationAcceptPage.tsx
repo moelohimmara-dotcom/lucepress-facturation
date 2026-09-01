@@ -31,10 +31,14 @@ export default function InvitationAcceptPage() {
     e.preventDefault();
     setPending(true);
     try {
+      console.log("[DEBUG_FRONT] token:", token);
+      console.log("[DEBUG_FRONT] name:", name);
+      console.log("[DEBUG_FRONT] password length:", password.length);
       const result = await accept.mutateAsync({ token, name, password });
       toast.success("Compte créé. Connectez-vous avec votre mot de passe.");
       window.location.href = "/login";
     } catch (err: any) {
+      console.error("[DEBUG_FRONT] error:", err?.message);
       const msg = err?.message || "Une erreur est survenue.";
       toast.error(msg);
     } finally {

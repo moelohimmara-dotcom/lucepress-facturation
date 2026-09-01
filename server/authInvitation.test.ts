@@ -34,7 +34,11 @@ vi.mock("./db", () => ({
   revokeInvitation: mocks.revokeInvitation,
   createInvitation: mocks.createInvitation,
   listInvitations: mocks.listInvitations,
-  findInvitationByToken: vi.fn(async (token: string) => { const i = mocks._invitations.find(x => x.status === 'pending'); return i; }),
+  findInvitationByToken: vi.fn(async (token: string) => {
+    const i = mocks._invitations.find(x => x.status === 'pending');
+    if (i) return { invitation: i, reason: 'pending' };
+    return { reason: 'not_found' };
+  }),
 }));
 vi.mock("./_core/password", () => ({
   verifyPassword: mocks.verifyPassword,

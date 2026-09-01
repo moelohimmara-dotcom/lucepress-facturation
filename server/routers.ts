@@ -562,10 +562,20 @@ export const appRouter = router({
       password: z.string().min(8).max(128),
     }))
     .mutation(async ({ input }) => {
-      const cible = await db.findInvitationByToken(input.token);
-      if (!cible) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Invitation invalide ou expirée." });
+      const result = await db.findInvitationByToken(input.token);
+      if (result.reason === "not_found") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invitation introuvable. Ce lien ne correspond à aucune invitation." });
       }
+      if (result.reason === "already_accepted") {
+        throw new TRPCError({ code: "CONFLICT", message: "Cette invitation a déjà été utilisée. Demandez une nouvelle invitation." });
+      }
+      if (result.reason === "revoked") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cette invitation a été révoquée par un administrateur." });
+      }
+      if (result.reason === "expired") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cette invitation a expiré. Demandez une nouvelle invitation." });
+      }
+      const cible = result.invitation!;
       const existant = await db.getUserByEmail(cible.email);
       if (existant) {
         await db.revokeInvitation(cible.id);

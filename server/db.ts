@@ -276,23 +276,41 @@ export async function getInvitationByTokenHash(
 }
 
 /**
+ * Résultat de la recherche d'un token d'invitation.
+ * - invitation + reason "pending" : invitation valide, peut être acceptée
+ * - reason "expired" : invitation trouvée mais expirée
+ * - reason "already_accepted" : invitation déjà utilisée
+ * - reason "revoked" : invitation révoquée par un admin
+ * - reason "not_found" : le token ne correspond à aucune invitation
+ */
+export type InvitationSearchResult = {
+  invitation?: typeof invitations.$inferSelect;
+  reason: "pending" | "expired" | "already_accepted" | "revoked" | "not_found";
+};
+
+/**
  * Recherche une invitation par token (hash scrypt) SANS filtre tenant.
  * Utilisé pour acceptInvitation (procédure publique — pas encore authentifié).
  * Le token est unique (contrainte DB), pas de risque de fuite inter-tenant.
  */
 export async function findInvitationByToken(
   token: string
-): Promise<typeof invitations.$inferSelect | undefined> {
+): Promise<InvitationSearchResult> {
   const db = await requireDb();
   const { verifyPassword } = await import("./_core/password");
   const all = await db.select().from(invitations);
+  console.log(`[DEBUG_FIND] token received: ${token} (length: ${token.length}) pending invitations: ${all.filter(i => i.status === "pending").length}`);
   for (const inv of all) {
-    if (inv.status !== "pending") continue;
-    if (inv.expiresAt.getTime() <= Date.now()) continue;
     const ok = await verifyPassword(token, inv.tokenHash);
-    if (ok) return inv;
+    console.log(`[DEBUG_FIND] verify ${inv.email}: ${ok} (status: ${inv.status}, expires: ${inv.expiresAt.toISOString()})`);
+    if (!ok) continue;
+    // Le token correspond à cette invitation
+    if (inv.status === "accepted") return { invitation: inv, reason: "already_accepted" };
+    if (inv.status === "revoked") return { invitation: inv, reason: "revoked" };
+    if (inv.expiresAt.getTime() <= Date.now()) return { invitation: inv, reason: "expired" };
+    return { invitation: inv, reason: "pending" };
   }
-  return undefined;
+  return { reason: "not_found" };
 }
 
 export async function markInvitationAccepted(tokenHash: string, acceptedByUser: number): Promise<void> {
