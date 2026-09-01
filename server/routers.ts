@@ -9,6 +9,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { sendMail, invitationTemplate } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
@@ -507,9 +508,30 @@ export const appRouter = router({
         });
 
         const origin = getRequestOrigin(ctx.req);
+        const inviteLink = `${origin}/invitation?token=${token}`;
+
+        // Envoi de l'e-mail d'invitation
+        try {
+          await sendMail({
+            from: `"Lucepress" <${process.env.SMTP_USER}>`,
+            to: input.email,
+            subject: `Invitation à rejoindre ${ctx.tenant?.name ?? "Lucepress"}`,
+            html: invitationTemplate({
+              inviterName: ctx.user.name ?? "Un administrateur",
+              inviteLink,
+              organization: ctx.tenant?.name ?? "Lucepress",
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleString("fr-FR"),
+            }),
+            text: `${ctx.user.name ?? "Un administrateur"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
+          });
+        } catch (err) {
+          console.error("[invite] Échec d'envoi d'e-mail:", err);
+          // On ne bloque pas la création de l'invitation, on signale juste l'échec.
+        }
+
         return {
           success: true,
-          invitationLink: `${origin}/invitation?token=${token}`,
+          invitationLink: inviteLink,
           email: input.email,
           role: input.role,
         } as const;
