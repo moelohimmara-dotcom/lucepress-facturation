@@ -9,27 +9,8 @@ const plugins = [
   react(),
   tailwindcss(),
   jsxLocPlugin(),
-  VitePWA({
-    registerType: "autoUpdate",
-    includeAssets: ["lucepress-emblem.png"],
-    manifest: {
-      name: "Lucepres — Devis & Factures",
-      short_name: "Lucepres",
-      description: "Gestion commerciale BTP, hydraulique et services — devis, factures, chantiers",
-      theme_color: "#113b35",
-      background_color: "#f6faf8",
-      display: "standalone",
-      icons: [{ src: "lucepress-emblem.png", sizes: "512x512", type: "image/png" }],
-    },
-    workbox: {
-      globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
-      runtimeCaching: [
-        { urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i, handler: "CacheFirst", options: { cacheName: "google-fonts-cache", expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } } },
-        { urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i, handler: "CacheFirst", options: { cacheName: "gfonts-cache", expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } } },
-        { urlPattern: /\/api\/trpc\/.*/i, handler: "NetworkFirst", options: { cacheName: "api-cache", networkTimeoutSeconds: 3, expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 } } },
-      ],
-    },
-  }),
+  // PWA désactivée pendant le développement pour éviter les problèmes de cache
+  // VitePWA({ ... }),
 ];
 
 export default defineConfig({
