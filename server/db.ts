@@ -63,8 +63,19 @@ let _pool: Pool | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _pool = createPool(process.env.DATABASE_URL);
+      if (_pool) {
+        try { await _pool.end(); } catch {}
+      }
+      _pool = createPool({
+        uri: process.env.DATABASE_URL,
+        connectionLimit: 10,
+        connectTimeout: 10000,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 30000,
+      });
       _db = drizzle(_pool, { mode: "mysql" });
+      // Test the connection
+      await _pool.query("SELECT 1");
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
