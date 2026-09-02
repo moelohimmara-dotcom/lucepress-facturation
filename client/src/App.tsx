@@ -24,6 +24,8 @@ const ProjectCostsPage = lazy(() => import("./pages/ProjectCostsPage"));
 const ReceivablesPage = lazy(() => import("./pages/ReceivablesPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
+const EmailTemplatesGalleryPage = lazy(() => import("./pages/EmailTemplatesGalleryPage"));
+const DocumentTemplatesGalleryPage = lazy(() => import("./pages/DocumentTemplatesGalleryPage"));
 const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 const UsersPage = lazy(() => import("./pages/UsersPage"));
 const InvitationAcceptPage = lazy(() => import("./pages/InvitationAcceptPage"));
@@ -58,6 +60,8 @@ function Router() {
         <Route path="/portail-client" component={ClientPortalPage} />
         <Route path={"/parametres"} component={SettingsPage} />
         <Route path={"/parametres/e-mails"} component={EmailTemplatesPage} />
+        <Route path={"/parametres/modeles"} component={EmailTemplatesGalleryPage} />
+        <Route path={"/parametres/modeles/documents"} component={DocumentTemplatesGalleryPage} />
         <Route path={"/compte/mot-de-passe"} component={ChangePasswordPage} />
         <Route path={"/parametres/utilisateurs"} component={UsersPage} />
         <Route path={"/invitation"} component={InvitationAcceptPage} />

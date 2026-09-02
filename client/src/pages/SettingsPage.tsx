@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { validateCompanyFinancialDetails } from "@shared/companySettingsValidation";
-import { AlertTriangle, Building2, Landmark, Loader2, Save, ShieldCheck, UserCog } from "lucide-react";
+import { AlertTriangle, Building2, FileText, Landmark, Loader2, Mail, Save, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -39,6 +39,12 @@ export default function SettingsPage() {
             </Button>
             <Button variant="outline" onClick={() => { window.location.href = "/parametres/utilisateurs"; }}>
               <UserCog className="mr-2 h-4 w-4" /> Gérer les comptes
+            </Button>
+            <Button variant="outline" onClick={() => { window.location.href = "/parametres/e-mails"; }}>
+              <Mail className="mr-2 h-4 w-4" /> Templates d'e-mail
+            </Button>
+            <Button variant="outline" onClick={() => { window.location.href = "/parametres/modeles/documents"; }}>
+              <FileText className="mr-2 h-4 w-4" /> Modèles de devis
             </Button>
           </div>
         </section>
