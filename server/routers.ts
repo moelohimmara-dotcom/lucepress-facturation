@@ -9,7 +9,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { sendMail, invitationTemplate } from "./_core/mailer";
+import { sendMail } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
@@ -425,12 +425,12 @@ export const appRouter = router({
         });
         const origin = getRequestOrigin(ctx.req);
         const resetLink = `${origin}/reset-password?token=${token}`;
-        const { sendMail, passwordResetTemplate } = await import("./_core/mailer");
+        const rendered = await db.renderEmailTemplate("password-reset", { resetLink });
         await sendMail({
           to: input.email,
-          subject: "Réinitialisation de votre mot de passe Lucepress",
-          html: passwordResetTemplate({ resetLink }),
-          text: `Réinitialisation de votre mot de passe Lucepress\n\nCliquez sur ce lien pour créer un nouveau mot de passe : ${resetLink}\n\nCe lien expirera dans 1 heure.\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez cet e-mail.`,
+          subject: rendered?.subject ?? "Réinitialisation de votre mot de passe Lucepress",
+          html: rendered?.html ?? "",
+          text: rendered?.text ?? `Réinitialisation de votre mot de passe Lucepress\n\nCliquez sur ce lien pour créer un nouveau mot de passe : ${resetLink}\n\nCe lien expirera dans 1 heure.\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez cet e-mail.`,
         }).catch(() => {
           // Ne pas bloquer si l'envoi échoue, mais logger
           console.warn(`[auth] Échec envoi email reset à ${input.email}`);
@@ -576,17 +576,18 @@ export const appRouter = router({
 
         // Envoi de l'e-mail d'invitation
         try {
+          const rendered = await db.renderEmailTemplate("invitation", {
+            inviterName: ctx.user.name ?? "Un administrateur",
+            inviteLink,
+            organization: ctx.tenant?.name ?? "Lucepress",
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleString("fr-FR"),
+          });
           await sendMail({
             from: `"Lucepress" <${process.env.SMTP_USER}>`,
             to: input.email,
-            subject: `Invitation à rejoindre ${ctx.tenant?.name ?? "Lucepress"}`,
-            html: invitationTemplate({
-              inviterName: ctx.user.name ?? "Un administrateur",
-              inviteLink,
-              organization: ctx.tenant?.name ?? "Lucepress",
-              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleString("fr-FR"),
-            }),
-            text: `${ctx.user.name ?? "Un administrateur"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
+            subject: rendered?.subject ?? `Invitation à rejoindre ${ctx.tenant?.name ?? "Lucepress"}`,
+            html: rendered?.html ?? "",
+            text: rendered?.text ?? `${ctx.user.name ?? "Un administrateur"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
           });
         } catch (err) {
           console.error("[invite] Échec d'envoi d'e-mail:", err);
@@ -657,6 +658,49 @@ export const appRouter = router({
       await db.markInvitationAccepted(cible.tokenHash, user.id);
       return { success: true, openId: user.openId, id: user.id } as const;
     }),
+
+  /**
+   * Gestion des templates d'e-mail (admin).
+   * Permet de lister, créer, mettre à jour et supprimer les templates.
+   * Les templates globaux (tenantId NULL) sont visibles par tous,
+   * les templates tenant-spécifiques sont prioritaires.
+   */
+  emailTemplates: router({
+    list: adminProcedure.query(() => db.listEmailTemplates()),
+    create: adminProcedure
+      .input(z.object({
+        slug: z.string().trim().min(1).max(100),
+        name: z.string().trim().min(1).max(255),
+        subject: z.string().trim().min(1).max(500),
+        html: z.string().min(1),
+        text: z.string().optional(),
+        tenantId: z.number().int().positive().nullable().optional(),
+      }))
+      .mutation(({ input }) => db.createEmailTemplate(input)),
+    update: adminProcedure
+      .input(z.object({
+        id: z.number().int().positive(),
+        name: z.string().trim().min(1).max(255).optional(),
+        subject: z.string().trim().min(1).max(500).optional(),
+        html: z.string().min(1).optional(),
+        text: z.string().optional(),
+        enabled: z.enum(["oui", "non"]).optional(),
+      }))
+      .mutation(({ input }) => {
+        const { id, ...data } = input;
+        return db.updateEmailTemplate(id, data);
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(({ input }) => db.deleteEmailTemplate(input.id)),
+    preview: adminProcedure
+      .input(z.object({
+        slug: z.string(),
+        variables: z.record(z.string()),
+      }))
+      .query(({ input }) => db.renderEmailTemplate(input.slug, input.variables)),
+  }),
+
   billing: router({
     dashboard: adminProcedure.query(() => db.getDashboardData()),
     clients: router({

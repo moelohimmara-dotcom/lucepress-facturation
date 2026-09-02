@@ -1908,3 +1908,235 @@ export async function getDashboardData() {
     priority,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Templates d'e-mail                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Liste les templates d'e-mail du tenant actuel + les templates globaux (tenantId NULL).
+ * Les templates tenant-spécifiques sont prioritaires.
+ */
+export async function listEmailTemplates(): Promise<(typeof emailTemplates.$inferSelect)[]> {
+  const db = await requireDb();
+  const tenantId = currentTenant();
+  const rows = await db.select().from(emailTemplates).where(
+    tenantId
+      ? or(eq(emailTemplates.tenantId, tenantId), sql`${emailTemplates.tenantId} IS NULL`)
+      : sql`${emailTemplates.tenantId} IS NULL`
+  );
+  // Dédoublonne par slug : le template tenant est prioritaire
+  const bySlug = new Map<string, typeof emailTemplates.$inferSelect>();
+  for (const row of rows) {
+    const existing = bySlug.get(row.slug);
+    if (!existing || (existing.tenantId === null && row.tenantId !== null)) {
+      bySlug.set(row.slug, row);
+    }
+  }
+  return Array.from(bySlug.values()).sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+/**
+ * Récupère un template par slug (tenant-spécifique puis global).
+ */
+export async function getEmailTemplateBySlug(slug: string): Promise<typeof emailTemplates.$inferSelect | undefined> {
+  const db = await requireDb();
+  const tenantId = currentTenant();
+  // 1. Template tenant-spécifique
+  if (tenantId) {
+    const [tenantTemplate] = await db.select().from(emailTemplates).where(
+      and(eq(emailTemplates.slug, slug), eq(emailTemplates.tenantId, tenantId))
+    ).limit(1);
+    if (tenantTemplate) return tenantTemplate;
+  }
+  // 2. Fallback sur le template global
+  const [globalTemplate] = await db.select().from(emailTemplates).where(
+    and(eq(emailTemplates.slug, slug), sql`${emailTemplates.tenantId} IS NULL`)
+  ).limit(1);
+  return globalTemplate;
+}
+
+/**
+ * Crée un template d'e-mail.
+ */
+export async function createEmailTemplate(input: {
+  slug: string;
+  name: string;
+  subject: string;
+  html: string;
+  text?: string;
+  tenantId?: number | null;
+}): Promise<{ id: number }> {
+  const db = await requireDb();
+  const [row] = await db
+    .insert(emailTemplates)
+    .values({
+      slug: input.slug,
+      name: input.name,
+      subject: input.subject,
+      html: input.html,
+      text: input.text ?? null,
+      tenantId: input.tenantId ?? currentTenant(),
+    })
+    .$returningId();
+  return { id: row.id };
+}
+
+/**
+ * Met à jour un template d'e-mail.
+ */
+export async function updateEmailTemplate(
+  id: number,
+  input: Partial<{
+    name: string;
+    subject: string;
+    html: string;
+    text: string;
+    enabled: "oui" | "non";
+  }>
+): Promise<void> {
+  const db = await requireDb();
+  await db.update(emailTemplates).set(input).where(eq(emailTemplates.id, id));
+}
+
+/**
+ * Supprime un template d'e-mail.
+ */
+export async function deleteEmailTemplate(id: number): Promise<void> {
+  const db = await requireDb();
+  await db.delete(emailTemplates).where(eq(emailTemplates.id, id));
+}
+
+/**
+ * Rend un template en remplaçant les {{variable}} par leurs valeurs.
+ * Utilise le template de la DB, sinon le template par défaut (fallback).
+ */
+export async function renderEmailTemplate(
+  slug: string,
+  variables: Record<string, string>
+): Promise<{ subject: string; html: string; text: string } | null> {
+  const template = await getEmailTemplateBySlug(slug);
+  if (!template) return null;
+
+  let subject = template.subject;
+  let html = template.html;
+  let text = template.text ?? "";
+
+  for (const [key, value] of Object.entries(variables)) {
+    const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
+    subject = subject.replace(regex, value);
+    html = html.replace(regex, value);
+    text = text.replace(regex, value);
+  }
+
+  return { subject, html, text };
+}
+
+/**
+ * Seed les templates par défaut (invitation, password-reset) s'ils n'existent pas.
+ * Appelé au démarrage du serveur.
+ */
+export async function seedDefaultEmailTemplates(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  const defaults = [
+    {
+      slug: "invitation",
+      name: "Invitation à rejoindre Lucepress",
+      subject: "Invitation à rejoindre {{organization}}",
+      html: `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f6f9fc; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    h1 { color: #1a1a2e; font-size: 24px; margin: 0 0 24px; }
+    p { color: #444; line-height: 1.6; margin: 0 0 16px; }
+    .button { display: inline-block; padding: 14px 32px; background: #4f46e5; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 24px 0; }
+    .footer { margin-top: 32px; padding-top: 24px; border-top: 1px solid #eee; font-size: 13px; color: #888; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Invitation à rejoindre {{organization}}</h1>
+    <p>Bonjour,</p>
+    <p><strong>{{inviterName}}</strong> vous invite à créer un compte sur <strong>{{organization}}</strong>.</p>
+    <p style="text-align:center;">
+      <a class="button" href="{{inviteLink}}">Accepter l'invitation</a>
+    </p>
+    <p>Ce lien expirera le <strong>{{expiresAt}}</strong>.</p>
+    <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+    <p style="word-break:break-all; font-size:13px; color:#4f46e5;">{{inviteLink}}</p>
+    <div class="footer">
+      Cet e-mail a été envoyé automatiquement. Si vous n'attendiez aucune invitation, ignorez ce message.
+    </div>
+  </div>
+</body>
+</html>`,
+      text: "{{inviterName}} vous invite à rejoindre {{organization}}.\n\nAccepter l'invitation : {{inviteLink}}\n\nCe lien expirera le {{expiresAt}}.",
+    },
+    {
+      slug: "password-reset",
+      name: "Réinitialisation de mot de passe",
+      subject: "Réinitialisation de votre mot de passe",
+      html: `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Réinitialisation de mot de passe</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f6f9fc; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    h1 { color: #1a1a2e; font-size: 24px; margin: 0 0 24px; }
+    p { color: #444; line-height: 1.6; margin: 0 0 16px; }
+    .button { display: inline-block; padding: 14px 32px; background: #4f46e5; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 24px 0; }
+    .footer { margin-top: 32px; padding-top: 24px; border-top: 1px solid #eee; font-size: 13px; color: #888; }
+    .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; font-size: 14px; color: #92400e; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Réinitialisation de votre mot de passe</h1>
+    <p>Bonjour,</p>
+    <p>Nous avons reçu une demande de réinitialisation du mot de passe de votre compte Lucepress.</p>
+    <p style="text-align:center;">
+      <a class="button" href="{{resetLink}}">Créer un nouveau mot de passe</a>
+    </p>
+    <div class="warning">
+      ⏱ Ce lien expirera dans <strong>1 heure</strong> et ne peut être utilisé qu'une seule fois.
+    </div>
+    <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+    <p style="word-break:break-all; font-size:13px; color:#4f46e5;">{{resetLink}}</p>
+    <div class="footer">
+      <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet e-mail — votre mot de passe reste inchangé.</p>
+      <p>Cet e-mail a été envoyé automatiquement.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+      text: "Réinitialisation de votre mot de passe\n\nCréer un nouveau mot de passe : {{resetLink}}\n\nCe lien expirera dans 1 heure.",
+    },
+  ];
+
+  for (const def of defaults) {
+    const [existing] = await db.select({ id: emailTemplates.id }).from(emailTemplates).where(
+      and(eq(emailTemplates.slug, def.slug), sql`${emailTemplates.tenantId} IS NULL`)
+    ).limit(1);
+    if (!existing) {
+      await db.insert(emailTemplates).values({
+        slug: def.slug,
+        name: def.name,
+        subject: def.subject,
+        html: def.html,
+        text: def.text,
+        tenantId: null,
+      });
+      console.log(`[email-templates] Template par défaut créé : ${def.slug}`);
+    }
+  }
+}

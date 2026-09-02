@@ -708,6 +708,34 @@ export const documentSequences = mysqlTable(
   table => [unique("document_sequences_kind_unique").on(table.kind)],
 );
 
+/**
+ * Templates d'e-mail éditables par l'admin.
+ * - `slug` identifie de manière unique le type d'e-mail (ex. "invitation", "password-reset", "invoice").
+ * - `subject` est le sujet du mail (supporte la syntaxe {{variable}}).
+ * - `html` est le contenu HTML du mail (supporte la syntaxe {{variable}}).
+ * - `tenantId` null = template global (par défaut pour tous), sinon spécifique à un tenant.
+ * Les templates globaux sont utilisés si aucun template tenant-spécifique n'existe.
+ */
+export const emailTemplates = mysqlTable(
+  "email_templates",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").references(() => tenants.id, { onDelete: "cascade" }),
+    slug: varchar("slug", { length: 100 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    subject: varchar("subject", { length: 500 }).notNull(),
+    html: text("html").notNull(),
+    text: text("text"),
+    enabled: mysqlEnum("enabled", ["oui", "non"]).default("oui").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    unique("email_templates_tenant_slug_unique").on(table.tenantId, table.slug),
+    index("email_templates_slug_idx").on(table.slug),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Client = typeof clients.$inferSelect;

@@ -9,8 +9,9 @@ import { registerClientAttachmentRoutes } from "../clientAttachments";
 import { registerProjectCostAttachmentRoutes } from "../projectCostAttachments";
 import { registerIntegrationExternalRoutes } from "../integrations/externalRoutes";
 import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRoutes";
+import { setupVite, serveStatic } from "./vite";
 import { createContext } from "./context";
-import { serveStatic, setupVite } from "./vite";
+import { seedDefaultEmailTemplates } from "../db";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -76,6 +77,13 @@ async function startServer() {
 
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+  }
+
+  // Seed les templates par défaut (idempotent)
+  try {
+    await seedDefaultEmailTemplates();
+  } catch (err) {
+    console.warn("[seed] Erreur lors du seed des templates e-mail:", err);
   }
 
   server.listen(port, () => {
