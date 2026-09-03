@@ -43,7 +43,20 @@ CTA rapides en tête de page : **Nouveau devis**, **Créances**, **Relances**.
 - Envoyer 1–2 relances depuis **Créances** (lot possible) si SMTP OK.
 - Ne pas s’appuyer sur **Agent IA** pour l’envoi client : simulation uniquement pendant le pilot.
 
-## Critères de succès du test
+## Contrôle machine — 3 sept. 2026 (avant les testeurs)
+
+| Contrôle | Preuve |
+| --- | --- |
+| App / health | `GET /api/health` → `ok: true`, `db: up` |
+| Pages publiques | `/login`, `/`, `/clients`, `/calendrier` → HTTP 200 |
+| Cockpit Aujourd’hui en prod | bundle `Home` contient « Aujourd’hui » |
+| SMTP | logs PM2 : `Connexion SMTP OK` + envois `[mailer] Envoyé` |
+| Session staff | bench 1 VU / 8 s : 52 req, **0 erreur** (login, devis, créances, mailStatus) |
+| Clics UI bout-en-bout | non faits ici (navigateur d’automatisation indisponible) — à faire par les testeurs |
+
+Les cases « succès du test » ci-dessous restent à cocher **après** les 48 h humaines.
+
+---
 
 - [ ] Connexion staff OK  
 - [ ] Client + devis créés  

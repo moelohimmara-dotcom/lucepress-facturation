@@ -18,6 +18,7 @@ describe("cockpit Aujourd’hui", () => {
     expect(source).toContain("isGettingStartedTaskComplete");
     expect(source).toContain("Trois gestes pour démarrer");
     expect(source).toContain("Guide de démarrage");
+    expect(source).toContain("/calendrier");
   });
 
   it("renomme l’entrée de navigation en Aujourd’hui", () => {

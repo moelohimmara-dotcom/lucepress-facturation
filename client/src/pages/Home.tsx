@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { countGettingStartedTasks, gettingStartedTasks, isGettingStartedTaskComplete } from "@shared/gettingStarted";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { buildTodayInbox, countTodayInboxByPriority, type TodayInboxItem } from "@shared/todayInbox";
-import { AlertTriangle, ArrowRight, Check, CheckCircle2, CircleHelp, FilePlus2, Loader2, Mail, Sparkles, UsersRound } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarDays, Check, CheckCircle2, CircleHelp, FilePlus2, Loader2, Mail, Sparkles, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -64,6 +64,9 @@ export default function Home() {
             </Button>
             <Button variant="outline" onClick={() => setLocation("/creances")} className="h-10 rounded-xl border-border bg-card font-bold">
               Créances
+            </Button>
+            <Button variant="outline" onClick={() => setLocation("/calendrier")} className="h-10 rounded-xl border-border bg-card font-bold">
+              <CalendarDays className="mr-2 h-4 w-4" />Calendrier
             </Button>
             <Button variant="outline" onClick={() => setLocation("/relances")} className="h-10 rounded-xl border-border bg-card font-bold">
               <Mail className="mr-2 h-4 w-4" />Relances
