@@ -25,29 +25,49 @@ function summarizeLatencies(samplesMs) {
   };
 }
 
+import { readFileSync } from "node:fs";
+
 function arg(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
   if (index === -1) return fallback;
   return process.argv[index + 1] ?? fallback;
 }
 
+function loadAccounts() {
+  const file = process.env.LUCEPRESS_BENCH_USERS_FILE ?? "";
+  if (file) {
+    return readFileSync(file, "utf8")
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith("#"))
+      .map(line => {
+        const comma = line.indexOf(",");
+        if (comma < 1) return null;
+        return { email: line.slice(0, comma).trim(), password: line.slice(comma + 1).trim() };
+      })
+      .filter(account => account?.email && account?.password);
+  }
+  const email = process.env.LUCEPRESS_BENCH_EMAIL ?? "";
+  const password = process.env.LUCEPRESS_BENCH_PASSWORD ?? "";
+  return email && password ? [{ email, password }] : [];
+}
+
 const baseUrl = (process.env.LUCEPRESS_BENCH_BASE_URL ?? "http://127.0.0.1:3001").replace(/\/$/, "");
-const email = process.env.LUCEPRESS_BENCH_EMAIL ?? "";
-const password = process.env.LUCEPRESS_BENCH_PASSWORD ?? "";
-const users = Math.max(1, Number.parseInt(arg("users", "7"), 10) || 7);
+const accounts = loadAccounts();
+const users = Math.max(1, Number.parseInt(arg("users", String(accounts.length || 7)), 10) || 7);
 const durationSec = Math.max(5, Number.parseInt(arg("duration", "30"), 10) || 30);
 const scenario = arg("scenario", "read");
 const cookieName = "app_session_id";
 
-if (!email || !password) {
-  console.error("Définissez LUCEPRESS_BENCH_EMAIL et LUCEPRESS_BENCH_PASSWORD (aucun secret dans le dépôt).");
+if (!accounts.length) {
+  console.error("Définissez LUCEPRESS_BENCH_USERS_FILE (csv email,password) ou LUCEPRESS_BENCH_EMAIL / LUCEPRESS_BENCH_PASSWORD.");
   process.exit(1);
 }
 
 function trpcQueryUrl(procedure, input) {
   const path = `${baseUrl}/api/trpc/${procedure}`;
   if (input === undefined) return path;
-  return `${path}?input=${encodeURIComponent(JSON.stringify({ json: input }))}`;
+  return `${path}?input=${encodeURIComponent(JSON.stringify(input))}`;
 }
 
 async function trpcMutation(procedure, payload, cookie) {
@@ -57,7 +77,7 @@ async function trpcMutation(procedure, payload, cookie) {
   const response = await fetch(`${baseUrl}/api/trpc/${procedure}`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ json: payload }),
+    body: JSON.stringify(payload),
   });
   const text = await response.text();
   return { ok: response.ok, status: response.status, ms: Date.now() - started, text, headers: response.headers };
@@ -100,8 +120,10 @@ const readProcedures = [
 
 const mixedExtra = ["billing.clients.list", "billing.collection.assignees"];
 
-async function workerLoop(stopAt, latencies, errors) {
-  const login = await trpcMutation("auth.login", { email, password });
+async function workerLoop(workerIndex, stopAt, latencies, errors) {
+  await new Promise(resolve => setTimeout(resolve, workerIndex * 250));
+  const account = accounts[workerIndex % accounts.length];
+  const login = await trpcMutation("auth.login", { email: account.email, password: account.password });
   latencies.push(login.ms);
   if (!login.ok || procedureFailed(login.text)) {
     errors.push({ type: "login", status: login.status, sample: login.text.slice(0, 180) });
@@ -141,12 +163,13 @@ try {
 const latencies = [];
 const errors = [];
 const stopAt = Date.now() + durationSec * 1000;
-await Promise.all(Array.from({ length: users }, () => workerLoop(stopAt, latencies, errors)));
+await Promise.all(Array.from({ length: users }, (_, index) => workerLoop(index, stopAt, latencies, errors)));
 
 const summary = {
   at: new Date().toISOString(),
   baseUrl,
   users,
+  accounts: accounts.length,
   durationSec,
   scenario,
   health: { status: health.status, ms: healthMs, body: healthJson },

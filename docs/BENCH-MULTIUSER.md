@@ -26,10 +26,17 @@ Hors seuils (runs séparés) : assistant IA, lots SMTP.
 
 Identifiants **uniquement** via l’environnement — jamais dans le dépôt.
 
+Comptes factices : `bench01@lucepress.test` … `bench07@lucepress.test` (rôle cadre). Provision VPS :
+
+```bash
+node --env-file=.env scripts/bench/provision-users.mjs --out ~/.lucepress-bench-users.csv
+```
+
+Puis depuis le poste :
+
 ```bash
 export LUCEPRESS_BENCH_BASE_URL=https://lucepress.213.156.135.139.sslip.io
-export LUCEPRESS_BENCH_EMAIL='compte-staff@…'
-export LUCEPRESS_BENCH_PASSWORD='…'
+export LUCEPRESS_BENCH_USERS_FILE=~/.lucepress-bench-users.csv
 pnpm bench -- --users 7 --duration 60 --scenario read
 ```
 
@@ -45,6 +52,21 @@ pnpm bench -- --users 7 --duration 60 --scenario read
 Pendant le run, sur le VPS : `pm2 monit`, `uptime`, `free -h`.
 
 Coller le JSON résumé dans `docs/bench/` (fichier daté) après le premier run réel.
+
+## Résultat baseline (2026-09-03)
+
+Prod, 7 comptes `cadre` `bench01`–`bench07@lucepress.test`, 60 s, scénario **read** :
+
+| Métrique | Mesure | Cible 7 VU |
+| --- | --- | --- |
+| Requêtes | 3355 | — |
+| Erreurs | 0 | 0 |
+| p50 | 113 ms | — |
+| p95 | 190 ms | < 500 ms |
+| p99 | 434 ms | — |
+| Health | `ok`, `db: up`, pool 10 | — |
+
+**Verdict :** la cible 7 utilisateurs simultanés est tenue (lecture métier). Runs IA/SMTP et 15 VU restent à faire.
 
 ## Config déjà prévue dans le code
 

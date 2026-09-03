@@ -51,8 +51,17 @@ async function startServer() {
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(",") ?? true, credentials: true }));
-  // Rate-limit v8+ incompatible avec body parser (stream consumption)
-  // app.use("/api/", rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true }));
+  const apiRateMax = Number.parseInt(process.env.API_RATE_LIMIT_MAX ?? "2000", 10);
+  if (Number.isFinite(apiRateMax) && apiRateMax > 0) {
+    app.use("/api/", rateLimit({
+      windowMs: 60_000,
+      max: apiRateMax,
+      standardHeaders: true,
+      legacyHeaders: false,
+      validate: false,
+      skip: req => req.path === "/health" || req.originalUrl?.startsWith("/api/health"),
+    }));
+  }
 
   registerStorageProxy(app);
   registerClientAttachmentRoutes(app);

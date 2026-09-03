@@ -94,7 +94,7 @@ export default function DocumentEditorPage({ kind, mode }: { kind: Kind; mode: "
     if (kind === "devis" && Object.keys(paymentScheduleErrors).length) return toast.error("Corrigez l’échéancier d’acompte et solde avant l’enregistrement.");
     const schedulePayload = kind === "devis" && isPaymentScheduleEnabled ? { depositPercent, depositDueDate, balanceDueDate } : {};
     const payload = { clientId: Number(clientId), projectId: projectId ? Number(projectId) : undefined, status, issueDate, dueDate: dueDate || undefined, validUntil: validUntil || undefined, notes: notes || undefined, ...(kind === "devis" ? { discountPercent } : {}), ...schedulePayload, lines: validLines.map(({ key, ...line }) => line) };
-    if (mode === "edit") update.mutate({ id: documentId, ...payload }); else create.mutate({ kind, ...payload, isAiDraft });
+    if (mode === "edit") update.mutate({ id: documentId, expectedUpdatedAt: existing?.updatedAt ? new Date(existing.updatedAt).toISOString() : undefined, ...payload }); else create.mutate({ kind, ...payload, isAiDraft });
   }
   function applyQuoteTemplate() {
     if (!quoteTemplateId) return toast.error("Choisissez un modèle de devis.");

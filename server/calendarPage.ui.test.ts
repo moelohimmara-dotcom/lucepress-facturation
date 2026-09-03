@@ -8,7 +8,8 @@ describe("calendrier des rappels de créances", () => {
   it("affiche les rappels avec un filtre et un accès direct à leur suivi", () => {
     expect(source).toContain("Rappels");
     expect(source).toContain("trpc.billing.receivables.useQuery");
-    expect(source).toContain("buildCalendarEvents(quotes, center?.campaigns ?? [], receivables?.invoices ?? [])");
+    expect(source).toContain("buildCalendarEvents(quotes, center?.campaigns ?? [], receivables?.invoices ?? [], invoices)");
+    expect(source).toContain("trpc.billing.documents.list.useQuery({ kind: \"facture\" })");
     expect(source).toContain("suivi d’une créance à traiter");
   });
 

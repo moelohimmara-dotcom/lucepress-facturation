@@ -56,6 +56,7 @@ import { summarizeReceivables } from "../shared/receivables";
 import { collectionFollowUpLabels, collectionMonthBounds, isCollectionReportMonth, normalizeCollectionReminderDate, validateCollectionReminder, type CollectionFollowUpStatus } from "../shared/collectionFollowUp";
 import { buildWorkspaceSearchResults, type WorkspaceSearchFilters } from "../shared/workspaceSearch";
 import { createAgentMessageDraft, getDelegationPolicyErrors, isCampaignEligibleForSimulation, requiresSecondApproval, type AgentChannel, type AgentPurpose, type AgentTone } from "../shared/agentDelegationPolicy";
+import { isConcurrentDocumentUpdate } from "../shared/documentConcurrency";
 import { ENV } from "./_core/env";
 import { createHash, randomBytes } from "node:crypto";
 import { parseDatabasePoolSize } from "./_core/dbPool";
@@ -1694,6 +1695,7 @@ export async function getDocumentById(id: number) {
       projectId: documents.projectId,
       relatedDocumentId: documents.relatedDocumentId,
       invoiceStage: documents.invoiceStage,
+      updatedAt: documents.updatedAt,
       clientName: clients.companyName,
       contactName: clients.contactName,
       clientAddress: clients.address,
@@ -1943,11 +1945,17 @@ export async function updateDocument(input: {
   balanceDueDate?: string;
   discountPercent?: number;
   notes?: string;
+  expectedUpdatedAt?: string;
   lines: EditableDocumentLine[];
 }) {
   const db = await requireDb();
   const totals = calculateDocumentDiscount(input.lines, input.discountPercent);
   await db.transaction(async tx => {
+    const [current] = await tx.select({ id: documents.id, updatedAt: documents.updatedAt }).from(documents).where(and(eq(documents.id, input.id), eq(documents.tenantId, currentTenant()))).limit(1);
+    if (!current) throw new Error("Document introuvable.");
+    if (isConcurrentDocumentUpdate(current.updatedAt, input.expectedUpdatedAt)) {
+      throw new Error("Ce document a été modifié ailleurs. Rechargez la page avant d’enregistrer.");
+    }
     await tx.update(documents).set({
       clientId: input.clientId,
       projectId: input.projectId ?? null,

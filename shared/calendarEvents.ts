@@ -1,4 +1,4 @@
-export type CalendarEventKind = "devis" | "relance" | "rappel";
+export type CalendarEventKind = "devis" | "facture" | "relance" | "rappel";
 
 export type CalendarEvent = {
   id: string;
@@ -16,7 +16,19 @@ type QuoteSource = {
   clientName: string;
   projectName?: string | null;
   validUntil?: Date | string | null;
+  depositDueDate?: Date | string | null;
+  balanceDueDate?: Date | string | null;
   status: string;
+};
+
+type InvoiceSource = {
+  id: number;
+  number: string;
+  clientName: string;
+  projectName?: string | null;
+  dueDate?: Date | string | null;
+  status: string;
+  balanceDue?: number;
 };
 
 type CampaignSource = {
@@ -42,17 +54,68 @@ export function calendarDateKey(value: Date | string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function buildCalendarEvents(quotes: QuoteSource[], campaigns: CampaignSource[], receivables: ReminderSource[] = []): CalendarEvent[] {
-  const quoteEvents: CalendarEvent[] = quotes
-    .filter(quote => quote.validUntil && !["refuse", "annule"].includes(quote.status))
-    .map(quote => ({
-      id: `quote-${quote.id}`,
-      kind: "devis" as const,
-      date: new Date(quote.validUntil!),
-      title: `Échéance ${quote.number}`,
-      detail: `${quote.clientName}${quote.projectName ? ` · ${quote.projectName}` : ""}`,
-      status: quote.status,
-      href: `/documents/${quote.id}`,
+function clientDetail(clientName: string, projectName?: string | null) {
+  return `${clientName}${projectName ? ` · ${projectName}` : ""}`;
+}
+
+/**
+ * Calendrier commercial : validité devis, acompte/solde, échéance facture, rappels, simulations.
+ */
+export function buildCalendarEvents(
+  quotes: QuoteSource[],
+  campaigns: CampaignSource[],
+  receivables: ReminderSource[] = [],
+  invoices: InvoiceSource[] = [],
+): CalendarEvent[] {
+  const quoteEvents: CalendarEvent[] = quotes.flatMap(quote => {
+    if (["refuse", "annule"].includes(quote.status)) return [];
+    const events: CalendarEvent[] = [];
+    if (quote.validUntil) {
+      events.push({
+        id: `quote-${quote.id}`,
+        kind: "devis",
+        date: new Date(quote.validUntil),
+        title: `Validité ${quote.number}`,
+        detail: clientDetail(quote.clientName, quote.projectName),
+        status: quote.status,
+        href: `/documents/${quote.id}`,
+      });
+    }
+    if (quote.depositDueDate) {
+      events.push({
+        id: `quote-deposit-${quote.id}`,
+        kind: "devis",
+        date: new Date(quote.depositDueDate),
+        title: `Acompte ${quote.number}`,
+        detail: clientDetail(quote.clientName, quote.projectName),
+        status: quote.status,
+        href: `/documents/${quote.id}`,
+      });
+    }
+    if (quote.balanceDueDate) {
+      events.push({
+        id: `quote-balance-${quote.id}`,
+        kind: "devis",
+        date: new Date(quote.balanceDueDate),
+        title: `Solde ${quote.number}`,
+        detail: clientDetail(quote.clientName, quote.projectName),
+        status: quote.status,
+        href: `/documents/${quote.id}`,
+      });
+    }
+    return events;
+  });
+
+  const invoiceEvents: CalendarEvent[] = invoices
+    .filter(invoice => invoice.dueDate && !["paye", "annule", "refuse"].includes(invoice.status) && (invoice.balanceDue === undefined || invoice.balanceDue > 0))
+    .map(invoice => ({
+      id: `invoice-${invoice.id}`,
+      kind: "facture" as const,
+      date: new Date(invoice.dueDate!),
+      title: `Échéance ${invoice.number}`,
+      detail: clientDetail(invoice.clientName, invoice.projectName),
+      status: invoice.status,
+      href: `/documents/${invoice.id}`,
     }));
 
   const campaignEvents: CalendarEvent[] = campaigns
@@ -74,10 +137,10 @@ export function buildCalendarEvents(quotes: QuoteSource[], campaigns: CampaignSo
       kind: "rappel" as const,
       date: new Date(invoice.collectionReminderDate!),
       title: `Rappel ${invoice.number}`,
-      detail: `${invoice.clientName}${invoice.projectName ? ` · ${invoice.projectName}` : ""}`,
+      detail: clientDetail(invoice.clientName, invoice.projectName),
       status: invoice.collectionStatus ?? "a_rappeler",
       href: `/creances?facture=${invoice.id}`,
     }));
 
-  return [...quoteEvents, ...campaignEvents, ...reminderEvents].sort((left, right) => left.date.getTime() - right.date.getTime());
+  return [...quoteEvents, ...invoiceEvents, ...campaignEvents, ...reminderEvents].sort((left, right) => left.date.getTime() - right.date.getTime());
 }

@@ -12,7 +12,7 @@ describe("échéances du calendrier Lucepress", () => {
     expect(events.map(event => event.kind)).toEqual(["rappel", "relance", "devis"]);
     expect(events[0]).toMatchObject({ href: "/creances?facture=9", title: "Rappel FAC-009", detail: "Hydro Guinée · Forage Kindia" });
     expect(events[1]).toMatchObject({ href: "/agent-ia/planification", detail: "4 brouillon(s) · Africa/Conakry" });
-    expect(events[2]).toMatchObject({ href: "/documents/2", title: "Échéance DEV-002" });
+    expect(events[2]).toMatchObject({ href: "/documents/2", title: "Validité DEV-002" });
   });
 
   it("écarte les devis refusés et les campagnes suspendues, et fournit une clé stable par jour", () => {
@@ -24,5 +24,16 @@ describe("échéances du calendrier Lucepress", () => {
 
     expect(events).toEqual([]);
     expect(calendarDateKey("2026-09-10T09:00:00.000Z")).toBe("2026-09-10");
+  });
+
+  it("place acompte, solde et échéance de facture ouverte", () => {
+    const events = buildCalendarEvents(
+      [{ id: 3, number: "DEV-003", clientName: "Alpha", depositDueDate: "2026-09-04T00:00:00.000Z", balanceDueDate: "2026-09-20T00:00:00.000Z", status: "accepte" }],
+      [],
+      [],
+      [{ id: 12, number: "FAC-012", clientName: "Beta", dueDate: "2026-09-08T00:00:00.000Z", status: "envoye", balanceDue: 800_000 }],
+    );
+    expect(events.map(event => event.title)).toEqual(["Acompte DEV-003", "Échéance FAC-012", "Solde DEV-003"]);
+    expect(events.find(event => event.kind === "facture")?.href).toBe("/documents/12");
   });
 });

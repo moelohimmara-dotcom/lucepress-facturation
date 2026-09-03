@@ -1101,8 +1101,15 @@ export const appRouter = router({
         .input(z.object({ kind: z.enum(["devis", "facture"]), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), relatedDocumentId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES).optional(), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, isAiDraft: z.boolean().optional(), lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
         .mutation(({ ctx, input }) => db.createDocument({ ...input, createdById: ctx.user.id, lines: input.lines as EditableDocumentLine[] })),
       update: staffProcedure
-        .input(z.object({ id: z.number().int().positive(), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
-        .mutation(({ input }) => db.updateDocument({ ...input, lines: input.lines as EditableDocumentLine[] })),
+        .input(z.object({ id: z.number().int().positive(), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, expectedUpdatedAt: z.string().min(10).max(40).optional(), lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
+        .mutation(async ({ input }) => {
+          try {
+            return await db.updateDocument({ ...input, lines: input.lines as EditableDocumentLine[] });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Le document n’a pas pu être enregistré.";
+            throw new TRPCError({ code: message.includes("modifié ailleurs") ? "CONFLICT" : "BAD_REQUEST", message });
+          }
+        }),
       updateStatus: staffProcedure
         .input(z.object({ id: z.number().int().positive(), status: z.enum(DOCUMENT_STATUSES) }))
         .mutation(({ input }) => db.updateDocumentStatus(input.id, input.status)),
