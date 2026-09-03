@@ -70,6 +70,7 @@ describe("createContext — aucun accès privilégié sans session", () => {
       openId: "local_supprime",
       email: "supprime@lucepress.com",
       name: "Compte supprimé",
+      tenantId: 1,
     });
 
     const ctx = await createContext(optsWithCookie(`${COOKIE_NAME}=${token}`));
@@ -96,6 +97,7 @@ describe("createContext — aucun accès privilégié sans session", () => {
       openId: "local_dg",
       email: "dg@lucepress.com",
       name: "Directeur",
+      tenantId: 1,
     });
 
     const ctx = await createContext(optsWithCookie(`${COOKIE_NAME}=${token}`));
