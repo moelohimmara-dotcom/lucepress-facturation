@@ -56,7 +56,33 @@ export default function DocumentPreviewPage() {
         onError: (error: { message: string }) => toast.error(error.message),
       })
     : { mutate: () => toast.error("Envoi e-mail indisponible"), isPending: false } as any);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Chargement du document…
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const document = documentData as any;
+  if (!document) {
+    return (
+      <DashboardLayout>
+        <div className="mx-auto max-w-lg py-16 text-center">
+          <p className="text-sm font-extrabold">Document introuvable</p>
+          <p className="mt-2 text-sm text-muted-foreground">Ce devis ou cette facture n’existe pas, ou vous n’y avez pas accès.</p>
+          <Button onClick={() => setLocation("/devis")} className="mt-6 h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+            Retour aux devis
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const isInvoice = document.kind === "facture";
   const kindLabel = isInvoice ? "Facture" : "Devis";
   const legalLine = formatCompanyLegalLine(company ?? {});
