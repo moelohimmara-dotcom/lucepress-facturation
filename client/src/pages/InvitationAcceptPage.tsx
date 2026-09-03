@@ -5,9 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
+import { Loader2 } from "lucide-react";
 
 export default function InvitationAcceptPage() {
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
+  const preview = trpc.previewInvitation.useQuery(
+    { token },
+    { enabled: token.length >= 8, retry: false },
+  );
   const accept = trpc.acceptInvitation.useMutation();
 
   const [name, setName] = useState("");
@@ -21,6 +26,36 @@ export default function InvitationAcceptPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Lien d'invitation invalide</CardTitle>
             <CardDescription>Ce lien ne contient pas de jeton d'invitation.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (preview.isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (preview.data && !preview.data.valid) {
+    const reason = preview.data.reason;
+    const message =
+      reason === "already_accepted"
+        ? "Cette invitation a déjà été utilisée. Connectez-vous ou demandez une nouvelle invitation."
+        : reason === "revoked"
+          ? "Cette invitation a été révoquée. Demandez un nouvel envoi à un administrateur."
+          : reason === "expired"
+            ? "Cette invitation a expiré. Demandez un nouvel envoi à un administrateur."
+            : "Ce lien n’est plus valide (souvent remplacé par un nouvel envoi). Demandez le dernier lien à un administrateur.";
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Invitation indisponible</CardTitle>
+            <CardDescription>{message}</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -57,7 +92,9 @@ export default function InvitationAcceptPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Rejoindre Lucepres</CardTitle>
           <CardDescription>
-            Définissez votre nom et votre mot de passe pour activer votre compte.
+            {preview.data?.valid
+              ? `Compte ${preview.data.emailHint} — définissez votre nom et mot de passe pour activer l’accès.`
+              : "Définissez votre nom et votre mot de passe pour activer votre compte."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -68,7 +105,7 @@ export default function InvitationAcceptPage() {
                 id="name"
                 required
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={e => setName(e.target.value)}
                 placeholder="Prénom Nom"
                 autoComplete="name"
               />
@@ -80,7 +117,7 @@ export default function InvitationAcceptPage() {
                 type="password"
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 placeholder="Au moins 8 caractères"
                 autoComplete="new-password"
                 minLength={8}

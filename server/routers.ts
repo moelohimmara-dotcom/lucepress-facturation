@@ -815,9 +815,36 @@ export const appRouter = router({
       }),
   }),
   /**
+   * Aperçu public d’un lien d’invitation (sans créer le compte).
+   * Permet d’afficher immédiatement si le lien est périmé / déjà utilisé.
+   */
+  previewInvitation: publicProcedure
+    .input(z.object({ token: z.string().min(8).max(128) }))
+    .query(async ({ input }) => {
+      const result = await db.findInvitationByToken(input.token);
+      if (result.reason !== "pending" || !result.invitation) {
+        return {
+          valid: false as const,
+          reason: result.reason,
+        };
+      }
+      const email = result.invitation.email;
+      const at = email.indexOf("@");
+      const emailHint = at > 1
+        ? `${email[0]}***${email.slice(at)}`
+        : "***";
+      return {
+        valid: true as const,
+        reason: "pending" as const,
+        emailHint,
+        role: result.invitation.role,
+        expiresAt: result.invitation.expiresAt,
+      };
+    }),
+  /**
    * Acceptation d'une invitation (publique : l'invité n'est pas encore connecté).
    * Le collaborateur définit son nom + mot de passe ; le compte est créé à ce
-   * moment-là. Le token est vérifié (empreinte scrypt) et à usage unique.
+   * moment-là. Le token est vérifié (empreinte SHA-256) et à usage unique.
    */
   acceptInvitation: publicProcedure
     .input(z.object({
@@ -839,7 +866,7 @@ export const appRouter = router({
       __dbg("A", "routers.ts:acceptInvitation:lookup", "findInvitationByToken result", { reason: result.reason, inviteId: result.invitation?.id ?? null, inviteStatus: result.invitation?.status ?? null, inviteEmailDomain: result.invitation?.email?.split("@")[1] ?? null, tenantId: result.invitation?.tenantId ?? null, role: result.invitation?.role ?? null });
       // #endregion
       if (result.reason === "not_found") {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Invitation introuvable. Ce lien ne correspond à aucune invitation." });
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ce lien d’invitation n’est plus valide (déjà renvoyé, révoqué ou incorrect). Demandez un nouvel envoi à un administrateur, puis utilisez uniquement le dernier lien." });
       }
       if (result.reason === "already_accepted") {
         throw new TRPCError({ code: "CONFLICT", message: "Cette invitation a déjà été utilisée. Demandez une nouvelle invitation." });
