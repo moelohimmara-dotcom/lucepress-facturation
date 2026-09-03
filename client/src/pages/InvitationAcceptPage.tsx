@@ -31,10 +31,19 @@ export default function InvitationAcceptPage() {
     e.preventDefault();
     setPending(true);
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7581/ingest/cbc96c89-ed00-4715-9c49-6a3427fcaddd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c0039'},body:JSON.stringify({sessionId:'9c0039',runId:'pre-fix',hypothesisId:'D',location:'InvitationAcceptPage.tsx:submit',message:'client submit acceptInvitation',data:{tokenLen:token.length,tokenPrefix:token.slice(0,8),nameLen:name.trim().length,passwordLen:password.length,hrefPath:typeof window!=='undefined'?window.location.pathname:null,hasQueryToken:typeof window!=='undefined'?new URLSearchParams(window.location.search).has('token'):null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       await accept.mutateAsync({ token, name, password });
+      // #region agent log
+      fetch('http://127.0.0.1:7581/ingest/cbc96c89-ed00-4715-9c49-6a3427fcaddd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c0039'},body:JSON.stringify({sessionId:'9c0039',runId:'pre-fix',hypothesisId:'D',location:'InvitationAcceptPage.tsx:success',message:'client accept success',data:{},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       toast.success("Compte créé. Connectez-vous avec votre mot de passe.");
       window.location.href = "/login";
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7581/ingest/cbc96c89-ed00-4715-9c49-6a3427fcaddd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c0039'},body:JSON.stringify({sessionId:'9c0039',runId:'pre-fix',hypothesisId:'E',location:'InvitationAcceptPage.tsx:error',message:'client accept error',data:{errorMessage:String(err?.message||'').slice(0,400),errorDataCode:err?.data?.code??null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       const msg = err?.message || "Une erreur est survenue.";
       toast.error(msg);
     } finally {

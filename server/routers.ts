@@ -826,7 +826,18 @@ export const appRouter = router({
       password: z.string().min(8).max(128),
     }))
     .mutation(async ({ input }) => {
+      // #region agent log
+      const __dbg = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => {
+        const payload = { sessionId: "9c0039", runId: "pre-fix", hypothesisId, location, message, data, timestamp: Date.now() };
+        console.log("DEBUG_ACCEPT_9c0039", JSON.stringify(payload));
+        fetch("http://127.0.0.1:7581/ingest/cbc96c89-ed00-4715-9c49-6a3427fcaddd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "9c0039" }, body: JSON.stringify(payload) }).catch(() => {});
+      };
+      __dbg("A", "routers.ts:acceptInvitation:entry", "acceptInvitation called", { tokenLen: input.token?.length ?? 0, tokenPrefix: String(input.token || "").slice(0, 8), nameLen: input.name?.trim()?.length ?? 0, passwordLen: input.password?.length ?? 0 });
+      // #endregion
       const result = await db.findInvitationByToken(input.token);
+      // #region agent log
+      __dbg("A", "routers.ts:acceptInvitation:lookup", "findInvitationByToken result", { reason: result.reason, inviteId: result.invitation?.id ?? null, inviteStatus: result.invitation?.status ?? null, inviteEmailDomain: result.invitation?.email?.split("@")[1] ?? null, tenantId: result.invitation?.tenantId ?? null, role: result.invitation?.role ?? null });
+      // #endregion
       if (result.reason === "not_found") {
         throw new TRPCError({ code: "NOT_FOUND", message: "Invitation introuvable. Ce lien ne correspond à aucune invitation." });
       }
@@ -841,21 +852,42 @@ export const appRouter = router({
       }
       const cible = result.invitation!;
       const existant = await db.getUserByEmail(cible.email);
+      // #region agent log
+      __dbg("B", "routers.ts:acceptInvitation:emailCheck", "existing user check", { exists: Boolean(existant), existingUserId: existant?.id ?? null });
+      // #endregion
       if (existant) {
-        await db.revokeInvitation(cible.id);
+        try {
+          const { runWithTenant } = await import("./_core/tenantContext");
+          await runWithTenant(cible.tenantId, () => db.revokeInvitation(cible.id));
+        } catch {
+          /* best-effort revoke */
+        }
         throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
       }
-      const { hashPassword } = await import("./_core/password");
-      const passwordHash = await hashPassword(input.password);
-      const user = await db.createLocalUser({
-        email: cible.email,
-        passwordHash,
-        name: input.name,
-        role: cible.role,
-        tenantId: cible.tenantId,
-      });
-      await db.markInvitationAccepted(cible.tokenHash, user.id);
-      return { success: true, openId: user.openId, id: user.id } as const;
+      try {
+        const { hashPassword } = await import("./_core/password");
+        const passwordHash = await hashPassword(input.password);
+        const user = await db.createLocalUser({
+          email: cible.email,
+          passwordHash,
+          name: input.name,
+          role: cible.role,
+          tenantId: cible.tenantId,
+        });
+        await db.markInvitationAccepted(cible.tokenHash, user.id);
+        // #region agent log
+        __dbg("C", "routers.ts:acceptInvitation:success", "account created", { userId: user.id, role: cible.role, tenantId: cible.tenantId });
+        // #endregion
+        return { success: true, openId: user.openId, id: user.id } as const;
+      } catch (error) {
+        // #region agent log
+        __dbg("C", "routers.ts:acceptInvitation:createError", "create/mark failed", { errorName: error instanceof Error ? error.name : "unknown", errorMessage: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300) });
+        // #endregion
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Impossible de créer le compte.",
+        });
+      }
     }),
 
   /**
