@@ -27,6 +27,7 @@ vi.mock("./_core/mailer", () => ({
   sendMail: (...args: unknown[]) => sendMailMock(...args),
   isMailConfigured: () => true,
   getDefaultFrom: () => '"Lucepress" <test@example.com>',
+  getSmtpUser: () => "smtp@lucepress.com",
   verifySmtp: async () => true,
 }));
 

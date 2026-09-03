@@ -2514,4 +2514,16 @@ export async function seedDefaultEmailTemplates(): Promise<void> {
       console.log(`[email-templates] Template par défaut créé : ${def.slug}`);
     }
   }
+
+  // Aligne le modèle système « invitation » sur le catalogue partagé (livraison / lien en clair).
+  const { EMAIL_TEMPLATES } = await import("../shared/emailTemplates");
+  const invitation = EMAIL_TEMPLATES.find(entry => entry.id === "invitation");
+  if (invitation) {
+    await db.update(emailTemplates).set({
+      name: invitation.name,
+      subject: invitation.subject,
+      html: invitation.html,
+      text: invitation.text,
+    }).where(and(eq(emailTemplates.slug, "invitation"), sql`${emailTemplates.tenantId} IS NULL`));
+  }
 }

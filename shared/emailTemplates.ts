@@ -38,9 +38,10 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     <p style="text-align: center;">
       <a href="{{inviteLink}}" class="button">Accepter l'invitation</a>
     </p>
+    <p style="word-break:break-all;font-size:13px;color:#4b5563;">{{inviteLink}}</p>
     <p>Ce lien expire le <strong>{{expiresAt}}</strong>.</p>
     <div class="footer">
-      <p>Si vous n'attendez pas cette invitation, vous pouvez ignorer cet e-mail.</p>
+      <p>Si vous ne voyez pas cet e-mail, vérifiez vos spams. Si vous n'attendez pas cette invitation, ignorez ce message.</p>
     </div>
   </div>
 </body>
@@ -49,12 +50,12 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
 
 {{inviterName}} vous a invité(e) à rejoindre {{organization}} sur Lucepres.
 
-Cliquez ici pour accepter : {{inviteLink}}
+Accepter l'invitation (lien valable jusqu'au {{expiresAt}}) :
+{{inviteLink}}
 
-Ce lien expire le {{expiresAt}}.
-
+Si vous ne voyez pas cet e-mail dans votre boîte de réception, vérifiez le dossier spam / indésirables.
 Si vous n'attendez pas cette invitation, ignorez cet e-mail.`,
-    variables: ["inviterName", "inviteLink", "organization", "expiresAt"],
+    variables: ["inviterName", "organization", "inviteLink", "expiresAt"],
   },
   {
     id: "password-reset",

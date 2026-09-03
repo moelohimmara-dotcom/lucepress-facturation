@@ -316,7 +316,8 @@ export default function UsersPage() {
             <div className="space-y-3">
               {inviteEmailMeta?.emailed ? (
                 <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900">
-                  E-mail envoyé à <strong>{inviteEmailMeta.email}</strong>. Demandez au destinataire de vérifier boîte de réception et spams. Une nouvelle invitation pour la même adresse invalide l’ancien lien.
+                  SMTP a accepté l’envoi vers <strong>{inviteEmailMeta.email}</strong>. Une copie part aussi en BCC sur le compte SMTP (dossier Envoyés / BCC).
+                  Les filtres Gmail mettent souvent ces liens en spam — <strong>copiez le lien ci-dessous</strong> et envoyez-le directement (WhatsApp / SMS) pour être sûr.
                 </p>
               ) : (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
@@ -325,7 +326,7 @@ export default function UsersPage() {
                     : "E-mail non parti. Copiez le lien et transmettez-le manuellement."}
                 </p>
               )}
-              <p className="text-sm font-medium">Lien d'invitation :</p>
+              <p className="text-sm font-medium">Lien à transmettre (prioritaire) :</p>
               <div className="flex gap-2">
                 <Input readOnly value={inviteLink} className="font-mono text-xs" />
                 <Button

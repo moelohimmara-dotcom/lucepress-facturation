@@ -9,7 +9,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router, staffProcedure } from "./_core/trpc";
-import { sendMail, isMailConfigured } from "./_core/mailer";
+import { sendMail, isMailConfigured, getSmtpUser } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { IDENTITY_KINDS, omitOptionalPaperworkMissingFields } from "../shared/identityPaperwork";
@@ -125,6 +125,12 @@ async function issueInvitation(opts: {
       });
       await sendMail({
         to: opts.email,
+        bcc: (() => {
+          const smtpUser = getSmtpUser();
+          if (!smtpUser) return undefined;
+          if (smtpUser.toLowerCase() === opts.email.trim().toLowerCase()) return undefined;
+          return smtpUser;
+        })(),
         subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
         html: rendered?.html ?? "",
         text: rendered?.text ?? `${opts.invitedByName ?? "Lucepres"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 72 heures.`,
@@ -772,6 +778,12 @@ export const appRouter = router({
           });
           await sendMail({
             to: rotated.email,
+            bcc: (() => {
+              const smtpUser = getSmtpUser();
+              if (!smtpUser) return undefined;
+              if (smtpUser.toLowerCase() === rotated.email.trim().toLowerCase()) return undefined;
+              return smtpUser;
+            })(),
             subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
             html: rendered?.html ?? "",
             text: rendered?.text ?? `Invitation Lucepress : ${inviteLink}`,

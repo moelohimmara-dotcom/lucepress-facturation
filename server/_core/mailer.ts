@@ -37,10 +37,14 @@ export function isMailConfigured(): boolean {
   return transporter !== null;
 }
 
+export function getSmtpUser(): string | undefined {
+  return process.env.SMTP_USER?.trim() || undefined;
+}
+
 export function getDefaultFrom(): string {
   if (fromEnv) return fromEnv;
-  if (user) return `"Lucepress" <${user}>`;
-  return "Lucepress <noreply@lucepress.local>";
+  if (user) return `"Lucepres" <${user}>`;
+  return "Lucepres <noreply@lucepress.local>";
 }
 
 /** Vérifie la connexion SMTP au démarrage (log seulement, non bloquant). */
@@ -62,6 +66,8 @@ export type AppSendMailOptions = {
   html?: string;
   text?: string;
   from?: string;
+  bcc?: string | string[];
+  replyTo?: string;
   attachments?: Array<{
     filename: string;
     content: Buffer | string;
@@ -81,12 +87,27 @@ export async function sendMail(options: AppSendMailOptions) {
     html: options.html,
     text: options.text,
     from: options.from ?? getDefaultFrom(),
+    bcc: options.bcc,
+    replyTo: options.replyTo,
     attachments: options.attachments?.map(attachment => ({
       filename: attachment.filename,
       content: attachment.content,
       contentType: attachment.contentType,
     })),
-  } as Parameters<Transporter["sendMail"]>[0]);
-  console.log(`[mailer] Envoyé: ${info.messageId} → ${options.to}`);
+  } as Parameters<Transporter["sendMail"]>[0]) as {
+    messageId?: string;
+    accepted?: unknown;
+    rejected?: unknown;
+    response?: string;
+  };
+  const rejected = Array.isArray(info.rejected) ? info.rejected.map(String) : [];
+  console.log(
+    `[mailer] Envoyé: ${info.messageId} → ${options.to}` +
+      `${options.bcc ? ` (bcc ${Array.isArray(options.bcc) ? options.bcc.join(",") : options.bcc})` : ""}` +
+      ` accepted=${JSON.stringify(info.accepted)} rejected=${JSON.stringify(rejected)} response=${info.response || ""}`,
+  );
+  if (rejected.length > 0) {
+    throw new Error(`SMTP a rejeté le destinataire : ${rejected.join(", ")}`);
+  }
   return info;
 }
