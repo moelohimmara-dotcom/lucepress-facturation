@@ -16,6 +16,7 @@ import {
   documentLines,
   documents,
   documentSequences,
+  emailTemplates,
   integrationAuditLogs,
   integrationCapabilities,
   integrationConnections,
