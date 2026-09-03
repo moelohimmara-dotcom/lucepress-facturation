@@ -183,6 +183,13 @@
       "when": 1788440000000,
       "tag": "0025_client_portal_role",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1788441000000,
+      "tag": "0026_invitations_client_role",
+      "breakpoints": true
     }
   ]
 }
