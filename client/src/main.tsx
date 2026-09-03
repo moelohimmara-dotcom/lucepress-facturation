@@ -22,6 +22,16 @@ const queryClient = new QueryClient({
   },
 });
 
+function isPublicAppPath(pathname: string) {
+  return (
+    pathname === "/login" ||
+    pathname.startsWith("/d/") ||
+    pathname.startsWith("/invitation") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password")
+  );
+}
+
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
@@ -29,7 +39,7 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
   if (!isUnauthorized) return;
 
-  if (window.location.pathname !== "/login") {
+  if (!isPublicAppPath(window.location.pathname)) {
     window.location.href = "/login";
   }
 };

@@ -24,6 +24,7 @@ vi.mock("./db", () => ({
   renderEmailTemplate: vi.fn(async () => ({ subject: "s", html: "<p>x</p>", text: "x" })),
   updateDocumentStatus: vi.fn(),
   createClientActivity: vi.fn(),
+  issueDocumentShareLink: vi.fn(async () => ({ token: "b".repeat(64), expiresAt: new Date() })),
 }));
 
 const sendMailMock = vi.fn(async () => ({ messageId: "1" }));

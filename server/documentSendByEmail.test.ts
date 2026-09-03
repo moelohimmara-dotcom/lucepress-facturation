@@ -10,15 +10,22 @@ const mocks = vi.hoisted(() => {
     })),
     updateDocumentStatus: vi.fn(async () => undefined),
     createClientActivity: vi.fn(async () => undefined),
+    issueDocumentShareLink: vi.fn(async () => ({
+      token: "a".repeat(64),
+      expiresAt: new Date("2026-12-01T00:00:00.000Z"),
+    })),
     renderEmailTemplate: vi.fn(async (_slug: string, vars: Record<string, string>) => ({
       subject: `Document ${vars.documentNumber}`,
-      html: `<p>${vars.clientName}</p>`,
-      text: vars.clientName,
+      html: `<p>${vars.clientName}</p><a href="${vars.documentLink}">voir</a>`,
+      text: `${vars.clientName}\n${vars.documentLink}\n${vars.pdfDownloadLink}`,
     })),
   };
 });
 
 vi.mock("./db", () => mocks);
+vi.mock("./documentSharePdf", () => ({
+  buildDocumentSharePdfBuffer: () => Buffer.from("%PDF-1.4 mock"),
+}));
 
 const sendMailMock = vi.fn(async () => ({ messageId: "doc-mail-1" }));
 vi.mock("./_core/mailer", () => ({
@@ -52,30 +59,66 @@ beforeEach(() => {
     number: "DEV-2026-0012",
     status: "a_envoyer",
     total: 1_500_000,
+    subtotal: 1_500_000,
+    taxTotal: 0,
+    issueDate: "2026-09-01",
     dueDate: null,
     validUntil: "2026-09-30",
     clientId: 3,
     clientName: "Bati Guinée",
     contactName: "Mamadou",
     clientEmail: "client@bati.example",
+    clientAddress: "Conakry",
+    notes: null,
+    lines: [{ description: "Pose", quantity: 1, unit: "u", unitPrice: 1_500_000, lineTotal: 1_500_000 }],
   });
 });
 
 describe("billing.documents.sendByEmail", () => {
-  it("envoie le devis, passe le statut à envoye et journalise l’activité", async () => {
+  it("émet un lien guest, joint le PDF par défaut et passe le statut à envoye", async () => {
     const caller = appRouter.createCaller(adminCtx());
     const res = await caller.billing.documents.sendByEmail({ id: 12 });
-    expect(res).toMatchObject({ success: true, emailed: true, to: "client@bati.example", status: "envoye" });
+    expect(res).toMatchObject({
+      success: true,
+      emailed: true,
+      to: "client@bati.example",
+      status: "envoye",
+      attachPdf: true,
+      documentLink: "https://lucepress.example/d/" + "a".repeat(64),
+    });
+    expect(mocks.issueDocumentShareLink).toHaveBeenCalledWith(expect.objectContaining({
+      documentId: 12,
+      recipientEmail: "client@bati.example",
+      createdById: 1,
+    }));
     expect(mocks.renderEmailTemplate).toHaveBeenCalledWith("quote-sent", expect.objectContaining({
       documentNumber: "DEV-2026-0012",
       clientName: "Mamadou",
+      documentLink: expect.stringContaining("/d/"),
+      pdfDownloadLink: expect.stringContaining("download=1"),
+      linkExpiresAt: expect.any(String),
     }));
-    expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({ to: "client@bati.example" }));
+    expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({
+      to: "client@bati.example",
+      attachments: [expect.objectContaining({
+        filename: "DEV-2026-0012.pdf",
+        contentType: "application/pdf",
+      })],
+    }));
     expect(mocks.updateDocumentStatus).toHaveBeenCalledWith(12, "envoye", 1);
     expect(mocks.createClientActivity).toHaveBeenCalledWith(expect.objectContaining({
       clientId: 3,
       documentId: 12,
       type: "email_envoye",
+    }));
+  });
+
+  it("permet d’envoyer sans pièce jointe PDF", async () => {
+    const caller = appRouter.createCaller(adminCtx());
+    const res = await caller.billing.documents.sendByEmail({ id: 12, attachPdf: false });
+    expect(res.attachPdf).toBe(false);
+    expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({
+      attachments: undefined,
     }));
   });
 
@@ -96,5 +139,6 @@ describe("billing.documents.sendByEmail", () => {
       code: "BAD_REQUEST",
     });
     expect(sendMailMock).not.toHaveBeenCalled();
+    expect(mocks.issueDocumentShareLink).not.toHaveBeenCalled();
   });
 });

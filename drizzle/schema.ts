@@ -396,6 +396,29 @@ export const clientActivities = mysqlTable(
   table => [index("client_activities_clientId_createdAt_idx").on(table.clientId, table.createdAt)],
 );
 
+export const documentShareLinks = mysqlTable(
+  "document_share_links",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tenantId: int("tenantId").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    documentId: int("documentId")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    recipientEmail: varchar("recipientEmail", { length: 320 }),
+    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expiresAt").notNull(),
+    revokedAt: timestamp("revokedAt"),
+    lastAccessAt: timestamp("lastAccessAt"),
+    accessCount: int("accessCount").default(0).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("document_share_links_document_idx").on(table.documentId, table.revokedAt),
+    index("document_share_links_tenant_expires_idx").on(table.tenantId, table.expiresAt),
+  ],
+);
+
 export const integrationProviders = mysqlTable(
   "integration_providers",
   {

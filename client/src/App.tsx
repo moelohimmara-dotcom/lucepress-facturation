@@ -36,8 +36,14 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const RemindersPage = lazy(() => import("./pages/RemindersPage"));
 const StaffAuditPage = lazy(() => import("./pages/StaffAuditPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
+const GuestDocumentPage = lazy(() => import("./pages/GuestDocumentPage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
+const GuestLazyFallback = () => (
+  <div className="flex min-h-screen items-center justify-center bg-[#f4f7f5] text-sm text-muted-foreground">
+    Chargement du document…
+  </div>
+);
 
 function withAdminGate<P extends object>(Page: ComponentType<P>, title: string) {
   return function GatedPage(props: P) {
@@ -73,44 +79,53 @@ const DirectionStaffAuditPage = withDirectionGate(StaffAuditPage, "Journal d’a
 
 function Router() {
   return (
-    <Suspense fallback={<LazyFallback />}>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/tableau-de-bord" component={Home} />
-        <Route path={"/devis"} component={() => <DocumentsPage kind="devis" />} />
-        <Route path={"/factures"} component={() => <DocumentsPage kind="facture" />} />
-        <Route path={"/devis/nouveau"} component={() => <DocumentEditorPage kind="devis" mode="create" />} />
-        <Route path={"/factures/nouveau"} component={() => <DocumentEditorPage kind="facture" mode="create" />} />
-        <Route path={"/clients"} component={() => <CatalogPage kind="clients" />} />
-        <Route path={"/chantiers"} component={() => <CatalogPage kind="chantiers" />} />
-        <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
-        <Route path="/integrations" component={AdminIntegrationsPage} />
-        <Route path="/agent-ia" component={AdminAgentDelegationsPage} />
-        <Route path="/agent-ia/planification" component={AdminAgentCampaignSchedulerPage} />
-        <Route path="/agent-ia/audit" component={AdminAgentAuditPage} />
-        <Route path="/agent-ia/e-mails-test" component={AdminAgentTestEmailPage} />
-        <Route path="/calendrier" component={CalendarPage} />
-        <Route path="/couts-chantier" component={ProjectCostsPage} />
-        <Route path="/creances" component={ReceivablesPage} />
-        <Route path="/portail-client" component={ClientPortalPage} />
-        <Route path={"/parametres"} component={SettingsPage} />
-        <Route path={"/parametres/e-mails"} component={AdminEmailTemplatesPage} />
-        <Route path={"/parametres/modeles"} component={AdminEmailTemplatesGalleryPage} />
-        <Route path={"/parametres/modeles/documents"} component={AdminDocumentTemplatesGalleryPage} />
-        <Route path={"/compte/mot-de-passe"} component={ChangePasswordPage} />
-        <Route path={"/parametres/utilisateurs"} component={AdminUsersPage} />
-        <Route path={"/invitation"} component={InvitationAcceptPage} />
-        <Route path={"/forgot-password"} component={ForgotPasswordPage} />
-        <Route path={"/reset-password"} component={ResetPasswordPage} />
-        <Route path={"/relances"} component={RemindersPage} />
-        <Route path={"/journal-audit"} component={DirectionStaffAuditPage} />
-        <Route path={"/login"} component={LoginPage} />
-        <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
-        <Route path={"/documents/:id"} component={DocumentPreviewPage} />
-        <Route path={"/404"} component={NotFound} />
-        <Route component={NotFound} />
-      </Switch>
-    </Suspense>
+    <Switch>
+      <Route path="/d/:token">
+        <Suspense fallback={<GuestLazyFallback />}>
+          <GuestDocumentPage />
+        </Suspense>
+      </Route>
+      <Route>
+        <Suspense fallback={<LazyFallback />}>
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/tableau-de-bord" component={Home} />
+            <Route path={"/devis"} component={() => <DocumentsPage kind="devis" />} />
+            <Route path={"/factures"} component={() => <DocumentsPage kind="facture" />} />
+            <Route path={"/devis/nouveau"} component={() => <DocumentEditorPage kind="devis" mode="create" />} />
+            <Route path={"/factures/nouveau"} component={() => <DocumentEditorPage kind="facture" mode="create" />} />
+            <Route path={"/clients"} component={() => <CatalogPage kind="clients" />} />
+            <Route path={"/chantiers"} component={() => <CatalogPage kind="chantiers" />} />
+            <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
+            <Route path="/integrations" component={AdminIntegrationsPage} />
+            <Route path="/agent-ia" component={AdminAgentDelegationsPage} />
+            <Route path="/agent-ia/planification" component={AdminAgentCampaignSchedulerPage} />
+            <Route path="/agent-ia/audit" component={AdminAgentAuditPage} />
+            <Route path="/agent-ia/e-mails-test" component={AdminAgentTestEmailPage} />
+            <Route path="/calendrier" component={CalendarPage} />
+            <Route path="/couts-chantier" component={ProjectCostsPage} />
+            <Route path="/creances" component={ReceivablesPage} />
+            <Route path="/portail-client" component={ClientPortalPage} />
+            <Route path={"/parametres"} component={SettingsPage} />
+            <Route path={"/parametres/e-mails"} component={AdminEmailTemplatesPage} />
+            <Route path={"/parametres/modeles"} component={AdminEmailTemplatesGalleryPage} />
+            <Route path={"/parametres/modeles/documents"} component={AdminDocumentTemplatesGalleryPage} />
+            <Route path={"/compte/mot-de-passe"} component={ChangePasswordPage} />
+            <Route path={"/parametres/utilisateurs"} component={AdminUsersPage} />
+            <Route path={"/invitation"} component={InvitationAcceptPage} />
+            <Route path={"/forgot-password"} component={ForgotPasswordPage} />
+            <Route path={"/reset-password"} component={ResetPasswordPage} />
+            <Route path={"/relances"} component={RemindersPage} />
+            <Route path={"/journal-audit"} component={DirectionStaffAuditPage} />
+            <Route path={"/login"} component={LoginPage} />
+            <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
+            <Route path={"/documents/:id"} component={DocumentPreviewPage} />
+            <Route path={"/404"} component={NotFound} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
+      </Route>
+    </Switch>
   );
 }
 

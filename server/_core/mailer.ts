@@ -9,7 +9,7 @@
  *   SMTP_FROM   – expéditeur optionnel (sinon SMTP_USER)
  */
 
-import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 const host = process.env.SMTP_HOST?.trim();
 const port = Number(process.env.SMTP_PORT);
@@ -56,17 +56,37 @@ export async function verifySmtp(): Promise<boolean> {
   }
 }
 
-export async function sendMail(options: SendMailOptions) {
+export type AppSendMailOptions = {
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
+  from?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer | string;
+    contentType?: string;
+  }>;
+};
+
+export async function sendMail(options: AppSendMailOptions) {
   if (!transporter) {
     throw new Error(
       "Le serveur SMTP n’est pas configuré. Vérifiez SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.",
     );
   }
-  const { from, ...rest } = options;
   const info = await transporter.sendMail({
-    ...rest,
-    from: from ?? getDefaultFrom(),
-  });
+    to: options.to,
+    subject: options.subject,
+    html: options.html,
+    text: options.text,
+    from: options.from ?? getDefaultFrom(),
+    attachments: options.attachments?.map(attachment => ({
+      filename: attachment.filename,
+      content: attachment.content,
+      contentType: attachment.contentType,
+    })),
+  } as Parameters<Transporter["sendMail"]>[0]);
   console.log(`[mailer] Envoyé: ${info.messageId}`);
   return info;
 }

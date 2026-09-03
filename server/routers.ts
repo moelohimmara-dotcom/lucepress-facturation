@@ -18,7 +18,14 @@ import { APP_ROLES, isStaffRole, STAFF_ROLES } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
-import { BATCH_REMINDER_LIMIT, normalizeBatchReminderDocumentIds, normalizeBatchReminderInstruction } from "../shared/batchReminders";
+import {
+  BATCH_REMINDER_LIMIT,
+  normalizeBatchReminderDocumentIds,
+  normalizeBatchReminderInstruction,
+} from "../shared/batchReminders";
+import { assertGuestShareRateLimit } from "./_core/guestShareRateLimit";
+import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
+import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
 
 /** Reconstruit l'origine (https://...) à partir de la requête Express. */
 function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
@@ -360,6 +367,52 @@ const proposalSchema = {
 
 export const appRouter = router({
   system: systemRouter,
+  guest: router({
+    getDocument: publicProcedure
+      .input(z.object({ token: z.string().trim().min(32).max(128) }))
+      .query(async ({ ctx, input }) => {
+        const { resolveClientIp } = await import("./_core/clientIp");
+        const verdict = assertGuestShareRateLimit(resolveClientIp(ctx.req));
+        if (!verdict.allowed) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Trop de tentatives. Réessayez dans ${verdict.retryAfterSeconds} seconde(s).`,
+          });
+        }
+        try {
+          return await db.getGuestDocumentByShareToken(input.token);
+        } catch (error) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: error instanceof Error ? error.message : GUEST_DOCUMENT_INVALID_MESSAGE,
+          });
+        }
+      }),
+    respondToQuote: publicProcedure
+      .input(z.object({
+        token: z.string().trim().min(32).max(128),
+        decision: z.enum(["accepte", "refuse"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { resolveClientIp } = await import("./_core/clientIp");
+        const verdict = assertGuestShareRateLimit(resolveClientIp(ctx.req));
+        if (!verdict.allowed) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Trop de tentatives. Réessayez dans ${verdict.retryAfterSeconds} seconde(s).`,
+          });
+        }
+        try {
+          return await db.respondToGuestQuoteByShareToken(input);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : GUEST_DOCUMENT_INVALID_MESSAGE;
+          throw new TRPCError({
+            code: message.includes("expire") || message.includes("attente") ? "BAD_REQUEST" : "NOT_FOUND",
+            message,
+          });
+        }
+      }),
+  }),
   auth: router({
     register: publicProcedure
       .input(z.object({
@@ -1171,6 +1224,7 @@ export const appRouter = router({
         .input(z.object({
           id: z.number().int().positive(),
           to: z.string().email().max(320).optional(),
+          attachPdf: z.boolean().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
           if (!isMailConfigured()) {
@@ -1193,7 +1247,15 @@ export const appRouter = router({
 
           const company = await db.getCompanySettings();
           const origin = getRequestOrigin(ctx.req);
-          const documentLink = `${origin}/portail-client`;
+          const share = await db.issueDocumentShareLink({
+            documentId: document.id,
+            recipientEmail: to,
+            createdById: ctx.user.id,
+            validUntil: document.validUntil,
+            dueDate: document.dueDate,
+          });
+          const documentLink = `${origin}/d/${share.token}`;
+          const pdfDownloadLink = `${documentLink}?download=1`;
           const amount = new Intl.NumberFormat("fr-GN").format(document.total);
           const dueDate = document.dueDate
             ? new Date(document.dueDate).toLocaleDateString("fr-FR")
@@ -1209,9 +1271,11 @@ export const appRouter = router({
             dueDate,
             validUntil,
             documentLink,
+            pdfDownloadLink,
             companyEmail: company?.email || LUCEPRES_PUBLIC_PROFILE.email,
             organization: company?.legalName || LUCEPRES_PUBLIC_PROFILE.legalName,
             paymentMethod: "selon les modalités indiquées sur le document",
+            linkExpiresAt: share.expiresAt.toLocaleDateString("fr-FR"),
           };
 
           const rendered = await db.renderEmailTemplate(slug, variables);
@@ -1222,12 +1286,37 @@ export const appRouter = router({
             });
           }
 
+          const attachments = input.attachPdf === false ? undefined : [{
+            filename: `${document.number}.pdf`,
+            content: buildDocumentSharePdfBuffer({
+              kind: document.kind,
+              number: document.number,
+              issueDate: document.issueDate,
+              validUntil: document.validUntil,
+              dueDate: document.dueDate,
+              clientName: document.clientName,
+              contactName: document.contactName,
+              clientAddress: document.clientAddress,
+              notes: document.notes,
+              subtotal: document.subtotal,
+              taxTotal: document.taxTotal,
+              total: document.total,
+              lines: document.lines,
+            }, company),
+            contentType: "application/pdf",
+          }];
+
+          if (document.status === "brouillon" || document.status === "a_envoyer") {
+            await db.updateDocumentStatus(document.id, "envoye", ctx.user.id);
+          }
+
           try {
             await sendMail({
               to,
               subject: rendered.subject,
               html: rendered.html,
               text: rendered.text,
+              attachments,
             });
           } catch (error) {
             throw new TRPCError({
@@ -1236,16 +1325,12 @@ export const appRouter = router({
             });
           }
 
-          if (document.status === "brouillon" || document.status === "a_envoyer") {
-            await db.updateDocumentStatus(document.id, "envoye", ctx.user.id);
-          }
-
           await db.createClientActivity({
             clientId: document.clientId,
             documentId: document.id,
             type: "email_envoye",
             title: `${document.kind === "facture" ? "Facture" : "Devis"} envoyé par e-mail`,
-            description: `${document.number} → ${to}`,
+            description: `${document.number} → ${to} · lien guest`,
             createdById: ctx.user.id,
           });
 
@@ -1253,7 +1338,9 @@ export const appRouter = router({
             success: true,
             emailed: true,
             to,
-            status: document.status === "brouillon" || document.status === "a_envoyer" ? "envoye" as const : document.status,
+            documentLink,
+            attachPdf: Boolean(attachments?.length),
+            status: "envoye" as const,
           };
         }),
     }),

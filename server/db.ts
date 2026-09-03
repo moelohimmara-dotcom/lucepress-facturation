@@ -14,6 +14,7 @@ import {
   clientAttachments,
   companySettings,
   documentLines,
+  documentShareLinks,
   documents,
   documentSequences,
   emailTemplates,
@@ -40,6 +41,13 @@ import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber,
 import type { AppRole } from "../shared/roles";
 import { normalizeIdentityKind, type IdentityKind } from "../shared/identityPaperwork";
 import type { ClientActivityType } from "../shared/clientActivityTypes";
+import {
+  computeDocumentShareExpiry,
+  createDocumentShareToken,
+  GUEST_DOCUMENT_INVALID_MESSAGE,
+  hashDocumentShareToken,
+  isPlausibleDocumentShareToken,
+} from "../shared/documentShare";
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
@@ -549,6 +557,181 @@ export async function listStaffAuditJournal(input?: { limit?: number; type?: Cli
     .where(and(...conditions))
     .orderBy(desc(clientActivities.createdAt))
     .limit(limit);
+}
+
+const GUEST_HIDDEN_STATUSES = new Set(["brouillon", "annule"]);
+
+export async function revokeActiveDocumentShareLinks(documentId: number) {
+  const db = await requireDb();
+  await db
+    .update(documentShareLinks)
+    .set({ revokedAt: new Date() })
+    .where(and(
+      eq(documentShareLinks.documentId, documentId),
+      eq(documentShareLinks.tenantId, currentTenant()),
+      sql`${documentShareLinks.revokedAt} IS NULL`,
+    ));
+}
+
+export async function issueDocumentShareLink(input: {
+  documentId: number;
+  recipientEmail?: string | null;
+  createdById: number;
+  validUntil?: Date | string | null;
+  dueDate?: Date | string | null;
+}) {
+  const db = await requireDb();
+  await revokeActiveDocumentShareLinks(input.documentId);
+  const token = createDocumentShareToken();
+  const tokenHash = hashDocumentShareToken(token);
+  const expiresAt = computeDocumentShareExpiry({
+    validUntil: input.validUntil,
+    dueDate: input.dueDate,
+  });
+  await db.insert(documentShareLinks).values({
+    tenantId: currentTenant(),
+    documentId: input.documentId,
+    tokenHash,
+    recipientEmail: input.recipientEmail?.trim().toLowerCase() || null,
+    createdById: input.createdById,
+    expiresAt,
+  });
+  return { token, expiresAt };
+}
+
+async function loadGuestDocumentPayload(documentId: number, tenantId: number) {
+  return runWithTenant(tenantId, async () => {
+    const document = await getDocumentById(documentId);
+    if (!document) return null;
+    if (GUEST_HIDDEN_STATUSES.has(document.status)) return null;
+    const company = await getCompanySettings();
+    return {
+      document: {
+        id: document.id,
+        kind: document.kind,
+        number: document.number,
+        status: document.status,
+        issueDate: document.issueDate,
+        dueDate: document.dueDate,
+        validUntil: document.validUntil,
+        depositPercent: document.depositPercent,
+        depositDueDate: document.depositDueDate,
+        balanceDueDate: document.balanceDueDate,
+        discountPercent: document.discountPercent,
+        discountAmount: document.discountAmount,
+        subtotal: document.subtotal,
+        taxTotal: document.taxTotal,
+        total: document.total,
+        notes: document.notes,
+        clientName: document.clientName,
+        contactName: document.contactName,
+        clientAddress: document.clientAddress,
+        projectName: document.projectName,
+        lines: document.lines.map(line => ({
+          id: line.id,
+          description: line.description,
+          quantity: line.quantity,
+          unit: line.unit,
+          unitPrice: line.unitPrice,
+          taxRate: line.taxRate,
+          lineTotal: line.lineTotal,
+        })),
+        paidAmount: document.paidAmount,
+        balanceDue: document.balanceDue,
+        canRespond: document.kind === "devis" && document.status === "envoye",
+      },
+      company: {
+        legalName: company.legalName,
+        legalAddress: company.legalAddress,
+        phone: company.phone,
+        email: company.email,
+        website: company.website,
+        identityKind: company.identityKind,
+        taxId: company.taxId,
+        registrationNumber: company.registrationNumber,
+        bankName: company.bankName,
+        accountName: company.accountName,
+        accountNumber: company.accountNumber,
+        iban: company.iban,
+        swift: company.swift,
+        paymentInstructions: company.paymentInstructions,
+        documentFooter: company.documentFooter,
+      },
+    };
+  });
+}
+
+export async function getGuestDocumentByShareToken(token: string) {
+  if (!isPlausibleDocumentShareToken(token)) {
+    throw new Error(GUEST_DOCUMENT_INVALID_MESSAGE);
+  }
+  const db = await requireDb();
+  const tokenHash = hashDocumentShareToken(token.trim().toLowerCase());
+  const [link] = await db.select().from(documentShareLinks).where(eq(documentShareLinks.tokenHash, tokenHash)).limit(1);
+  if (!link || link.revokedAt || link.expiresAt.getTime() < Date.now()) {
+    throw new Error(GUEST_DOCUMENT_INVALID_MESSAGE);
+  }
+  const payload = await loadGuestDocumentPayload(link.documentId, link.tenantId);
+  if (!payload) throw new Error(GUEST_DOCUMENT_INVALID_MESSAGE);
+  await db.update(documentShareLinks).set({
+    lastAccessAt: new Date(),
+    accessCount: sql`${documentShareLinks.accessCount} + 1`,
+  }).where(eq(documentShareLinks.id, link.id));
+  return {
+    ...payload,
+    share: {
+      expiresAt: link.expiresAt,
+      recipientEmail: link.recipientEmail,
+    },
+  };
+}
+
+export async function respondToGuestQuoteByShareToken(input: {
+  token: string;
+  decision: "accepte" | "refuse";
+}) {
+  if (!isPlausibleDocumentShareToken(input.token)) {
+    throw new Error(GUEST_DOCUMENT_INVALID_MESSAGE);
+  }
+  const db = await requireDb();
+  const tokenHash = hashDocumentShareToken(input.token.trim().toLowerCase());
+  const [link] = await db.select().from(documentShareLinks).where(eq(documentShareLinks.tokenHash, tokenHash)).limit(1);
+  if (!link || link.revokedAt || link.expiresAt.getTime() < Date.now()) {
+    throw new Error(GUEST_DOCUMENT_INVALID_MESSAGE);
+  }
+  return runWithTenant(link.tenantId, async () => {
+    const document = await getDocumentById(link.documentId);
+    if (!document || document.kind !== "devis") throw new Error(GUEST_DOCUMENT_INVALID_MESSAGE);
+    if (document.status !== "envoye") {
+      throw new Error("Ce devis n’est plus en attente de votre réponse.");
+    }
+    if (document.validUntil) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const validUntil = new Date(document.validUntil);
+      validUntil.setHours(0, 0, 0, 0);
+      if (validUntil < today) {
+        throw new Error("Ce devis a expiré. Contactez Lucepres pour une mise à jour.");
+      }
+    }
+    const actorId = link.createdById ?? undefined;
+    await updateDocumentStatus(document.id, input.decision, actorId, {
+      title: input.decision === "accepte" ? "Devis accepté via lien e-mail" : "Devis refusé via lien e-mail",
+      description: `${document.number} · décision guest`,
+    });
+    if (!actorId) {
+      await db.insert(clientActivities).values({
+        tenantId: link.tenantId,
+        clientId: document.clientId,
+        documentId: document.id,
+        type: "statut_document",
+        title: input.decision === "accepte" ? "Devis accepté via lien e-mail" : "Devis refusé via lien e-mail",
+        description: `${document.number} · décision guest`,
+        createdById: null,
+      });
+    }
+    return { success: true as const, status: input.decision, number: document.number };
+  });
 }
 
 export async function listClientActivities(clientId: number) {

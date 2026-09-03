@@ -135,8 +135,9 @@ Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.`,
     <p style="text-align: center;">
       <a href="{{documentLink}}" class="button">Consulter le devis</a>
     </p>
+    <p style="text-align: center; font-size: 13px;"><a href="{{pdfDownloadLink}}" style="color: #113b35;">Télécharger le PDF</a></p>
     <div class="footer">
-      <p>Pour toute question, contactez-nous à {{companyEmail}}.</p>
+      <p>Ce lien personnel expire le <strong>{{linkExpiresAt}}</strong>. Pour toute question, contactez-nous à {{companyEmail}}.</p>
     </div>
   </div>
 </body>
@@ -150,9 +151,11 @@ Date d'échéance : {{dueDate}}
 Valable jusqu'au : {{validUntil}}
 
 Consulter le devis : {{documentLink}}
+Télécharger le PDF : {{pdfDownloadLink}}
 
+Ce lien personnel expire le {{linkExpiresAt}}.
 Pour toute question, contactez-nous à {{companyEmail}}.`,
-    variables: ["clientName", "documentNumber", "amount", "dueDate", "validUntil", "documentLink", "companyEmail"],
+    variables: ["clientName", "documentNumber", "amount", "dueDate", "validUntil", "documentLink", "pdfDownloadLink", "companyEmail", "linkExpiresAt"],
   },
   {
     id: "invoice-sent",
@@ -188,8 +191,9 @@ Pour toute question, contactez-nous à {{companyEmail}}.`,
     <p style="text-align: center;">
       <a href="{{documentLink}}" class="button">Consulter la facture</a>
     </p>
+    <p style="text-align: center; font-size: 13px;"><a href="{{pdfDownloadLink}}" style="color: #113b35;">Télécharger le PDF</a></p>
     <div class="footer">
-      <p>Merci de régler avant le {{dueDate}}. Pour toute question, contactez-nous à {{companyEmail}}.</p>
+      <p>Merci de régler avant le {{dueDate}}. Lien valable jusqu’au <strong>{{linkExpiresAt}}</strong>. Pour toute question, contactez-nous à {{companyEmail}}.</p>
     </div>
   </div>
 </body>
@@ -203,9 +207,11 @@ Date d'échéance : {{dueDate}}
 Mode de paiement : {{paymentMethod}}
 
 Consulter la facture : {{documentLink}}
+Télécharger le PDF : {{pdfDownloadLink}}
 
-Merci de régler avant le {{dueDate}}. Pour toute question, contactez-nous à {{companyEmail}}.`,
-    variables: ["clientName", "documentNumber", "amount", "dueDate", "paymentMethod", "documentLink", "companyEmail"],
+Merci de régler avant le {{dueDate}}. Lien valable jusqu’au {{linkExpiresAt}}.
+Pour toute question, contactez-nous à {{companyEmail}}.`,
+    variables: ["clientName", "documentNumber", "amount", "dueDate", "paymentMethod", "documentLink", "pdfDownloadLink", "companyEmail", "organization", "linkExpiresAt"],
   },
   {
     id: "payment-reminder",
