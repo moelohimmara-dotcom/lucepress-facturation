@@ -13,6 +13,12 @@ describe("P0.2 — portail utilisable", () => {
     expect(portal).toContain("Inviter au portail");
   });
 
+  it("expose l’acceptation / refus de devis côté portail", () => {
+    expect(portal).toContain("respondToQuote");
+    expect(portal).toContain("Accepter le devis");
+    expect(portal).toContain("Devis à traiter");
+  });
+
   it("permet d’inviter depuis la fiche client", () => {
     expect(catalog).toContain("invitePortal");
     expect(catalog).toContain("Inviter au portail");

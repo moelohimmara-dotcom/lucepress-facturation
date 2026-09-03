@@ -8,7 +8,11 @@ describe("portail client", () => {
     expect(router).toMatch(/clientPortal: router\(\{\s*overview: protectedProcedure/s);
     expect(router).toContain("db.getClientPortalOverview(ctx.user.email)");
     expect(router).toContain("db.getClientPortalInvoice(ctx.user.email, input.id)");
+    expect(router).toContain("db.getClientPortalQuote(ctx.user.email, input.id)");
+    expect(router).toContain("respondToClientPortalQuote");
     expect(database).toContain("lower(${clients.email}) = ${normalized}");
     expect(database).toContain("invoice.clientId !== client.id");
+    expect(database).toContain("respondToClientPortalQuote");
+    expect(database).toContain('decision === "accepte"');
   });
 });

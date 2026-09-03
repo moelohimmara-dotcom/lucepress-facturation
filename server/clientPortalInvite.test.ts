@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     getClientPortalOverview: vi.fn(async (email: string) => ({
       client: email === "client@bati.example" ? { id: 3, companyName: "Bati" } : null,
       invoices: email === "client@bati.example" ? [{ id: 10, number: "FAC-1", clientId: 3, kind: "facture", balanceDue: 1000 }] : [],
+      quotes: [],
     })),
     listDocuments: vi.fn(async () => []),
     INVITATION_TTL_MS: 72 * 60 * 60 * 1000,

@@ -13,16 +13,21 @@ describe("interface de recouvrement Lucepress", () => {
     expect(source).toContain("lucepress-panel");
   });
 
-  it("propose l’export filtré, la chronologie client et les brouillons groupés à relire", () => {
+  it("propose l’export filtré, la chronologie client et l’envoi batch après relecture", () => {
     expect(source).toContain("Exporter la file filtrée");
     expect(source).toContain("Historique client");
     expect(source).toContain("Relances groupées");
     expect(source).toContain("Consigne de personnalisation");
-    expect(source).toContain("Aucun e-mail, WhatsApp ou autre message n’est envoyé");
+    expect(source).toContain("sendBatchReminderEmails");
+    expect(source).toContain("Envoyer");
+    expect(source).toContain("SMTP non configuré");
+    expect(source).toContain("WhatsApp n’est pas activé");
   });
 
   it("propose le rapport mensuel, les statuts de suivi et l’attribution d’un responsable", () => {
     expect(source).toContain("Rapport mensuel PDF");
+    expect(source).toContain("canPilotCollection");
+    expect(source).toContain("isDirectionRole");
     expect(source).toContain("Statut de relance");
     expect(source).toContain("Responsable de recouvrement");
     expect(source).toContain("À rappeler");

@@ -12,7 +12,7 @@ import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure
 import { sendMail, isMailConfigured } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
-import { APP_ROLES, isStaffRole } from "../shared/roles";
+import { APP_ROLES, isStaffRole, STAFF_ROLES } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
@@ -24,6 +24,48 @@ function getRequestOrigin(req: { protocol?: string; get?: (name: string) => stri
   const host = req.get?.("x-forwarded-host") || req.get?.("host");
   if (!host || host.includes("localhost")) return (process.env.APP_PUBLIC_URL || "https://lucepress.213.156.135.139.sslip.io").replace(/\/$/, "");
   return `${proto}://${host}`;
+}
+
+const reminderEmailInputSchema = z.object({
+  documentId: z.number().int().positive(),
+  subject: z.string().trim().min(3).max(255),
+  greeting: z.string().trim().min(1).max(500),
+  body: z.string().trim().min(3).max(8000),
+  closing: z.string().trim().min(1).max(1000),
+  to: z.string().email().max(320).optional(),
+});
+
+async function dispatchReminderEmail(input: z.infer<typeof reminderEmailInputSchema>, actorId: number) {
+  const document = await db.getDocumentById(input.documentId);
+  if (!document || document.kind !== "facture" || document.balanceDue <= 0) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
+  }
+  const to = (input.to ?? document.clientEmail ?? "").trim();
+  if (!to) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Aucune adresse e-mail client. Renseignez l’e-mail sur la fiche client.",
+    });
+  }
+  const text = `${input.greeting}\n\n${input.body}\n\n${input.closing}`;
+  const html = `<p>${input.greeting.replace(/\n/g, "<br/>")}</p><p>${input.body.replace(/\n/g, "<br/>")}</p><p>${input.closing.replace(/\n/g, "<br/>")}</p>`;
+  try {
+    await sendMail({ to, subject: input.subject, text, html });
+  } catch (error) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: error instanceof Error ? error.message : "Échec d’envoi de la relance.",
+    });
+  }
+  await db.createClientActivity({
+    clientId: document.clientId,
+    documentId: document.id,
+    type: "note",
+    title: "Relance envoyée par e-mail",
+    description: `${document.number} → ${to} · ${input.subject}`,
+    createdById: actorId,
+  });
+  return { success: true as const, emailed: true as const, to, documentId: document.id };
 }
 
 async function issueInvitation(opts: {
@@ -565,7 +607,7 @@ export const appRouter = router({
         return { success: true, openId: user.openId, id: user.id } as const;
       }),
     setRole: adminProcedure
-      .input(z.object({ userId: z.number().int().positive(), role: z.enum(APP_ROLES) }))
+      .input(z.object({ userId: z.number().int().positive(), role: z.enum(STAFF_ROLES) }))
       .mutation(async ({ ctx, input }) => {
         // Garde-fou : un admin ne peut pas se rétrograder lui-même et laisser
         // l'instance sans administrateur.
@@ -845,13 +887,13 @@ export const appRouter = router({
           try { return await db.updateCollectionFollowUp({ ...input, updatedById: ctx.user.id }); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le suivi de recouvrement ne peut pas être mis à jour." }); }
         }),
-      reassign: staffProcedure
+      reassign: directionProcedure
         .input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(20).refine(ids => new Set(ids).size === ids.length, "Une créance ne peut être sélectionnée qu’une fois."), collectionOwnerId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try { return await db.reassignCollectionFollowUps({ ...input, updatedById: ctx.user.id }); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Les créances ne peuvent pas être réattribuées." }); }
         }),
-      monthlyReport: staffProcedure
+      monthlyReport: directionProcedure
         .input(z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Le mois doit respecter le format AAAA-MM.") }))
         .query(async ({ input }) => {
           try { return await db.getCollectionMonthlyReport(input.month); }
@@ -861,6 +903,27 @@ export const appRouter = router({
     clientPortal: router({
       overview: protectedProcedure.query(({ ctx }) => db.getClientPortalOverview(ctx.user.email)),
       invoice: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => db.getClientPortalInvoice(ctx.user.email, input.id)),
+      quote: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => db.getClientPortalQuote(ctx.user.email, input.id)),
+      respondToQuote: protectedProcedure
+        .input(z.object({
+          documentId: z.number().int().positive(),
+          decision: z.enum(["accepte", "refuse"]),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.respondToClientPortalQuote({
+              email: ctx.user.email,
+              documentId: input.documentId,
+              decision: input.decision,
+              createdById: ctx.user.id,
+            });
+          } catch (error) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: error instanceof Error ? error.message : "La décision sur le devis n’a pas pu être enregistrée.",
+            });
+          }
+        }),
       createPaymentPromise: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), promisedDate: dateText, note: z.string().trim().max(500).optional() })).mutation(({ ctx, input }) => db.createClientPaymentPromise({ ...input, email: ctx.user.email, createdById: ctx.user.id })),
     }),
     agent: router({
@@ -1226,13 +1289,22 @@ export const appRouter = router({
        * WhatsApp volontairement non branché (sourdine démo).
        */
       sendReminderEmail: staffProcedure
+        .input(reminderEmailInputSchema)
+        .mutation(async ({ ctx, input }) => {
+          if (!isMailConfigured()) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "SMTP non configuré. Renseignez SMTP_HOST, SMTP_PORT, SMTP_USER et SMTP_PASS.",
+            });
+          }
+          return dispatchReminderEmail(input, ctx.user.id);
+        }),
+      /**
+       * Envoie un lot de relances déjà relu (Créances). Continue en cas d’échec partiel.
+       */
+      sendBatchReminderEmails: staffProcedure
         .input(z.object({
-          documentId: z.number().int().positive(),
-          subject: z.string().trim().min(3).max(255),
-          greeting: z.string().trim().min(1).max(500),
-          body: z.string().trim().min(3).max(8000),
-          closing: z.string().trim().min(1).max(1000),
-          to: z.string().email().max(320).optional(),
+          reminders: z.array(reminderEmailInputSchema.omit({ to: true })).min(1).max(BATCH_REMINDER_LIMIT),
         }))
         .mutation(async ({ ctx, input }) => {
           if (!isMailConfigured()) {
@@ -1241,36 +1313,25 @@ export const appRouter = router({
               message: "SMTP non configuré. Renseignez SMTP_HOST, SMTP_PORT, SMTP_USER et SMTP_PASS.",
             });
           }
-          const document = await db.getDocumentById(input.documentId);
-          if (!document || document.kind !== "facture" || document.balanceDue <= 0) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
+          const sent: Array<{ documentId: number; to: string }> = [];
+          const failed: Array<{ documentId: number; error: string }> = [];
+          for (const reminder of input.reminders) {
+            try {
+              const result = await dispatchReminderEmail(reminder, ctx.user.id);
+              sent.push({ documentId: result.documentId, to: result.to });
+            } catch (error) {
+              failed.push({
+                documentId: reminder.documentId,
+                error: error instanceof TRPCError ? error.message : error instanceof Error ? error.message : "Échec d’envoi.",
+              });
+            }
           }
-          const to = (input.to ?? document.clientEmail ?? "").trim();
-          if (!to) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "Aucune adresse e-mail client. Renseignez l’e-mail sur la fiche client.",
-            });
-          }
-          const text = `${input.greeting}\n\n${input.body}\n\n${input.closing}`;
-          const html = `<p>${input.greeting.replace(/\n/g, "<br/>")}</p><p>${input.body.replace(/\n/g, "<br/>")}</p><p>${input.closing.replace(/\n/g, "<br/>")}</p>`;
-          try {
-            await sendMail({ to, subject: input.subject, text, html });
-          } catch (error) {
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: error instanceof Error ? error.message : "Échec d’envoi de la relance.",
-            });
-          }
-          await db.createClientActivity({
-            clientId: document.clientId,
-            documentId: document.id,
-            type: "note",
-            title: "Relance envoyée par e-mail",
-            description: `${document.number} → ${to} · ${input.subject}`,
-            createdById: ctx.user.id,
-          });
-          return { success: true, emailed: true, to } as const;
+          return {
+            sent,
+            failed,
+            sentCount: sent.length,
+            failedCount: failed.length,
+          } as const;
         }),
       prepareBatchReminders: staffProcedure
         .input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(BATCH_REMINDER_LIMIT), tone: z.enum(["courtois", "ferme"]).default("courtois"), instruction: z.string().trim().max(500).optional() }))

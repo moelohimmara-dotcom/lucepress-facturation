@@ -46,10 +46,25 @@ export function isStaffRole(role: AppRole | string | undefined): boolean {
   return role === "admin" || role === "directeur" || role === "cadre";
 }
 
+/** Admin ou directeur — pilotage (réattribution, rapports), pas la gestion des comptes. */
+export function isDirectionRole(role: AppRole | string | undefined): boolean {
+  return role === "admin" || role === "directeur";
+}
+
 export function isAdminRole(role: AppRole | string | undefined): boolean {
   return role === "admin";
 }
 
 export function isClientRole(role: AppRole | string | undefined): boolean {
   return role === "client";
+}
+
+/** Rôles internes assignables depuis la page Utilisateurs (jamais `client`). */
+export const STAFF_ASSIGNABLE_ROLES = ["cadre", "directeur", "admin"] as const;
+export type StaffAssignableRole = (typeof STAFF_ASSIGNABLE_ROLES)[number];
+
+export function nextAssignableStaffRole(role: AppRole | string | undefined): StaffAssignableRole {
+  if (role === "cadre") return "directeur";
+  if (role === "directeur") return "admin";
+  return "cadre";
 }

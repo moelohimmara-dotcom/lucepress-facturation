@@ -16,7 +16,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { ShieldCheck, Trash2, UserCog, UserPlus, KeyRound, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { APP_ROLE_LABELS, type AppRole } from "@shared/roles";
+import { APP_ROLE_LABELS, nextAssignableStaffRole, type AppRole } from "@shared/roles";
 
 type UserRow = {
   id: number;
@@ -165,6 +165,8 @@ export default function UsersPage() {
                         <span className="font-medium">{u.name || u.email || "(sans nom)"}</span>
                         {u.role === "admin" ? (
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">Admin</span>
+                        ) : u.role === "directeur" ? (
+                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-900">Directeur</span>
                         ) : (
                           <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">{APP_ROLE_LABELS[u.role]}</span>
                         )}
@@ -176,15 +178,15 @@ export default function UsersPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {u.id !== user?.id && (
+                      {u.id !== user?.id && u.role !== "client" && (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setRoleMutation.mutate({ userId: u.id, role: u.role === "admin" ? "cadre" : "admin" })}
+                          onClick={() => setRoleMutation.mutate({ userId: u.id, role: nextAssignableStaffRole(u.role) })}
                           disabled={setRoleMutation.isPending}
                         >
                           <UserCog className="mr-1 h-4 w-4" />
-                          {u.role === "admin" ? "Rétrograder" : "Promouvoir admin"}
+                          {u.role === "admin" ? "Passer cadre" : u.role === "directeur" ? "Passer admin" : "Passer directeur"}
                         </Button>
                       )}
                       <Button

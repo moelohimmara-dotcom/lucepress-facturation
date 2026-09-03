@@ -1567,11 +1567,22 @@ async function findClientByPortalEmail(email?: string | null) {
 
 export async function getClientPortalOverview(email?: string | null) {
   const client = await findClientByPortalEmail(email);
-  if (!client) return { client: null, invoices: [] };
-  const invoices = (await listDocuments("facture")).filter(invoice => invoice.clientId === client.id);
-  const promises = await listPaymentPromises(invoices.map(invoice => invoice.id));
+  if (!client) return { client: null, invoices: [], quotes: [] };
+  const [invoices, quotes] = await Promise.all([
+    listDocuments("facture"),
+    listDocuments("devis"),
+  ]);
+  const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
+  const clientQuotes = quotes.filter(
+    quote => quote.clientId === client.id && ["envoye", "accepte", "refuse"].includes(quote.status),
+  );
+  const promises = await listPaymentPromises(clientInvoices.map(invoice => invoice.id));
   const promisedByDocument = new Map(promises.map(promise => [promise.documentId, promise]));
-  return { client, invoices: invoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })) };
+  return {
+    client,
+    invoices: clientInvoices.map(invoice => ({ ...invoice, paymentPromise: promisedByDocument.get(invoice.id) ?? null })),
+    quotes: clientQuotes,
+  };
 }
 
 export async function getClientPortalInvoice(email: string | null | undefined, invoiceId: number) {
@@ -1581,6 +1592,51 @@ export async function getClientPortalInvoice(email: string | null | undefined, i
   if (!invoice || invoice.kind !== "facture" || invoice.clientId !== client.id) return null;
   const promise = await listPaymentPromises([invoiceId]);
   return { ...invoice, paymentPromise: promise[0] ?? null };
+}
+
+export async function getClientPortalQuote(email: string | null | undefined, quoteId: number) {
+  const client = await findClientByPortalEmail(email);
+  if (!client) return null;
+  const quote = await getDocumentById(quoteId);
+  if (!quote || quote.kind !== "devis" || quote.clientId !== client.id) return null;
+  if (!["envoye", "accepte", "refuse"].includes(quote.status)) return null;
+  return quote;
+}
+
+export async function respondToClientPortalQuote(input: {
+  email?: string | null;
+  documentId: number;
+  decision: "accepte" | "refuse";
+  createdById: number;
+}) {
+  const client = await findClientByPortalEmail(input.email);
+  if (!client) throw new Error("Votre compte n’est associé à aucun dossier client.");
+  const quote = await getDocumentById(input.documentId);
+  if (!quote || quote.kind !== "devis" || quote.clientId !== client.id) {
+    throw new Error("Ce devis n’est pas disponible pour votre compte.");
+  }
+  if (quote.status !== "envoye") {
+    throw new Error("Ce devis n’est plus en attente de votre réponse.");
+  }
+  if (quote.validUntil) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const validUntil = new Date(quote.validUntil);
+    validUntil.setHours(0, 0, 0, 0);
+    if (validUntil < today) {
+      throw new Error("Ce devis a expiré. Contactez Lucepres pour une mise à jour.");
+    }
+  }
+  await updateDocumentStatus(quote.id, input.decision);
+  await createClientActivity({
+    clientId: client.id,
+    documentId: quote.id,
+    type: "note",
+    title: input.decision === "accepte" ? "Devis accepté par le client" : "Devis refusé par le client",
+    description: `${quote.number} · décision portail`,
+    createdById: input.createdById,
+  });
+  return { success: true as const, status: input.decision, number: quote.number };
 }
 
 export async function createClientPaymentPromise(input: { email?: string | null; documentId: number; promisedDate: string; note?: string; createdById: number }) {

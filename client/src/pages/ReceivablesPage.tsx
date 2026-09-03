@@ -1,3 +1,4 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import ClientActivityTimeline from "@/components/ClientActivityTimeline";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { collectionFollowUpLabels, getCollectionReminderSignal, isCollectionRemi
 import { buildCollectionReminderLoad } from "@shared/collectionReminderLoad";
 import { isReceivableDueInPeriod, type ReceivablesPeriod } from "@shared/receivablesPeriod";
 import { createReceivablesCsv } from "@shared/receivablesCsv";
+import { isDirectionRole } from "@shared/roles";
 import { AlertTriangle, ArrowUpRight, BellRing, CalendarClock, CheckCircle2, CircleDollarSign, ClipboardCheck, Copy, Download, ExternalLink, FileDown, History, Loader2, Mail, Search, ShieldAlert, Sparkles, UserRoundCheck, UsersRound, WalletCards, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -43,6 +45,8 @@ function currentReportMonth() {
 
 export default function ReceivablesPage() {
   const [location, setLocation] = useLocation();
+  const { user } = useAuth();
+  const canPilotCollection = isDirectionRole(user?.role);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.billing.receivables.useQuery();
   const [search, setSearch] = useState("");
@@ -56,6 +60,7 @@ export default function ReceivablesPage() {
   const [batchTone, setBatchTone] = useState<"courtois" | "ferme">("courtois");
   const [batchInstruction, setBatchInstruction] = useState("");
   const [batchDrafts, setBatchDrafts] = useState<BatchDraft[]>([]);
+  const [batchSentIds, setBatchSentIds] = useState<number[]>([]);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const [followUpInvoice, setFollowUpInvoice] = useState<FollowUpInvoice | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -63,6 +68,8 @@ export default function ReceivablesPage() {
   const monthlyReportInput = useMemo(() => ({ month: reportMonth }), [reportMonth]);
   const { data: clientActivities = [], isLoading: activitiesLoading } = trpc.billing.clients.activities.list.useQuery({ clientId: timelineClient?.id ?? 1 }, { enabled: Boolean(timelineClient) });
   const { data: assignees = [] } = trpc.billing.collection.assignees.useQuery();
+  const { data: mailStatus } = trpc.billing.mailStatus.useQuery();
+  const smtpReady = mailStatus?.smtpConfigured === true;
   const monthlyReport = trpc.billing.collection.monthlyReport.useQuery(monthlyReportInput, { enabled: false });
 
   const visibleInvoices = useMemo(() => (data?.invoices ?? []).filter(invoice => {
@@ -88,11 +95,27 @@ export default function ReceivablesPage() {
   const prepareBatchReminders = trpc.billing.assistant.prepareBatchReminders.useMutation({
     onSuccess: result => {
       setBatchDrafts(result.reminders);
+      setBatchSentIds([]);
       for (const invoiceId of visibleSelectedOverdueInvoiceIds) {
         const invoice = visibleInvoices.find(item => item.id === invoiceId);
         if (invoice) utils.billing.clients.activities.list.invalidate({ clientId: invoice.clientId });
       }
-      toast.success(`${result.reminders.length} brouillon${result.reminders.length > 1 ? "s" : ""} préparé${result.reminders.length > 1 ? "s" : ""}. Relisez-les avant toute utilisation.`);
+      toast.success(`${result.reminders.length} brouillon${result.reminders.length > 1 ? "s" : ""} préparé${result.reminders.length > 1 ? "s" : ""}. Relisez-les avant envoi.`);
+    },
+    onError: error => toast.error(error.message),
+  });
+  const sendBatchReminders = trpc.billing.assistant.sendBatchReminderEmails.useMutation({
+    onSuccess: result => {
+      setBatchSentIds(current => [...current, ...result.sent.map(item => item.documentId)]);
+      for (const item of result.sent) {
+        const invoice = visibleInvoices.find(row => row.id === item.documentId);
+        if (invoice) utils.billing.clients.activities.list.invalidate({ clientId: invoice.clientId });
+      }
+      if (result.failedCount === 0) {
+        toast.success(`${result.sentCount} relance${result.sentCount > 1 ? "s" : ""} envoyée${result.sentCount > 1 ? "s" : ""} par e-mail.`);
+      } else {
+        toast.error(`${result.sentCount} envoyée${result.sentCount > 1 ? "s" : ""} · ${result.failedCount} échec${result.failedCount > 1 ? "s" : ""}.`);
+      }
     },
     onError: error => toast.error(error.message),
   });
@@ -139,6 +162,7 @@ export default function ReceivablesPage() {
   function openBatchDialog() {
     if (!visibleSelectedOverdueInvoiceIds.length) return toast.error("Sélectionnez au moins une facture en retard.");
     setBatchDrafts([]);
+    setBatchSentIds([]);
     setBatchInstruction("");
     setBatchDialogOpen(true);
   }
@@ -148,6 +172,15 @@ export default function ReceivablesPage() {
     prepareBatchReminders.mutate({ documentIds: visibleSelectedOverdueInvoiceIds, tone: batchTone, instruction: batchInstruction.trim() || undefined });
   }
 
+  function sendBatch(selectedIds: number[]) {
+    if (!smtpReady) return toast.error("SMTP non configuré : l’envoi e-mail est indisponible.");
+    const reminders = batchDrafts.filter(draft => selectedIds.includes(draft.documentId) && !batchSentIds.includes(draft.documentId));
+    if (!reminders.length) return toast.error("Sélectionnez au moins un brouillon relu à envoyer.");
+    sendBatchReminders.mutate({
+      reminders: reminders.map(({ documentId, subject, greeting, body, closing }) => ({ documentId, subject, greeting, body, closing })),
+    });
+  }
+
   function toggleTodayReminderFilter() {
     const next = !reminderTodayOnly;
     setReminderTodayOnly(next);
@@ -155,6 +188,7 @@ export default function ReceivablesPage() {
   }
 
   function openReassignDialog() {
+    if (!canPilotCollection) return toast.error("La réattribution groupée est réservée à la direction.");
     if (!visibleSelectedInvoiceIds.length) return toast.error("Sélectionnez au moins une créance à réattribuer.");
     setReassignDialogOpen(true);
   }
@@ -199,7 +233,7 @@ export default function ReceivablesPage() {
       <div className="absolute -right-16 -top-24 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl"><p className="lucepress-kicker">Suivi commercial · Recouvrement</p><h1 className="font-editorial mt-3 text-3xl font-semibold sm:text-4xl">Créances & priorités</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Transformez les factures impayées en actions claires : identifiez l’encours, les retards et les engagements clients à sécuriser.</p></div>
-        <div className="flex w-full max-w-sm flex-col gap-2"><div className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-xs leading-5 text-amber-950 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/45 dark:text-amber-100"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><span><strong className="block">Supervision humaine</strong> Les relances restent à préparer et valider avant tout envoi.</span></div><Button type="button" variant="outline" onClick={() => setReportDialogOpen(true)} className="h-10 rounded-xl border-primary/20 bg-card text-xs font-extrabold text-primary"><FileDown className="mr-2 h-4 w-4" />Rapport mensuel PDF</Button></div>
+        <div className="flex w-full max-w-sm flex-col gap-2"><div className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-xs leading-5 text-amber-950 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/45 dark:text-amber-100"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><span><strong className="block">Supervision humaine</strong> Les relances restent à préparer et valider avant tout envoi.</span></div>{canPilotCollection && <Button type="button" variant="outline" onClick={() => setReportDialogOpen(true)} className="h-10 rounded-xl border-primary/20 bg-card text-xs font-extrabold text-primary"><FileDown className="mr-2 h-4 w-4" />Rapport mensuel PDF</Button>}</div>
       </div>
     </header>
 
@@ -212,12 +246,34 @@ export default function ReceivablesPage() {
       <section className="lucepress-panel mt-6 overflow-hidden rounded-[1.4rem]">
         <div className="flex flex-col gap-2 border-b border-border bg-primary/[0.018] px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground">Responsable</p><p className="mt-1 text-xs text-muted-foreground">Isolez les créances attribuées à une personne.</p></div><label className="flex items-center gap-2"><UsersRound className="h-3.5 w-3.5 text-primary" /><span className="sr-only">Filtrer par responsable</span><select aria-label="Filtrer les créances par responsable" value={ownerFilter} onChange={event => setOwnerFilter(event.target.value)} className="lucepress-field h-9 min-w-52 rounded-lg px-3 text-xs"><option value="all">Tous les responsables</option><option value="unassigned">Sans responsable</option>{assignees.map(person => <option key={person.id} value={person.id}>{person.name || person.email || `Utilisateur ${person.id}`}</option>)}</select></label></div>
         <div className="border-b border-border px-5 py-5 sm:px-6"><div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><div><p className="lucepress-kicker">File de traitement</p><h2 className="font-editorial mt-2 text-2xl font-semibold">Factures à encaisser</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">Les promesses dépassées, rappels et retards sont affichés avant les autres échéances.</p></div><div className="flex flex-col gap-2 sm:flex-row"><label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input aria-label="Rechercher une créance" value={search} onChange={event => setSearch(event.target.value)} className="lucepress-field h-10 w-full rounded-xl py-2 pr-3 pl-9 text-xs sm:w-64" placeholder="Facture, client, chantier…" /></label><Button variant={overdueOnly ? "default" : "outline"} onClick={() => setOverdueOnly(value => !value)} className="h-10 rounded-xl text-xs font-extrabold"><AlertTriangle className="mr-2 h-3.5 w-3.5" />{overdueOnly ? "Retards affichés" : "Prioriser les retards"}</Button></div></div><div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex flex-col gap-2 sm:flex-row sm:items-center"><p className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground">Période de retard</p><div className="flex flex-wrap gap-2" role="group" aria-label="Période des créances">{periods.map(item => <button type="button" key={item.value} onClick={() => setPeriod(item.value)} className={`h-8 rounded-lg border px-3 text-[11px] font-extrabold transition-colors ${!reminderTodayOnly && period === item.value ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-primary/[0.03]"}`}>{item.label}</button>)}<button type="button" aria-pressed={reminderTodayOnly} onClick={toggleTodayReminderFilter} className={`h-8 rounded-lg border px-3 text-[11px] font-extrabold transition-colors ${reminderTodayOnly ? "border-rose-700 bg-rose-700 text-white shadow-sm dark:border-rose-500 dark:bg-rose-600" : "border-rose-200 bg-rose-50 text-rose-800 hover:border-rose-400 dark:border-rose-900/70 dark:bg-rose-950/35 dark:text-rose-200"}`}><BellRing className="mr-1 inline h-3.5 w-3.5" />Rappels du jour</button></div></div><Button type="button" variant="outline" onClick={exportVisibleInvoices} disabled={!visibleInvoices.length} className="h-9 shrink-0 rounded-lg border-primary/20 bg-card text-xs font-extrabold text-primary"><Download className="mr-1.5 h-3.5 w-3.5" />Exporter la file filtrée</Button></div></div>
-        {visibleSelectedInvoiceIds.length > 0 && <div className="flex flex-col gap-3 border-b border-primary/15 bg-primary/[0.045] px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="flex items-center gap-2"><UsersRound className="h-4 w-4 text-primary" /><p className="text-xs font-bold"><strong>{visibleSelectedInvoiceIds.length}</strong> créance{visibleSelectedInvoiceIds.length > 1 ? "s" : ""} sélectionnée{visibleSelectedInvoiceIds.length > 1 ? "s" : ""} · maximum {BATCH_REMINDER_LIMIT} par lot</p></div><div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => setSelectedInvoiceIds(current => current.filter(id => !visibleSelectedInvoiceIds.includes(id)))} className="h-8 px-2 text-[11px] font-bold text-muted-foreground"><X className="mr-1 h-3.5 w-3.5" />Effacer</Button><Button type="button" variant="outline" onClick={openReassignDialog} className="h-9 rounded-lg border-primary/20 bg-card text-xs font-extrabold text-primary"><UserRoundCheck className="mr-1.5 h-3.5 w-3.5" />Réattribuer</Button><Button type="button" onClick={openBatchDialog} disabled={!visibleSelectedOverdueInvoiceIds.length} className="h-9 rounded-lg bg-primary text-xs font-extrabold text-primary-foreground"><Sparkles className="mr-1.5 h-3.5 w-3.5" />Préparer les brouillons</Button></div></div>}
+        {visibleSelectedInvoiceIds.length > 0 && <div className="flex flex-col gap-3 border-b border-primary/15 bg-primary/[0.045] px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="flex items-center gap-2"><UsersRound className="h-4 w-4 text-primary" /><p className="text-xs font-bold"><strong>{visibleSelectedInvoiceIds.length}</strong> créance{visibleSelectedInvoiceIds.length > 1 ? "s" : ""} sélectionnée{visibleSelectedInvoiceIds.length > 1 ? "s" : ""} · maximum {BATCH_REMINDER_LIMIT} par lot</p></div><div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => setSelectedInvoiceIds(current => current.filter(id => !visibleSelectedInvoiceIds.includes(id)))} className="h-8 px-2 text-[11px] font-bold text-muted-foreground"><X className="mr-1 h-3.5 w-3.5" />Effacer</Button>{canPilotCollection && <Button type="button" variant="outline" onClick={openReassignDialog} className="h-9 rounded-lg border-primary/20 bg-card text-xs font-extrabold text-primary"><UserRoundCheck className="mr-1.5 h-3.5 w-3.5" />Réattribuer</Button>}<Button type="button" onClick={openBatchDialog} disabled={!visibleSelectedOverdueInvoiceIds.length} className="h-9 rounded-lg bg-primary text-xs font-extrabold text-primary-foreground"><Sparkles className="mr-1.5 h-3.5 w-3.5" />Préparer les brouillons</Button></div></div>}
         {visibleInvoices.length ? <div className="divide-y divide-border">{visibleInvoices.map(invoice => <InvoiceCard key={invoice.id} invoice={invoice} ownerName={invoice.collectionOwnerId ? assigneeNames.get(invoice.collectionOwnerId) ?? "Responsable indisponible" : null} selected={visibleSelectedInvoiceIds.includes(invoice.id)} onToggleSelect={() => toggleInvoiceSelection(invoice.id)} onMarkReminderHandled={() => updateFollowUp.mutate({ documentId: invoice.id, collectionStatus: "contacte" })} reminderPending={updateFollowUp.isPending} onOpenTimeline={() => setTimelineClient({ id: invoice.clientId, name: invoice.clientName })} onManageFollowUp={() => setFollowUpInvoice(invoice)} onOpen={() => setLocation(`/documents/${invoice.id}`)} />)}</div> : <EmptyState detail={`Filtre actif : ${periodLabel}. Les factures réglées intégralement ne figurent pas dans cette liste.`} />}
       </section>
     </>}
     <ClientTimelineDialog client={timelineClient} activities={clientActivities} loading={activitiesLoading} onClose={() => setTimelineClient(null)} onOpenDocument={documentId => { setTimelineClient(null); setLocation(`/documents/${documentId}`); }} />
-    <BatchRemindersDialog open={batchDialogOpen} selectedCount={visibleSelectedOverdueInvoiceIds.length} tone={batchTone} instruction={batchInstruction} drafts={batchDrafts} pending={prepareBatchReminders.isPending} onOpenChange={open => { setBatchDialogOpen(open); if (!open) setBatchDrafts([]); }} onToneChange={setBatchTone} onInstructionChange={setBatchInstruction} onPrepare={prepareBatch} onCopy={copyBatchDraft} />
+    <BatchRemindersDialog
+      open={batchDialogOpen}
+      selectedCount={visibleSelectedOverdueInvoiceIds.length}
+      tone={batchTone}
+      instruction={batchInstruction}
+      drafts={batchDrafts}
+      sentIds={batchSentIds}
+      smtpReady={smtpReady}
+      pending={prepareBatchReminders.isPending}
+      sending={sendBatchReminders.isPending}
+      onOpenChange={open => {
+        setBatchDialogOpen(open);
+        if (!open) {
+          setBatchDrafts([]);
+          setBatchSentIds([]);
+        }
+      }}
+      onToneChange={setBatchTone}
+      onInstructionChange={setBatchInstruction}
+      onPrepare={prepareBatch}
+      onCopy={copyBatchDraft}
+      onSend={sendBatch}
+    />
     <CollectionReassignDialog open={reassignDialogOpen} selectedCount={visibleSelectedInvoiceIds.length} assignees={assignees} pending={reassignCollection.isPending} onOpenChange={setReassignDialogOpen} onConfirm={collectionOwnerId => reassignCollection.mutate({ documentIds: visibleSelectedInvoiceIds, collectionOwnerId })} />
     <CollectionFollowUpDialog key={followUpInvoice?.id ?? 0} invoice={followUpInvoice} assignees={assignees} pending={updateFollowUp.isPending} onClose={closeFollowUpDialog} onSave={input => updateFollowUp.mutate(input)} />
     <CollectionMonthlyReportDialog open={reportDialogOpen} month={reportMonth} pending={monthlyReport.isFetching} onOpenChange={setReportDialogOpen} onMonthChange={setReportMonth} onDownload={downloadMonthlyReport} />
@@ -254,9 +310,168 @@ function ClientTimelineDialog({ client, activities, loading, onClose, onOpenDocu
   return <Dialog open={Boolean(client)} onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle className="flex items-center gap-2"><UsersRound className="h-4 w-4 text-primary" />Historique client</DialogTitle><DialogDescription>{client ? `Chronologie complète des documents, paiements, notes et relances préparées pour ${client.name}.` : ""}</DialogDescription></DialogHeader>{client && <ClientActivityTimeline activities={activities} loading={loading} onOpenDocument={onOpenDocument} />}</DialogContent></Dialog>;
 }
 
-function BatchRemindersDialog({ open, selectedCount, tone, instruction, drafts, pending, onOpenChange, onToneChange, onInstructionChange, onPrepare, onCopy }: { open: boolean; selectedCount: number; tone: "courtois" | "ferme"; instruction: string; drafts: BatchDraft[]; pending: boolean; onOpenChange: (open: boolean) => void; onToneChange: (tone: "courtois" | "ferme") => void; onInstructionChange: (value: string) => void; onPrepare: () => void; onCopy: (draft: BatchDraft) => void }) {
+function BatchRemindersDialog({
+  open,
+  selectedCount,
+  tone,
+  instruction,
+  drafts,
+  sentIds,
+  smtpReady,
+  pending,
+  sending,
+  onOpenChange,
+  onToneChange,
+  onInstructionChange,
+  onPrepare,
+  onCopy,
+  onSend,
+}: {
+  open: boolean;
+  selectedCount: number;
+  tone: "courtois" | "ferme";
+  instruction: string;
+  drafts: BatchDraft[];
+  sentIds: number[];
+  smtpReady: boolean;
+  pending: boolean;
+  sending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onToneChange: (tone: "courtois" | "ferme") => void;
+  onInstructionChange: (value: string) => void;
+  onPrepare: () => void;
+  onCopy: (draft: BatchDraft) => void;
+  onSend: (documentIds: number[]) => void;
+}) {
   const hasDrafts = drafts.length > 0;
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" />Relances groupées</DialogTitle><DialogDescription>La préparation crée uniquement des brouillons internes personnalisés. Pour l’envoi SMTP réel, ouvrez Relances après relecture. WhatsApp n’est pas activé.</DialogDescription></DialogHeader>{hasDrafts ? <div className="space-y-3 py-2"><div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><span><strong className="block">Relecture obligatoire</strong> Vérifiez chaque texte, son destinataire et son contexte avant toute communication externe.</span></div>{drafts.map(draft => <details key={draft.documentId} className="rounded-xl border border-border bg-card p-4" open={drafts.length === 1}><summary className="cursor-pointer list-none text-sm font-extrabold"><span className="flex items-center justify-between gap-3"><span className="min-w-0 truncate">{draft.subject}</span><span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-[10px] font-bold text-primary">{draft.tone}</span></span></summary><div className="mt-4 border-t border-border pt-4 text-sm leading-6"><p>{draft.greeting}</p><p className="mt-3 whitespace-pre-line">{draft.body}</p><p className="mt-3 whitespace-pre-line">{draft.closing}</p><Button type="button" variant="outline" onClick={() => onCopy(draft)} className="mt-4 h-9 rounded-lg border-border text-xs font-bold"><Copy className="mr-1.5 h-3.5 w-3.5" />Copier ce brouillon</Button></div></details>)}<p className="text-center text-[11px] leading-5 text-muted-foreground">Ces brouillons sont aussi tracés dans la chronologie de chaque client, sans indication d’envoi.</p></div> : <div className="grid gap-4 py-3"><div className="rounded-xl bg-secondary/60 p-3 text-xs leading-5"><strong className="block text-primary">{selectedCount} facture{selectedCount > 1 ? "s" : ""} en retard sélectionnée{selectedCount > 1 ? "s" : ""}</strong><span className="mt-1 block text-muted-foreground">Les relances seront individualisées selon le client, la facture, l’échéance et le solde dû.</span></div><div><p className="text-xs font-extrabold">Ton de la relance</p><div className="mt-2 flex gap-2"><ToneButton selected={tone === "courtois"} onClick={() => onToneChange("courtois")}>Courtois</ToneButton><ToneButton selected={tone === "ferme"} onClick={() => onToneChange("ferme")}>Plus ferme</ToneButton></div></div><label className="grid gap-1.5 text-xs font-extrabold">Consigne de personnalisation <span className="font-normal text-muted-foreground">(facultative, sans données sensibles)</span><textarea value={instruction} maxLength={500} onChange={event => onInstructionChange(event.target.value)} placeholder="Ex. rappeler de transmettre le justificatif de règlement dès disponibilité." className="lucepress-field min-h-24 resize-y rounded-xl p-3 text-sm" /><span className="text-right text-[10px] font-normal text-muted-foreground">{instruction.length}/500</span></label><Button type="button" onClick={onPrepare} disabled={!selectedCount || pending} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground"><Mail className="mr-2 h-4 w-4" />{pending ? "Préparation des brouillons…" : `Préparer ${selectedCount} brouillon${selectedCount > 1 ? "s" : ""}`}</Button></div>}</DialogContent></Dialog>;
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedIds(drafts.filter(draft => !sentIds.includes(draft.documentId)).map(draft => draft.documentId));
+  }, [open, drafts, sentIds]);
+
+  const pendingIds = selectedIds.filter(id => !sentIds.includes(id));
+
+  function toggleDraft(documentId: number) {
+    if (sentIds.includes(documentId)) return;
+    setSelectedIds(current => (current.includes(documentId) ? current.filter(id => id !== documentId) : [...current, documentId]));
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Relances groupées
+          </DialogTitle>
+          <DialogDescription>
+            Préparez des brouillons personnalisés, relisez-les, puis envoyez-les par SMTP. WhatsApp n’est pas activé.
+          </DialogDescription>
+        </DialogHeader>
+        {hasDrafts ? (
+          <div className="space-y-3 py-2">
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+              <span>
+                <strong className="block">Relecture obligatoire</strong>
+                Vérifiez chaque texte avant envoi. Seuls les brouillons cochés partiront par e-mail.
+              </span>
+            </div>
+            {!smtpReady && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>SMTP non configuré : vous pouvez copier les brouillons, mais l’envoi e-mail est indisponible.</span>
+              </div>
+            )}
+            {drafts.map(draft => {
+              const alreadySent = sentIds.includes(draft.documentId);
+              const checked = alreadySent || selectedIds.includes(draft.documentId);
+              return (
+                <details key={draft.documentId} className="rounded-xl border border-border bg-card p-4" open={drafts.length === 1}>
+                  <summary className="cursor-pointer list-none text-sm font-extrabold">
+                    <span className="flex items-center justify-between gap-3">
+                      <label className="flex min-w-0 items-center gap-2" onClick={event => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={alreadySent || sending}
+                          onChange={() => toggleDraft(draft.documentId)}
+                          aria-label={`Inclure la relance ${draft.subject}`}
+                        />
+                        <span className="truncate">{draft.subject}</span>
+                      </label>
+                      <span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-[10px] font-bold text-primary">
+                        {alreadySent ? "Envoyée" : draft.tone}
+                      </span>
+                    </span>
+                  </summary>
+                  <div className="mt-4 border-t border-border pt-4 text-sm leading-6">
+                    <p>{draft.greeting}</p>
+                    <p className="mt-3 whitespace-pre-line">{draft.body}</p>
+                    <p className="mt-3 whitespace-pre-line">{draft.closing}</p>
+                    <Button type="button" variant="outline" onClick={() => onCopy(draft)} className="mt-4 h-9 rounded-lg border-border text-xs font-bold">
+                      <Copy className="mr-1.5 h-3.5 w-3.5" />
+                      Copier ce brouillon
+                    </Button>
+                  </div>
+                </details>
+              );
+            })}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+              <p className="text-[11px] leading-5 text-muted-foreground">
+                {pendingIds.length} brouillon{pendingIds.length > 1 ? "s" : ""} sélectionné{pendingIds.length > 1 ? "s" : ""} pour envoi SMTP.
+              </p>
+              <Button
+                type="button"
+                onClick={() => onSend(pendingIds)}
+                disabled={!smtpReady || sending || pendingIds.length === 0}
+                title={!smtpReady ? "SMTP non configuré" : pendingIds.length === 0 ? "Aucun brouillon sélectionné" : "Envoyer les relances relues"}
+                className="h-10 rounded-xl bg-primary font-bold text-primary-foreground"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                {sending ? "Envoi…" : `Envoyer ${pendingIds.length} relance${pendingIds.length > 1 ? "s" : ""}`}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 py-3">
+            <div className="rounded-xl bg-secondary/60 p-3 text-xs leading-5">
+              <strong className="block text-primary">
+                {selectedCount} facture{selectedCount > 1 ? "s" : ""} en retard sélectionnée{selectedCount > 1 ? "s" : ""}
+              </strong>
+              <span className="mt-1 block text-muted-foreground">
+                Les relances seront individualisées selon le client, la facture, l’échéance et le solde dû.
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-extrabold">Ton de la relance</p>
+              <div className="mt-2 flex gap-2">
+                <ToneButton selected={tone === "courtois"} onClick={() => onToneChange("courtois")}>Courtois</ToneButton>
+                <ToneButton selected={tone === "ferme"} onClick={() => onToneChange("ferme")}>Plus ferme</ToneButton>
+              </div>
+            </div>
+            <label className="grid gap-1.5 text-xs font-extrabold">
+              Consigne de personnalisation <span className="font-normal text-muted-foreground">(facultative, sans données sensibles)</span>
+              <textarea
+                value={instruction}
+                maxLength={500}
+                onChange={event => onInstructionChange(event.target.value)}
+                placeholder="Ex. rappeler de transmettre le justificatif de règlement dès disponibilité."
+                className="lucepress-field min-h-24 resize-y rounded-xl p-3 text-sm"
+              />
+              <span className="text-right text-[10px] font-normal text-muted-foreground">{instruction.length}/500</span>
+            </label>
+            <Button type="button" onClick={onPrepare} disabled={!selectedCount || pending} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+              <Mail className="mr-2 h-4 w-4" />
+              {pending ? "Préparation des brouillons…" : `Préparer ${selectedCount} brouillon${selectedCount > 1 ? "s" : ""}`}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function CollectionReassignDialog({ open, selectedCount, assignees, pending, onOpenChange, onConfirm }: { open: boolean; selectedCount: number; assignees: Array<{ id: number; name: string | null; email: string | null }>; pending: boolean; onOpenChange: (open: boolean) => void; onConfirm: (collectionOwnerId: number) => void }) {
