@@ -13,6 +13,7 @@ import { sendMail, isMailConfigured } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { IDENTITY_KINDS, omitOptionalPaperworkMissingFields } from "../shared/identityPaperwork";
+import { CLIENT_ACTIVITY_TYPES } from "../shared/clientActivityTypes";
 import { APP_ROLES, isStaffRole, STAFF_ROLES } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
@@ -61,7 +62,7 @@ async function dispatchReminderEmail(input: z.infer<typeof reminderEmailInputSch
   await db.createClientActivity({
     clientId: document.clientId,
     documentId: document.id,
-    type: "note",
+    type: "email_envoye",
     title: "Relance envoyée par e-mail",
     description: `${document.number} → ${to} · ${input.subject}`,
     createdById: actorId,
@@ -786,6 +787,14 @@ export const appRouter = router({
   billing: router({
     dashboard: staffProcedure.query(() => db.getDashboardData()),
     mailStatus: staffProcedure.query(() => ({ smtpConfigured: isMailConfigured() })),
+    audit: router({
+      list: directionProcedure
+        .input(z.object({
+          type: z.enum(CLIENT_ACTIVITY_TYPES).optional(),
+          limit: z.number().int().min(1).max(500).optional(),
+        }).optional())
+        .query(({ input }) => db.listStaffAuditJournal(input)),
+    }),
     clients: router({
       list: staffProcedure.query(() => db.listClients()),
       duplicates: staffProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
@@ -834,7 +843,7 @@ export const appRouter = router({
           });
           await db.createClientActivity({
             clientId: client.id,
-            type: "note",
+            type: "email_envoye",
             title: "Invitation portail client",
             description: `${email}${issued.emailed ? " — e-mail envoyé" : " — lien à transmettre"}`,
             createdById: ctx.user.id,
@@ -1110,9 +1119,9 @@ export const appRouter = router({
         .mutation(({ ctx, input }) => db.createDocument({ ...input, createdById: ctx.user.id, lines: input.lines as EditableDocumentLine[] })),
       update: staffProcedure
         .input(z.object({ id: z.number().int().positive(), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, expectedUpdatedAt: z.string().min(10).max(40).optional(), lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           try {
-            return await db.updateDocument({ ...input, lines: input.lines as EditableDocumentLine[] });
+            return await db.updateDocument({ ...input, updatedById: ctx.user.id, lines: input.lines as EditableDocumentLine[] });
           } catch (error) {
             const message = error instanceof Error ? error.message : "Le document n’a pas pu être enregistré.";
             throw new TRPCError({ code: message.includes("modifié ailleurs") ? "CONFLICT" : "BAD_REQUEST", message });
@@ -1120,7 +1129,13 @@ export const appRouter = router({
         }),
       updateStatus: staffProcedure
         .input(z.object({ id: z.number().int().positive(), status: z.enum(DOCUMENT_STATUSES) }))
-        .mutation(({ input }) => db.updateDocumentStatus(input.id, input.status)),
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.updateDocumentStatus(input.id, input.status, ctx.user.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le statut n’a pas pu être mis à jour." });
+          }
+        }),
       createDepositInvoice: staffProcedure
         .input(z.object({ quoteId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
@@ -1222,13 +1237,13 @@ export const appRouter = router({
           }
 
           if (document.status === "brouillon" || document.status === "a_envoyer") {
-            await db.updateDocumentStatus(document.id, "envoye");
+            await db.updateDocumentStatus(document.id, "envoye", ctx.user.id);
           }
 
           await db.createClientActivity({
             clientId: document.clientId,
             documentId: document.id,
-            type: "note",
+            type: "email_envoye",
             title: `${document.kind === "facture" ? "Facture" : "Devis"} envoyé par e-mail`,
             description: `${document.number} → ${to}`,
             createdById: ctx.user.id,

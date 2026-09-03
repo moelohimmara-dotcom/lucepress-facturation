@@ -1,4 +1,6 @@
-export type ClientActivityRecord = { id: number; clientId: number; documentId: number | null; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement" | "date_rappel_recouvrement"; title: string; description: string | null; createdAt: Date };
+import type { ClientActivityType } from "./clientActivityTypes";
+
+export type ClientActivityRecord = { id: number; clientId: number; documentId: number | null; type: ClientActivityType; title: string; description: string | null; createdAt: Date };
 export type ClientDocumentRecord = { id: number; kind: "devis" | "facture"; number: string; total: number; status: string; createdAt: Date };
 export type ClientPaymentRecord = { id: number; documentId: number; documentNumber: string; amount: number; method: string; reference: string | null; paidAt: Date; createdAt: Date };
 

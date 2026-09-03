@@ -7,6 +7,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { DashboardLayoutSkeleton } from "./components/DashboardLayoutSkeleton";
 import { AdminGate } from "./components/AdminGate";
+import { DirectionGate } from "./components/DirectionGate";
 
 const Home = lazy(() => import("./pages/Home"));
 const DocumentsPage = lazy(() => import("./pages/DocumentsPage"));
@@ -33,6 +34,7 @@ const InvitationAcceptPage = lazy(() => import("./pages/InvitationAcceptPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const RemindersPage = lazy(() => import("./pages/RemindersPage"));
+const StaffAuditPage = lazy(() => import("./pages/StaffAuditPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
@@ -56,6 +58,18 @@ const AdminEmailTemplatesPage = withAdminGate(EmailTemplatesPage, "Templates d�
 const AdminEmailTemplatesGalleryPage = withAdminGate(EmailTemplatesGalleryPage, "Modèles d’e-mail");
 const AdminDocumentTemplatesGalleryPage = withAdminGate(DocumentTemplatesGalleryPage, "Modèles de devis");
 const AdminUsersPage = withAdminGate(UsersPage, "Comptes collaborateurs");
+
+function withDirectionGate<P extends object>(Page: ComponentType<P>, title: string) {
+  return function GatedPage(props: P) {
+    return (
+      <DirectionGate title={title}>
+        <Page {...props} />
+      </DirectionGate>
+    );
+  };
+}
+
+const DirectionStaffAuditPage = withDirectionGate(StaffAuditPage, "Journal d’audit");
 
 function Router() {
   return (
@@ -89,6 +103,7 @@ function Router() {
         <Route path={"/forgot-password"} component={ForgotPasswordPage} />
         <Route path={"/reset-password"} component={ResetPasswordPage} />
         <Route path={"/relances"} component={RemindersPage} />
+        <Route path={"/journal-audit"} component={DirectionStaffAuditPage} />
         <Route path={"/login"} component={LoginPage} />
         <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
         <Route path={"/documents/:id"} component={DocumentPreviewPage} />

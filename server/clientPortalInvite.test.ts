@@ -57,7 +57,7 @@ describe("P0.2 — invitation portail", () => {
     expect(res.email).toBe("client@bati.example");
     expect(mocks.createInvitation).toHaveBeenCalledWith(expect.objectContaining({ role: "client", email: "client@bati.example" }));
     expect(sendMailMock).toHaveBeenCalled();
-    expect(mocks.createClientActivity).toHaveBeenCalledWith(expect.objectContaining({ title: "Invitation portail client" }));
+    expect(mocks.createClientActivity).toHaveBeenCalledWith(expect.objectContaining({ title: "Invitation portail client", type: "email_envoye" }));
   });
 
   it("refuse sans e-mail sur la fiche", async () => {

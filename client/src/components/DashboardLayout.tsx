@@ -30,6 +30,7 @@ import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { canAccessPath, isClientRole, isStaffRole } from "@shared/roles";
 import {
   ArrowRight,
+  History,
   Bot,
   CalendarDays,
   CalendarClock,
@@ -79,6 +80,7 @@ const navigationGroups = [
     { icon: CircleDollarSign, label: "Coûts & marges", path: "/couts-chantier" },
     { icon: WalletCards, label: "Créances", path: "/creances" },
     { icon: Mail, label: "Relances", path: "/relances" },
+    { icon: History, label: "Journal d’audit", path: "/journal-audit" },
     { icon: CalendarDays, label: "Calendrier", path: "/calendrier" },
   ] },
   { label: "Client", items: [

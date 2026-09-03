@@ -60,7 +60,7 @@ describe("billing.assistant.sendReminderEmail", () => {
       subject: "Relance facture FAC-2026-0044",
     }));
     expect(mocks.createClientActivity).toHaveBeenCalledWith(expect.objectContaining({
-      type: "note",
+      type: "email_envoye",
       title: "Relance envoyée par e-mail",
     }));
   });

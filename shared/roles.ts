@@ -26,6 +26,9 @@ export const ADMIN_ONLY_PATHS = [
   "/agent-ia/e-mails-test",
 ] as const;
 
+/** Routes réservées à l’admin ou au directeur (pilotage / conformité). */
+export const DIRECTION_ONLY_PATHS = ["/journal-audit"] as const;
+
 /** Seules routes d’un compte portail client. */
 export const CLIENT_PATHS = ["/portail-client", "/compte/mot-de-passe"] as const;
 
@@ -37,6 +40,11 @@ export function canAccessPath(role: AppRole | string | undefined, path: string):
     );
   }
   if (role === "admin") return true;
+  if ((DIRECTION_ONLY_PATHS as readonly string[]).some(
+    (directionPath) => path === directionPath || path.startsWith(`${directionPath}/`),
+  )) {
+    return isDirectionRole(role);
+  }
   return !(ADMIN_ONLY_PATHS as readonly string[]).some(
     (adminPath) => path === adminPath || path.startsWith(`${adminPath}/`),
   );

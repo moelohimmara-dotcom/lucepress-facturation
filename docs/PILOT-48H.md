@@ -71,4 +71,6 @@ WhatsApp, Mobile Money, envoi agent IA vers clients réels, refonte complète ER
 
 ## Après le pilot
 
-Noter frictions (surtout : trop de clics, cartes manquantes, SMTP). Ensuite : journal d’audit + bascule progressive agent → validation inbox.
+Noter frictions (surtout : trop de clics, cartes manquantes, SMTP). Ensuite : bascule progressive agent → validation inbox.
+
+Le **journal d’audit** staff (envois e-mail / changements de statut) est disponible pour admin et directeur : menu **Pilotage financier → Journal d’audit** (`/journal-audit`).

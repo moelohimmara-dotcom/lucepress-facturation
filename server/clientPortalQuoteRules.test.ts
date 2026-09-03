@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getDocumentById = vi.fn();
 const updateDocumentStatus = vi.fn(async () => ({ success: true }));
-const createClientActivity = vi.fn(async () => ({ id: 1 }));
 
 /** Mirrors the decision rules in server/db.ts respondToClientPortalQuote. */
 async function respondToClientPortalQuote(input: {
@@ -27,14 +26,9 @@ async function respondToClientPortalQuote(input: {
       throw new Error("Ce devis a expiré. Contactez Lucepres pour une mise à jour.");
     }
   }
-  await updateDocumentStatus(quote.id, input.decision);
-  await createClientActivity({
-    clientId: input.clientId,
-    documentId: quote.id,
-    type: "note",
+  await updateDocumentStatus(quote.id, input.decision, input.createdById, {
     title: input.decision === "accepte" ? "Devis accepté par le client" : "Devis refusé par le client",
     description: `${quote.number} · décision portail`,
-    createdById: input.createdById,
   });
   return { success: true as const, status: input.decision, number: quote.number };
 }
@@ -56,7 +50,9 @@ describe("P1.3 — règles métier décision devis", () => {
     await expect(respondToClientPortalQuote({ clientId: 9, documentId: 55, decision: "accepte", createdById: 9 })).resolves.toMatchObject({
       status: "accepte",
     });
-    expect(updateDocumentStatus).toHaveBeenCalledWith(55, "accepte");
+    expect(updateDocumentStatus).toHaveBeenCalledWith(55, "accepte", 9, expect.objectContaining({
+      title: "Devis accepté par le client",
+    }));
   });
 
   it("refuse l’IDOR et un statut non envoye", async () => {

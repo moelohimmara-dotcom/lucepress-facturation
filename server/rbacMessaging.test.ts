@@ -21,6 +21,12 @@ describe("RBAC canAccessPath", () => {
     expect(canAccessPath("directeur", "/parametres")).toBe(true);
   });
 
+  it("réserve le journal d’audit à la direction", () => {
+    expect(canAccessPath("admin", "/journal-audit")).toBe(true);
+    expect(canAccessPath("directeur", "/journal-audit")).toBe(true);
+    expect(canAccessPath("cadre", "/journal-audit")).toBe(false);
+  });
+
   it("staff can access commercial paths", () => {
     expect(canAccessPath("cadre", "/devis")).toBe(true);
     expect(canAccessPath("directeur", "/relances")).toBe(true);

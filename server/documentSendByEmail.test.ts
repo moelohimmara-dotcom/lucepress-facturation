@@ -71,11 +71,11 @@ describe("billing.documents.sendByEmail", () => {
       clientName: "Mamadou",
     }));
     expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({ to: "client@bati.example" }));
-    expect(mocks.updateDocumentStatus).toHaveBeenCalledWith(12, "envoye");
+    expect(mocks.updateDocumentStatus).toHaveBeenCalledWith(12, "envoye", 1);
     expect(mocks.createClientActivity).toHaveBeenCalledWith(expect.objectContaining({
       clientId: 3,
       documentId: 12,
-      type: "note",
+      type: "email_envoye",
     }));
   });
 

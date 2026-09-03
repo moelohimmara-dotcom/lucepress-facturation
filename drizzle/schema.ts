@@ -387,7 +387,7 @@ export const clientActivities = mysqlTable(
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
     documentId: int("documentId").references(() => documents.id, { onDelete: "set null" }),
-    type: mysqlEnum("type", ["relance_preparee", "note", "statut_recouvrement", "responsable_recouvrement", "date_rappel_recouvrement"]).notNull(),
+    type: mysqlEnum("type", ["relance_preparee", "note", "statut_recouvrement", "responsable_recouvrement", "date_rappel_recouvrement", "email_envoye", "statut_document"]).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),

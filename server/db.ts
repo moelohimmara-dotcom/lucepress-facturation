@@ -39,6 +39,7 @@ import {
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
 import type { AppRole } from "../shared/roles";
 import { normalizeIdentityKind, type IdentityKind } from "../shared/identityPaperwork";
+import type { ClientActivityType } from "../shared/clientActivityTypes";
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
@@ -516,10 +517,38 @@ export async function createClientAttachment(input: { clientId: number; fileName
   return { id: Number(result[0].insertId) };
 }
 
-export async function createClientActivity(input: { clientId: number; documentId?: number; type: "relance_preparee" | "note" | "statut_recouvrement" | "responsable_recouvrement" | "date_rappel_recouvrement"; title: string; description?: string; createdById: number }) {
+export async function createClientActivity(input: { clientId: number; documentId?: number; type: ClientActivityType; title: string; description?: string; createdById: number }) {
   const db = await requireDb();
   const result = await db.insert(clientActivities).values({ tenantId: currentTenant(), ...input, documentId: input.documentId ?? null, description: input.description ?? null });
   return { id: Number(result[0].insertId) };
+}
+
+export async function listStaffAuditJournal(input?: { limit?: number; type?: ClientActivityType }) {
+  const db = await requireDb();
+  const limit = Math.min(Math.max(input?.limit ?? 200, 1), 500);
+  const conditions = [eq(clientActivities.tenantId, currentTenant())];
+  if (input?.type) conditions.push(eq(clientActivities.type, input.type));
+  return db
+    .select({
+      id: clientActivities.id,
+      type: clientActivities.type,
+      title: clientActivities.title,
+      description: clientActivities.description,
+      createdAt: clientActivities.createdAt,
+      clientId: clients.id,
+      clientName: clients.companyName,
+      documentId: documents.id,
+      documentNumber: documents.number,
+      actorId: users.id,
+      actorName: users.name,
+    })
+    .from(clientActivities)
+    .innerJoin(clients, and(eq(clientActivities.clientId, clients.id), eq(clients.tenantId, currentTenant())))
+    .leftJoin(documents, and(eq(clientActivities.documentId, documents.id), eq(documents.tenantId, currentTenant())))
+    .leftJoin(users, eq(clientActivities.createdById, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(clientActivities.createdAt))
+    .limit(limit);
 }
 
 export async function listClientActivities(clientId: number) {
@@ -1654,14 +1683,9 @@ export async function respondToClientPortalQuote(input: {
       throw new Error("Ce devis a expiré. Contactez Lucepres pour une mise à jour.");
     }
   }
-  await updateDocumentStatus(quote.id, input.decision);
-  await createClientActivity({
-    clientId: client.id,
-    documentId: quote.id,
-    type: "note",
+  await updateDocumentStatus(quote.id, input.decision, input.createdById, {
     title: input.decision === "accepte" ? "Devis accepté par le client" : "Devis refusé par le client",
     description: `${quote.number} · décision portail`,
-    createdById: input.createdById,
   });
   return { success: true as const, status: input.decision, number: quote.number };
 }
@@ -1809,10 +1833,32 @@ export async function createDocument(input: {
   return { ...result, totals: { subtotal: totals.subtotal, taxTotal: totals.taxTotal, total: totals.totalAfterDiscount, discountPercent: totals.discountPercent, discountAmount: totals.discountAmount } };
 }
 
-export async function updateDocumentStatus(id: number, status: DocumentStatus) {
+export async function updateDocumentStatus(
+  id: number,
+  status: DocumentStatus,
+  actorId?: number,
+  activity?: { title?: string; description?: string },
+) {
   const db = await requireDb();
+  const [current] = await db
+    .select({ id: documents.id, clientId: documents.clientId, number: documents.number, status: documents.status })
+    .from(documents)
+    .where(and(eq(documents.id, id), eq(documents.tenantId, currentTenant())))
+    .limit(1);
+  if (!current) throw new Error("Document introuvable.");
+  if (current.status === status) return { success: true as const, changed: false as const };
   await db.update(documents).set({ status }).where(and(eq(documents.id, id), eq(documents.tenantId, currentTenant())));
-  return { success: true };
+  if (actorId) {
+    await createClientActivity({
+      clientId: current.clientId,
+      documentId: id,
+      type: "statut_document",
+      title: activity?.title ?? `Statut document : ${current.status} → ${status}`,
+      description: activity?.description ?? current.number,
+      createdById: actorId,
+    });
+  }
+  return { success: true as const, changed: true as const };
 }
 
 export async function createDepositInvoiceFromQuote(quoteId: number, createdById: number) {
@@ -1961,12 +2007,13 @@ export async function updateDocument(input: {
   discountPercent?: number;
   notes?: string;
   expectedUpdatedAt?: string;
+  updatedById?: number;
   lines: EditableDocumentLine[];
 }) {
   const db = await requireDb();
   const totals = calculateDocumentDiscount(input.lines, input.discountPercent);
   await db.transaction(async tx => {
-    const [current] = await tx.select({ id: documents.id, updatedAt: documents.updatedAt }).from(documents).where(and(eq(documents.id, input.id), eq(documents.tenantId, currentTenant()))).limit(1);
+    const [current] = await tx.select({ id: documents.id, clientId: documents.clientId, number: documents.number, status: documents.status, updatedAt: documents.updatedAt }).from(documents).where(and(eq(documents.id, input.id), eq(documents.tenantId, currentTenant()))).limit(1);
     if (!current) throw new Error("Document introuvable.");
     if (isConcurrentDocumentUpdate(current.updatedAt, input.expectedUpdatedAt)) {
       throw new Error("Ce document a été modifié ailleurs. Rechargez la page avant d’enregistrer.");
@@ -2005,6 +2052,17 @@ export async function updateDocument(input: {
         serviceId: line.serviceId ?? null,
       };
     }));
+    if (input.updatedById && current.status !== input.status) {
+      await tx.insert(clientActivities).values({
+        tenantId: currentTenant(),
+        clientId: current.clientId,
+        documentId: input.id,
+        type: "statut_document",
+        title: `Statut document : ${current.status} → ${input.status}`,
+        description: current.number,
+        createdById: input.updatedById,
+      });
+    }
   });
   return { success: true, totals: { subtotal: totals.subtotal, taxTotal: totals.taxTotal, total: totals.totalAfterDiscount, discountPercent: totals.discountPercent, discountAmount: totals.discountAmount } };
 }
