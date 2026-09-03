@@ -65,6 +65,13 @@ export default function UsersPage() {
     onSuccess: (data) => {
       setInviteLink(data.invitationLink);
       utils.users.listInvitations.invalidate();
+      if (data.emailed) {
+        toast.success(`Invitation envoyée à ${data.email}.`);
+      } else if (!data.smtpConfigured) {
+        toast.message("Invitation créée — SMTP non configuré, copiez le lien.");
+      } else {
+        toast.message(data.emailError ? `E-mail non envoyé : ${data.emailError}` : "Invitation créée — copiez le lien.");
+      }
     },
     onError: (e) => toast.error(e.message),
   });
@@ -208,7 +215,7 @@ export default function UsersPage() {
           <CardHeader>
             <CardTitle className="text-lg">Invitations en attente</CardTitle>
             <CardDescription>
-              Liens valables 72 heures. Transmettez-les vous-même à vos collaborateurs (e-mail, WhatsApp…).
+              Liens valables 72 heures. L’e-mail d’invitation part automatiquement si SMTP est configuré.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -262,8 +269,8 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Inviter un collaborateur</DialogTitle>
             <DialogDescription>
-              Un lien sécurisé (valable 72 h) est généré. Copiez-le et transmettez-le à la personne invitée :
-              elle définira elle-même son mot de passe.
+              Un e-mail d’invitation (valable 72 h) est envoyé si SMTP est configuré.
+              Sinon, copiez le lien et transmettez-le vous-même.
             </DialogDescription>
           </DialogHeader>
           {inviteLink ? (
@@ -281,7 +288,7 @@ export default function UsersPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Transmettez ce lien par e-mail, WhatsApp ou tout autre canal. Ne le partagez pas publiquement.
+                Conservez ce lien en secours. Ne le partagez pas publiquement.
               </p>
             </div>
           ) : (

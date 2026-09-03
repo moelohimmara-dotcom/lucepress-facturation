@@ -12,7 +12,7 @@ vi.mock("@/components/ui/button", () => ({ Button: ({ children, ...props }: any)
 vi.mock("@/lib/pdf", () => ({ downloadPdfFromElement: async () => undefined }));
 vi.mock("@/lib/trpc", () => ({ trpc: {
   useUtils: () => ({ billing: { documents: { get: { invalidate: noOp }, list: { invalidate: noOp } }, dashboard: { invalidate: noOp } } }),
-  billing: { documents: { get: { useQuery: () => ({ data: quote, isLoading: false }) }, createDepositInvoice: { useMutation: ({ onSuccess }: any) => ({ isPending: false, mutate: (input: unknown) => { state.createDepositInvoice(input); onSuccess({ id: 22, number: "FAC-2026-0022", existing: false }); } }) }, createBalanceInvoice: { useMutation: () => ({ isPending: false, mutate: state.createBalanceInvoice }) } }, settings: { get: { useQuery: () => ({ data: {} }) } }, payments: { create: { useMutation: () => ({ mutate: noOp, isPending: false }) } } },
+  billing: { documents: { get: { useQuery: () => ({ data: quote, isLoading: false }) }, createDepositInvoice: { useMutation: ({ onSuccess }: any) => ({ isPending: false, mutate: (input: unknown) => { state.createDepositInvoice(input); onSuccess({ id: 22, number: "FAC-2026-0022", existing: false }); } }) }, createBalanceInvoice: { useMutation: () => ({ isPending: false, mutate: state.createBalanceInvoice }) }, sendByEmail: { useMutation: () => ({ mutate: noOp, isPending: false }) } }, settings: { get: { useQuery: () => ({ data: {} }) } }, payments: { create: { useMutation: () => ({ mutate: noOp, isPending: false }) } } },
 } }));
 vi.mock("wouter", () => ({ useLocation: () => ["/documents/15", state.navigate], useParams: () => ({ id: "15" }) }));
 vi.mock("sonner", () => ({ toast: { success: noOp, error: noOp } }));

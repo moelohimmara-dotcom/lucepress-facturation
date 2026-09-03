@@ -12,6 +12,7 @@ import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRou
 import { setupVite, serveStatic } from "./vite";
 import { createContext } from "./context";
 import { seedDefaultEmailTemplates } from "../db";
+import { isMailConfigured, verifySmtp } from "./mailer";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -84,6 +85,10 @@ async function startServer() {
     await seedDefaultEmailTemplates();
   } catch (err) {
     console.warn("[seed] Erreur lors du seed des templates e-mail:", err);
+  }
+
+  if (isMailConfigured()) {
+    void verifySmtp();
   }
 
   server.listen(port, () => {

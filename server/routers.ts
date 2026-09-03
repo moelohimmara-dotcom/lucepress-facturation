@@ -9,7 +9,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { sendMail } from "./_core/mailer";
+import { sendMail, isMailConfigured } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { APP_ROLES } from "../shared/roles";
@@ -578,23 +578,25 @@ export const appRouter = router({
         const inviteLink = `${origin}/invitation?token=${token}`;
 
         // Envoi de l'e-mail d'invitation
+        let emailed = false;
+        let emailError: string | undefined;
         try {
           const rendered = await db.renderEmailTemplate("invitation", {
             inviterName: ctx.user.name ?? "Un administrateur",
             inviteLink,
             organization: LUCEPRES_PUBLIC_PROFILE.legalName,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleString("fr-FR"),
+            expiresAt: new Date(Date.now() + db.INVITATION_TTL_MS).toLocaleString("fr-FR"),
           });
           await sendMail({
-            from: `"Lucepress" <${process.env.SMTP_USER}>`,
             to: input.email,
             subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
             html: rendered?.html ?? "",
-            text: rendered?.text ?? `${ctx.user.name ?? "Un administrateur"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
+            text: rendered?.text ?? `${ctx.user.name ?? "Un administrateur"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 72 heures.`,
           });
+          emailed = true;
         } catch (err) {
+          emailError = err instanceof Error ? err.message : "Échec d'envoi d'e-mail";
           console.error("[invite] Échec d'envoi d'e-mail:", err);
-          // On ne bloque pas la création de l'invitation, on signale juste l'échec.
         }
 
         return {
@@ -602,6 +604,9 @@ export const appRouter = router({
           invitationLink: inviteLink,
           email: input.email,
           role: input.role,
+          emailed,
+          emailError,
+          smtpConfigured: isMailConfigured(),
         } as const;
       }),
     listInvitations: adminProcedure.query(() => db.listInvitations()),
@@ -993,6 +998,99 @@ export const appRouter = router({
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture ne peut pas être générée depuis ce devis." });
           }
+        }),
+      /**
+       * Envoie le devis/facture au client par SMTP (templates quote-sent / invoice-sent).
+       * Passe le statut à « envoye » si l’envoi réussit.
+       */
+      sendByEmail: adminProcedure
+        .input(z.object({
+          id: z.number().int().positive(),
+          to: z.string().email().max(320).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          if (!isMailConfigured()) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "SMTP non configuré. Renseignez SMTP_HOST, SMTP_PORT, SMTP_USER et SMTP_PASS.",
+            });
+          }
+          const document = await db.getDocumentById(input.id);
+          if (!document) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+          }
+          const to = (input.to ?? document.clientEmail ?? "").trim();
+          if (!to) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Aucune adresse e-mail client. Renseignez l’e-mail sur la fiche client ou indiquez un destinataire.",
+            });
+          }
+
+          const company = await db.getCompanySettings();
+          const origin = getRequestOrigin(ctx.req);
+          const documentLink = `${origin}/portail-client`;
+          const amount = new Intl.NumberFormat("fr-GN").format(document.total);
+          const dueDate = document.dueDate
+            ? new Date(document.dueDate).toLocaleDateString("fr-FR")
+            : "—";
+          const validUntil = document.validUntil
+            ? new Date(document.validUntil).toLocaleDateString("fr-FR")
+            : "—";
+          const slug = document.kind === "facture" ? "invoice-sent" : "quote-sent";
+          const variables: Record<string, string> = {
+            clientName: document.contactName || document.clientName || "Client",
+            documentNumber: document.number,
+            amount,
+            dueDate,
+            validUntil,
+            documentLink,
+            companyEmail: company?.email || LUCEPRES_PUBLIC_PROFILE.email,
+            organization: company?.legalName || LUCEPRES_PUBLIC_PROFILE.legalName,
+            paymentMethod: "selon les modalités indiquées sur le document",
+          };
+
+          const rendered = await db.renderEmailTemplate(slug, variables);
+          if (!rendered?.html && !rendered?.text) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Modèle e-mail « ${slug} » introuvable.`,
+            });
+          }
+
+          try {
+            await sendMail({
+              to,
+              subject: rendered.subject,
+              html: rendered.html,
+              text: rendered.text,
+            });
+          } catch (error) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: error instanceof Error ? error.message : "Échec d’envoi de l’e-mail.",
+            });
+          }
+
+          if (document.status === "brouillon" || document.status === "a_envoyer") {
+            await db.updateDocumentStatus(document.id, "envoye");
+          }
+
+          await db.createClientActivity({
+            clientId: document.clientId,
+            documentId: document.id,
+            type: "note",
+            title: `${document.kind === "facture" ? "Facture" : "Devis"} envoyé par e-mail`,
+            description: `${document.number} → ${to}`,
+            createdById: ctx.user.id,
+          });
+
+          return {
+            success: true,
+            emailed: true,
+            to,
+            status: document.status === "brouillon" || document.status === "a_envoyer" ? "envoye" as const : document.status,
+          };
         }),
     }),
     payments: router({

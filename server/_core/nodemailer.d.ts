@@ -8,6 +8,7 @@ declare module "nodemailer" {
   };
   export type Transporter = {
     sendMail(options: SendMailOptions): Promise<{ messageId?: string }>;
+    verify(): Promise<true>;
   };
   export function createTransport(options: unknown): Transporter;
   const nodemailer: { createTransport: typeof createTransport };

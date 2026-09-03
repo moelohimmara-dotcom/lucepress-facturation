@@ -2015,27 +2015,32 @@ export async function deleteEmailTemplate(id: number): Promise<void> {
 
 /**
  * Rend un template en remplaçant les {{variable}} par leurs valeurs.
- * Utilise le template de la DB, sinon le template par défaut (fallback).
+ * Utilise le template de la DB (si activé), sinon le catalogue statique partagé.
  */
 export async function renderEmailTemplate(
   slug: string,
   variables: Record<string, string>
 ): Promise<{ subject: string; html: string; text: string } | null> {
   const template = await getEmailTemplateBySlug(slug);
-  if (!template) return null;
+  if (template && template.enabled !== "non") {
+    let subject = template.subject;
+    let html = template.html;
+    let text = template.text ?? "";
 
-  let subject = template.subject;
-  let html = template.html;
-  let text = template.text ?? "";
+    for (const [key, value] of Object.entries(variables)) {
+      const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
+      subject = subject.replace(regex, value);
+      html = html.replace(regex, value);
+      text = text.replace(regex, value);
+    }
 
-  for (const [key, value] of Object.entries(variables)) {
-    const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
-    subject = subject.replace(regex, value);
-    html = html.replace(regex, value);
-    text = text.replace(regex, value);
+    return { subject, html, text };
   }
 
-  return { subject, html, text };
+  const { renderEmailTemplate: renderStatic, EMAIL_TEMPLATES } = await import("../shared/emailTemplates");
+  const staticId = EMAIL_TEMPLATES.find(entry => entry.id === slug)?.id;
+  if (!staticId) return null;
+  return renderStatic(staticId, variables);
 }
 
 /**
