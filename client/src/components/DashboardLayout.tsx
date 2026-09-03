@@ -27,7 +27,7 @@ import { trpc } from "@/lib/trpc";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import type { WorkspaceSearchFilters } from "@shared/workspaceSearch";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
-import { canAccessPath } from "@shared/roles";
+import { canAccessPath, isClientRole, isStaffRole } from "@shared/roles";
 import {
   ArrowRight,
   Bot,
@@ -161,6 +161,12 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const menuItems = useMemo(() => visibleGroups.flatMap(group => group.items), [visibleGroups]);
   const { theme, toggleTheme } = useTheme();
   const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isClientRole(user?.role)) return;
+    if (canAccessPath("client", location)) return;
+    setLocation("/portail-client");
+  }, [user?.role, location, setLocation]);
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
@@ -183,7 +189,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const isFinalGuidanceStep = guidanceStep === sidebarGuidanceSteps.length - 1;
   const workspaceSearchInput = useMemo(() => ({ query: workspaceSearchQuery, filters: workspaceSearchFilters }), [workspaceSearchFilters, workspaceSearchQuery]);
   const activeWorkspaceFilterCount = [workspaceSearchFilters.kind, workspaceSearchFilters.dateFrom, workspaceSearchFilters.dateTo, workspaceSearchFilters.status, workspaceSearchFilters.amountMin !== undefined, workspaceSearchFilters.amountMax !== undefined, workspaceSearchFilters.sortBy && workspaceSearchFilters.sortBy !== "relevance"].filter(Boolean).length;
-  const { data: workspaceResults = [], isFetching: isWorkspaceSearching } = trpc.billing.workspaceSearch.useQuery(workspaceSearchInput, { enabled: workspaceSearchOpen && workspaceSearchQuery.trim().length >= 2 });
+  const { data: workspaceResults = [], isFetching: isWorkspaceSearching } = trpc.billing.workspaceSearch.useQuery(workspaceSearchInput, { enabled: workspaceSearchOpen && workspaceSearchQuery.trim().length >= 2 && isStaffRole(user?.role) });
 
   useEffect(() => {
     const routeToRestore = getRestorableRoute(location, localStorage.getItem(LAST_ROUTE_KEY), menuItems.map(item => item.path));

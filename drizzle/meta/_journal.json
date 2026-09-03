@@ -176,6 +176,13 @@
       "when": 1788279945235,
       "tag": "0024_password_resets",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1788440000000,
+      "tag": "0025_client_portal_role",
+      "breakpoints": true
     }
   ]
 }

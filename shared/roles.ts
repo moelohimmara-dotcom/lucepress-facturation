@@ -1,10 +1,13 @@
-export const APP_ROLES = ["admin", "directeur", "cadre"] as const;
+export const STAFF_ROLES = ["admin", "directeur", "cadre"] as const;
+export const APP_ROLES = [...STAFF_ROLES, "client"] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
 export type AppRole = (typeof APP_ROLES)[number];
 
 export const APP_ROLE_LABELS: Record<AppRole, string> = {
   admin: "Admin",
   directeur: "Directeur",
   cadre: "Cadre",
+  client: "Client (portail)",
 };
 
 export function isAppRole(value: string): value is AppRole {
@@ -15,14 +18,24 @@ export function isAppRole(value: string): value is AppRole {
 export const ADMIN_ONLY_PATHS = [
   "/integrations",
   "/parametres/utilisateurs",
+  "/parametres/e-mails",
+  "/parametres/modeles",
   "/agent-ia",
   "/agent-ia/planification",
   "/agent-ia/audit",
   "/agent-ia/e-mails-test",
 ] as const;
 
+/** Seules routes d’un compte portail client. */
+export const CLIENT_PATHS = ["/portail-client", "/compte/mot-de-passe"] as const;
+
 export function canAccessPath(role: AppRole | string | undefined, path: string): boolean {
   if (!role || !isAppRole(role)) return false;
+  if (role === "client") {
+    return (CLIENT_PATHS as readonly string[]).some(
+      (clientPath) => path === clientPath || path.startsWith(`${clientPath}/`),
+    );
+  }
   if (role === "admin") return true;
   return !(ADMIN_ONLY_PATHS as readonly string[]).some(
     (adminPath) => path === adminPath || path.startsWith(`${adminPath}/`),
@@ -31,4 +44,12 @@ export function canAccessPath(role: AppRole | string | undefined, path: string):
 
 export function isStaffRole(role: AppRole | string | undefined): boolean {
   return role === "admin" || role === "directeur" || role === "cadre";
+}
+
+export function isAdminRole(role: AppRole | string | undefined): boolean {
+  return role === "admin";
+}
+
+export function isClientRole(role: AppRole | string | undefined): boolean {
+  return role === "client";
 }

@@ -12,7 +12,7 @@ import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure
 import { sendMail, isMailConfigured } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
-import { APP_ROLES } from "../shared/roles";
+import { APP_ROLES, isStaffRole } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
@@ -24,6 +24,68 @@ function getRequestOrigin(req: { protocol?: string; get?: (name: string) => stri
   const host = req.get?.("x-forwarded-host") || req.get?.("host");
   if (!host || host.includes("localhost")) return (process.env.APP_PUBLIC_URL || "https://lucepress.213.156.135.139.sslip.io").replace(/\/$/, "");
   return `${proto}://${host}`;
+}
+
+async function issueInvitation(opts: {
+  email: string;
+  role: (typeof APP_ROLES)[number];
+  invitedById: number;
+  invitedByName: string | null;
+  tenantId: number;
+  req: { protocol?: string; get?: (name: string) => string | undefined };
+}) {
+  const existant = await db.getUserByEmail(opts.email);
+  if (existant) {
+    throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
+  }
+  const enAttente = await db.listInvitations();
+  for (const inv of enAttente) {
+    if (inv.email === opts.email && inv.status === "pending") {
+      await db.revokeInvitation(inv.id);
+    }
+  }
+  const crypto = await import("node:crypto");
+  const { hashPassword } = await import("./_core/password");
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = await hashPassword(token);
+  await db.createInvitation({
+    tokenHash,
+    email: opts.email,
+    role: opts.role,
+    invitedBy: opts.invitedById,
+    tenantId: opts.tenantId,
+  });
+  const origin = getRequestOrigin(opts.req);
+  const inviteLink = `${origin}/invitation?token=${token}`;
+  let emailed = false;
+  let emailError: string | undefined;
+  try {
+    const rendered = await db.renderEmailTemplate("invitation", {
+      inviterName: opts.invitedByName ?? "Lucepres",
+      inviteLink,
+      organization: LUCEPRES_PUBLIC_PROFILE.legalName,
+      expiresAt: new Date(Date.now() + db.INVITATION_TTL_MS).toLocaleString("fr-FR"),
+    });
+    await sendMail({
+      to: opts.email,
+      subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
+      html: rendered?.html ?? "",
+      text: rendered?.text ?? `${opts.invitedByName ?? "Lucepres"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 72 heures.`,
+    });
+    emailed = true;
+  } catch (err) {
+    emailError = err instanceof Error ? err.message : "Échec d'envoi d'e-mail";
+    console.error("[invite] Échec d'envoi d'e-mail:", err);
+  }
+  return {
+    success: true as const,
+    invitationLink: inviteLink,
+    email: opts.email,
+    role: opts.role,
+    emailed,
+    emailError,
+    smtpConfigured: isMailConfigured(),
+  };
 }
 
 const optionalText = z.string().trim().max(2000).optional();
@@ -482,6 +544,12 @@ export const appRouter = router({
         role: z.enum(APP_ROLES).default("cadre"),
       }))
       .mutation(async ({ input }) => {
+        if (input.role === "client") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Les accès portail client s’invitent depuis la fiche client.",
+          });
+        }
         const existant = await db.getUserByEmail(input.email);
         if (existant) {
           throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
@@ -550,64 +618,20 @@ export const appRouter = router({
         role: z.enum(APP_ROLES).default("cadre"),
       }))
       .mutation(async ({ ctx, input }) => {
-        const existant = await db.getUserByEmail(input.email);
-        if (existant) {
-          throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
+        if (input.role === "client") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Les accès portail client s’invitent depuis la fiche client, pas depuis les comptes internes.",
+          });
         }
-        const enAttente = await db.listInvitations();
-        for (const inv of enAttente) {
-          if (inv.email === input.email && inv.status === "pending") {
-            await db.revokeInvitation(inv.id);
-          }
-        }
-
-        const crypto = await import("node:crypto");
-        const { hashPassword } = await import("./_core/password");
-        const token = crypto.randomBytes(32).toString("hex");
-        const tokenHash = await hashPassword(token);
-
-        await db.createInvitation({
-          tokenHash,
+        return issueInvitation({
           email: input.email,
           role: input.role,
-          invitedBy: ctx.user.id,
-          tenantId: ctx.tenantId ?? undefined,
+          invitedById: ctx.user.id,
+          invitedByName: ctx.user.name,
+          tenantId: ctx.tenantId,
+          req: ctx.req,
         });
-
-        const origin = getRequestOrigin(ctx.req);
-        const inviteLink = `${origin}/invitation?token=${token}`;
-
-        // Envoi de l'e-mail d'invitation
-        let emailed = false;
-        let emailError: string | undefined;
-        try {
-          const rendered = await db.renderEmailTemplate("invitation", {
-            inviterName: ctx.user.name ?? "Un administrateur",
-            inviteLink,
-            organization: LUCEPRES_PUBLIC_PROFILE.legalName,
-            expiresAt: new Date(Date.now() + db.INVITATION_TTL_MS).toLocaleString("fr-FR"),
-          });
-          await sendMail({
-            to: input.email,
-            subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
-            html: rendered?.html ?? "",
-            text: rendered?.text ?? `${ctx.user.name ?? "Un administrateur"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 72 heures.`,
-          });
-          emailed = true;
-        } catch (err) {
-          emailError = err instanceof Error ? err.message : "Échec d'envoi d'e-mail";
-          console.error("[invite] Échec d'envoi d'e-mail:", err);
-        }
-
-        return {
-          success: true,
-          invitationLink: inviteLink,
-          email: input.email,
-          role: input.role,
-          emailed,
-          emailError,
-          smtpConfigured: isMailConfigured(),
-        } as const;
       }),
     listInvitations: adminProcedure.query(() => db.listInvitations()),
     revokeInvitation: adminProcedure
@@ -711,6 +735,7 @@ export const appRouter = router({
 
   billing: router({
     dashboard: staffProcedure.query(() => db.getDashboardData()),
+    mailStatus: staffProcedure.query(() => ({ smtpConfigured: isMailConfigured() })),
     clients: router({
       list: staffProcedure.query(() => db.listClients()),
       duplicates: staffProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
@@ -720,6 +745,52 @@ export const appRouter = router({
       update: staffProcedure
         .input(clientInputSchema.extend({ id: z.number().int().positive() }))
         .mutation(({ input }) => db.updateClient(input.id, input)),
+      invitePortal: staffProcedure
+        .input(z.object({ clientId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          const client = await db.getClientById(input.clientId);
+          if (!client) throw new TRPCError({ code: "NOT_FOUND", message: "Client introuvable." });
+          const email = client.email?.trim();
+          if (!email) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Renseignez l’e-mail sur la fiche client avant d’inviter au portail.",
+            });
+          }
+          const existant = await db.getUserByEmail(email);
+          if (existant && isStaffRole(existant.role)) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "Cet e-mail appartient déjà à un compte interne Lucepres. Utilisez une autre adresse sur la fiche client.",
+            });
+          }
+          if (existant?.role === "client") {
+            return {
+              success: true as const,
+              alreadyHasAccess: true,
+              email,
+              invitationLink: null as string | null,
+              emailed: false,
+              smtpConfigured: isMailConfigured(),
+            };
+          }
+          const issued = await issueInvitation({
+            email,
+            role: "client",
+            invitedById: ctx.user.id,
+            invitedByName: ctx.user.name,
+            tenantId: ctx.tenantId,
+            req: ctx.req,
+          });
+          await db.createClientActivity({
+            clientId: client.id,
+            type: "note",
+            title: "Invitation portail client",
+            description: `${email}${issued.emailed ? " — e-mail envoyé" : " — lien à transmettre"}`,
+            createdById: ctx.user.id,
+          });
+          return { ...issued, alreadyHasAccess: false, invitationLink: issued.invitationLink };
+        }),
       attachments: router({
         list: staffProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientAttachments(input.clientId)),
       }),

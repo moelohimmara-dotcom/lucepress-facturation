@@ -32,6 +32,7 @@ vi.mock("@/lib/trpc", () => ({
       },
       settings: { get: { useQuery: () => ({ data: {} }) } },
       payments: { create: { useMutation: () => ({ mutate: noOp, isPending: false }) } },
+      mailStatus: { useQuery: () => ({ data: { smtpConfigured: true } }) },
     },
   },
 }));

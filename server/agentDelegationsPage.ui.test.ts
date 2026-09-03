@@ -6,8 +6,9 @@ describe("centre de délégations de l’agent", () => {
 
   it("présente explicitement le mode simulation et l’absence d’envoi externe", () => {
     expect(source).toContain("Mode simulation sécurisé");
-    expect(source).toContain("aucun message ne peut quitter Lucepress depuis cet écran.");
+    expect(source).toContain("Aucun message ne peut quitter Lucepress depuis cet écran.");
     expect(source).toContain("Brouillons préparés, jamais envoyés.");
+    expect(source).toContain("/relances");
   });
 
   it("expose les garde-fous de durée, volume et seconde validation", () => {

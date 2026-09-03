@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -6,6 +6,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { DashboardLayoutSkeleton } from "./components/DashboardLayoutSkeleton";
+import { AdminGate } from "./components/AdminGate";
 
 const Home = lazy(() => import("./pages/Home"));
 const DocumentsPage = lazy(() => import("./pages/DocumentsPage"));
@@ -36,6 +37,26 @@ const LoginPage = lazy(() => import("./pages/LoginPage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
 
+function withAdminGate<P extends object>(Page: ComponentType<P>, title: string) {
+  return function GatedPage(props: P) {
+    return (
+      <AdminGate title={title}>
+        <Page {...props} />
+      </AdminGate>
+    );
+  };
+}
+
+const AdminIntegrationsPage = withAdminGate(IntegrationsPage, "Centre d’intégrations");
+const AdminAgentDelegationsPage = withAdminGate(AgentDelegationsPage, "Agent IA");
+const AdminAgentCampaignSchedulerPage = withAdminGate(AgentCampaignSchedulerPage, "Planification IA");
+const AdminAgentAuditPage = withAdminGate(AgentAuditPage, "Audit IA");
+const AdminAgentTestEmailPage = withAdminGate(AgentTestEmailPage, "E-mails de test");
+const AdminEmailTemplatesPage = withAdminGate(EmailTemplatesPage, "Templates d’e-mail");
+const AdminEmailTemplatesGalleryPage = withAdminGate(EmailTemplatesGalleryPage, "Modèles d’e-mail");
+const AdminDocumentTemplatesGalleryPage = withAdminGate(DocumentTemplatesGalleryPage, "Modèles de devis");
+const AdminUsersPage = withAdminGate(UsersPage, "Comptes collaborateurs");
+
 function Router() {
   return (
     <Suspense fallback={<LazyFallback />}>
@@ -49,21 +70,21 @@ function Router() {
         <Route path={"/clients"} component={() => <CatalogPage kind="clients" />} />
         <Route path={"/chantiers"} component={() => <CatalogPage kind="chantiers" />} />
         <Route path={"/prestations"} component={() => <CatalogPage kind="prestations" />} />
-        <Route path="/integrations" component={IntegrationsPage} />
-        <Route path="/agent-ia" component={AgentDelegationsPage} />
-        <Route path="/agent-ia/planification" component={AgentCampaignSchedulerPage} />
-        <Route path="/agent-ia/audit" component={AgentAuditPage} />
-        <Route path="/agent-ia/e-mails-test" component={AgentTestEmailPage} />
+        <Route path="/integrations" component={AdminIntegrationsPage} />
+        <Route path="/agent-ia" component={AdminAgentDelegationsPage} />
+        <Route path="/agent-ia/planification" component={AdminAgentCampaignSchedulerPage} />
+        <Route path="/agent-ia/audit" component={AdminAgentAuditPage} />
+        <Route path="/agent-ia/e-mails-test" component={AdminAgentTestEmailPage} />
         <Route path="/calendrier" component={CalendarPage} />
         <Route path="/couts-chantier" component={ProjectCostsPage} />
         <Route path="/creances" component={ReceivablesPage} />
         <Route path="/portail-client" component={ClientPortalPage} />
         <Route path={"/parametres"} component={SettingsPage} />
-        <Route path={"/parametres/e-mails"} component={EmailTemplatesPage} />
-        <Route path={"/parametres/modeles"} component={EmailTemplatesGalleryPage} />
-        <Route path={"/parametres/modeles/documents"} component={DocumentTemplatesGalleryPage} />
+        <Route path={"/parametres/e-mails"} component={AdminEmailTemplatesPage} />
+        <Route path={"/parametres/modeles"} component={AdminEmailTemplatesGalleryPage} />
+        <Route path={"/parametres/modeles/documents"} component={AdminDocumentTemplatesGalleryPage} />
         <Route path={"/compte/mot-de-passe"} component={ChangePasswordPage} />
-        <Route path={"/parametres/utilisateurs"} component={UsersPage} />
+        <Route path={"/parametres/utilisateurs"} component={AdminUsersPage} />
         <Route path={"/invitation"} component={InvitationAcceptPage} />
         <Route path={"/forgot-password"} component={ForgotPasswordPage} />
         <Route path={"/reset-password"} component={ResetPasswordPage} />

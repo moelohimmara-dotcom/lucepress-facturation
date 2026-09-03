@@ -16,6 +16,8 @@ export default function RemindersPage() {
     { id: selectedId! },
     { enabled: selectedId != null },
   );
+  const { data: mailStatus } = trpc.billing.mailStatus.useQuery();
+  const smtpReady = mailStatus?.smtpConfigured === true;
   const clientEmail = selectedDetail?.clientEmail?.trim() || "";
   const generate = trpc.billing.assistant.generateReminder.useMutation({
     onSuccess: () => { setCopied(false); toast.success("Modèle de relance préparé. Relisez-le avant envoi."); },
@@ -61,6 +63,12 @@ export default function RemindersPage() {
             <Mail className="h-5 w-5" />
           </div>
         </header>
+        {mailStatus?.smtpConfigured === false && (
+          <section className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+            <p className="text-sm leading-6">SMTP non configuré : vous pouvez préparer et copier la relance, mais l’envoi e-mail est indisponible.</p>
+          </section>
+        )}
         <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <section className="card-shadow overflow-hidden rounded-2xl border border-border bg-card">
             <div className="border-b border-border p-5">
@@ -147,7 +155,8 @@ export default function RemindersPage() {
                     </Button>
                     <Button
                       onClick={sendReminder}
-                      disabled={sendEmail.isPending || !clientEmail}
+                      disabled={sendEmail.isPending || !clientEmail || !smtpReady}
+                      title={!smtpReady ? "SMTP non configuré" : !clientEmail ? "E-mail client manquant" : "Envoyer la relance par e-mail"}
                       className="h-9 rounded-lg bg-primary text-xs font-bold text-primary-foreground"
                     >
                       <Send className="mr-1.5 h-3.5 w-3.5" />
