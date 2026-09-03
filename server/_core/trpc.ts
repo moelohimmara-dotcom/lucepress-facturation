@@ -1,5 +1,6 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
+import type { AppRole } from "@shared/roles";
 import type { TrpcContext } from "./context";
 import { runWithTenant } from "./tenantContext";
 
@@ -34,22 +35,17 @@ const requireUser = t.middleware(async opts => {
   );
 });
 
-export const protectedProcedure = t.procedure.use(requireUser);
-
-export const adminProcedure = t.procedure.use(
-  t.middleware(async opts => {
+function requireRoles(allowed: readonly AppRole[], forbiddenMessage: string) {
+  return t.middleware(async opts => {
     const { ctx, next } = opts;
-
     const user = ctx.user;
     const tenantId = ctx.tenantId;
-    if (!user || user.role !== "admin") {
-      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    if (!user || !allowed.includes(user.role as AppRole)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: forbiddenMessage });
     }
-
     if (!tenantId) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
     }
-
     return runWithTenant(tenantId, () =>
       next({
         ctx: {
@@ -59,35 +55,31 @@ export const adminProcedure = t.procedure.use(
         },
       }),
     );
-  }),
+  });
+}
+
+export const protectedProcedure = t.procedure.use(requireUser);
+
+/** Admin uniquement — utilisateurs, paramètres société, intégrations. */
+export const adminProcedure = t.procedure.use(
+  requireRoles(["admin"], NOT_ADMIN_ERR_MSG),
 );
 
 /**
- * Procédure pour les administrateurs ET directeurs.
- * Accès étendu sauf gestion des utilisateurs (réservée aux admins).
+ * Direction : admin + directeur.
+ * Accès étendu (clients, pilotage) sans gestion des utilisateurs.
  */
 export const directionProcedure = t.procedure.use(
-  t.middleware(async opts => {
-    const { ctx, next } = opts;
+  requireRoles(["admin", "directeur"], "Accès réservé à la direction."),
+);
 
-    const user = ctx.user;
-    const tenantId = ctx.tenantId;
-    if (!user || (user.role !== "admin" && user.role !== "directeur")) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Accès réservé à la direction." });
-    }
-
-    if (!tenantId) {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
-    }
-
-    return runWithTenant(tenantId, () =>
-      next({
-        ctx: {
-          ...ctx,
-          user,
-          tenantId,
-        },
-      }),
-    );
-  }),
+/**
+ * Équipe commerciale : admin + directeur + cadre.
+ * Documents, paiements, créances, relances, catalogue, dashboard.
+ */
+export const staffProcedure = t.procedure.use(
+  requireRoles(
+    ["admin", "directeur", "cadre"],
+    "Accès réservé à l’équipe commerciale Lucepres.",
+  ),
 );

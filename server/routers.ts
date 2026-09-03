@@ -8,7 +8,7 @@ import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router, staffProcedure } from "./_core/trpc";
 import { sendMail, isMailConfigured } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
@@ -710,48 +710,48 @@ export const appRouter = router({
   }),
 
   billing: router({
-    dashboard: adminProcedure.query(() => db.getDashboardData()),
+    dashboard: staffProcedure.query(() => db.getDashboardData()),
     clients: router({
-      list: directionProcedure.query(() => db.listClients()),
-      duplicates: directionProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
-      create: directionProcedure
+      list: staffProcedure.query(() => db.listClients()),
+      duplicates: staffProcedure.input(z.object({ companyName: z.string().trim().min(2).max(180), email: z.string().email().optional().or(z.literal("")), phone: z.string().trim().max(64).optional(), excludedId: z.number().int().positive().optional() })).query(({ input }) => db.findClientDuplicates(input, input.excludedId)),
+      create: staffProcedure
         .input(clientInputSchema)
         .mutation(({ input }) => db.createClient(input)),
-      update: directionProcedure
+      update: staffProcedure
         .input(clientInputSchema.extend({ id: z.number().int().positive() }))
         .mutation(({ input }) => db.updateClient(input.id, input)),
       attachments: router({
-        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientAttachments(input.clientId)),
+        list: staffProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientAttachments(input.clientId)),
       }),
       activities: router({
-        list: adminProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientActivities(input.clientId)),
-        createNote: adminProcedure.input(z.object({ clientId: z.number().int().positive(), title: z.string().trim().min(2).max(255).default("Note d’appel"), description: z.string().trim().min(3).max(2000) })).mutation(({ ctx, input }) => db.createClientActivity({ ...input, type: "note", createdById: ctx.user.id })),
+        list: staffProcedure.input(z.object({ clientId: z.number().int().positive() })).query(({ input }) => db.listClientActivities(input.clientId)),
+        createNote: staffProcedure.input(z.object({ clientId: z.number().int().positive(), title: z.string().trim().min(2).max(255).default("Note d’appel"), description: z.string().trim().min(3).max(2000) })).mutation(({ ctx, input }) => db.createClientActivity({ ...input, type: "note", createdById: ctx.user.id })),
       }),
     }),
     settings: router({
-      get: adminProcedure.query(() => db.getCompanySettings()),
+      get: staffProcedure.query(() => db.getCompanySettings()),
       save: adminProcedure.input(companySettingsInputSchema).mutation(({ input }) => db.saveCompanySettings(input)),
     }),
     projects: router({
-      list: adminProcedure.query(() => db.listProjects()),
-      create: adminProcedure
+      list: staffProcedure.query(() => db.listProjects()),
+      create: staffProcedure
         .input(z.object({ clientId: z.number().int().positive(), name: z.string().trim().min(2).max(180), reference: z.string().trim().max(80).optional(), type: z.enum(["btp", "forage", "mixte"]), location: z.string().trim().max(255).optional(), description: optionalText }))
         .mutation(({ input }) => db.createProject(input)),
-      updatePlannedBudget: adminProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000) })).mutation(({ input }) => db.updateProjectPlannedBudget(input)),
-      updateFinancialTargets: adminProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000), minimumMarginRate: z.number().int().min(0).max(100).nullable() })).mutation(({ input }) => db.updateProjectFinancialTargets(input)),
+      updatePlannedBudget: staffProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000) })).mutation(({ input }) => db.updateProjectPlannedBudget(input)),
+      updateFinancialTargets: staffProcedure.input(z.object({ id: z.number().int().positive(), plannedBudget: z.number().int().min(0).max(9_000_000_000), minimumMarginRate: z.number().int().min(0).max(100).nullable() })).mutation(({ input }) => db.updateProjectFinancialTargets(input)),
       costs: router({
-        list: adminProcedure.input(z.object({ projectId: z.number().int().positive().optional() }).optional()).query(({ input }) => db.listProjectCosts(input?.projectId)),
-        create: adminProcedure.input(z.object({ projectId: z.number().int().positive(), category: z.enum(["materiaux", "main_oeuvre", "transport", "equipement", "sous_traitance", "autre"]), description: z.string().trim().min(3).max(500), amount: z.number().int().positive().max(9_000_000_000), incurredAt: dateText })).mutation(({ ctx, input }) => db.createProjectCost({ ...input, createdById: ctx.user.id })),
-        delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCost(input.id)),
+        list: staffProcedure.input(z.object({ projectId: z.number().int().positive().optional() }).optional()).query(({ input }) => db.listProjectCosts(input?.projectId)),
+        create: staffProcedure.input(z.object({ projectId: z.number().int().positive(), category: z.enum(["materiaux", "main_oeuvre", "transport", "equipement", "sous_traitance", "autre"]), description: z.string().trim().min(3).max(500), amount: z.number().int().positive().max(9_000_000_000), incurredAt: dateText })).mutation(({ ctx, input }) => db.createProjectCost({ ...input, createdById: ctx.user.id })),
+        delete: staffProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCost(input.id)),
         attachments: router({
-          list: adminProcedure.input(z.object({ projectCostId: z.number().int().positive() })).query(({ input }) => db.listProjectCostAttachments(input.projectCostId)),
-          delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCostAttachment(input.id)),
+          list: staffProcedure.input(z.object({ projectCostId: z.number().int().positive() })).query(({ input }) => db.listProjectCostAttachments(input.projectCostId)),
+          delete: staffProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => db.deleteProjectCostAttachment(input.id)),
         }),
-        profitability: adminProcedure.query(() => db.listProjectProfitability()),
+        profitability: staffProcedure.query(() => db.listProjectProfitability()),
       }),
     }),
-    receivables: adminProcedure.query(() => db.getReceivablesDashboard()),
-    workspaceSearch: adminProcedure
+    receivables: staffProcedure.query(() => db.getReceivablesDashboard()),
+    workspaceSearch: staffProcedure
       .input(z.object({
         query: z.string().trim().max(80),
         filters: z.object({
@@ -767,20 +767,20 @@ export const appRouter = router({
       }))
       .query(({ input }) => db.searchWorkspace({ query: input.query, filters: input.filters })),
     collection: router({
-      assignees: adminProcedure.query(() => db.listCollectionAssignees()),
-      updateFollowUp: adminProcedure
+      assignees: staffProcedure.query(() => db.listCollectionAssignees()),
+      updateFollowUp: staffProcedure
         .input(z.object({ documentId: z.number().int().positive(), collectionStatus: z.enum(["a_traiter", "contacte", "a_rappeler"]).optional(), collectionReminderDate: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/, "La date de rappel doit respecter le format AAAA-MM-JJ.").nullable().optional(), collectionOwnerId: z.number().int().positive().nullable().optional() }))
         .mutation(async ({ ctx, input }) => {
           try { return await db.updateCollectionFollowUp({ ...input, updatedById: ctx.user.id }); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le suivi de recouvrement ne peut pas être mis à jour." }); }
         }),
-      reassign: adminProcedure
+      reassign: staffProcedure
         .input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(20).refine(ids => new Set(ids).size === ids.length, "Une créance ne peut être sélectionnée qu’une fois."), collectionOwnerId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try { return await db.reassignCollectionFollowUps({ ...input, updatedById: ctx.user.id }); }
           catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Les créances ne peuvent pas être réattribuées." }); }
         }),
-      monthlyReport: adminProcedure
+      monthlyReport: staffProcedure
         .input(z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Le mois doit respecter le format AAAA-MM.") }))
         .query(async ({ input }) => {
           try { return await db.getCollectionMonthlyReport(input.month); }
@@ -947,32 +947,32 @@ export const appRouter = router({
         }),
     }),
     services: router({
-      list: adminProcedure.query(() => db.listServices()),
-      create: adminProcedure
+      list: staffProcedure.query(() => db.listServices()),
+      create: staffProcedure
         .input(z.object({ code: z.string().trim().min(2).max(50), name: z.string().trim().min(2).max(180), category: z.enum(SERVICE_CATEGORIES), description: optionalText, unit: z.string().trim().min(1).max(30), defaultUnitPrice: z.number().int().min(0).max(9_000_000_000), defaultTaxRate: z.number().int().min(0).max(100) }))
         .mutation(({ input }) => db.createService(input)),
-      updateTariff: adminProcedure
+      updateTariff: staffProcedure
         .input(z.object({ id: z.number().int().positive(), defaultUnitPrice: z.number().int().min(0).max(9_000_000_000), defaultTaxRate: z.number().int().min(0).max(100) }))
         .mutation(({ ctx, input }) => db.updateServiceTariff({ ...input, changedById: ctx.user.id })),
-      priceHistory: adminProcedure
+      priceHistory: staffProcedure
         .input(z.object({ serviceId: z.number().int().positive() }))
         .query(({ input }) => db.listServicePriceRevisions(input.serviceId)),
-      priceHistoryExport: adminProcedure
+      priceHistoryExport: staffProcedure
         .query(() => db.listAllServicePriceRevisions()),
     }),
     documents: router({
-      list: adminProcedure.input(z.object({ kind: z.enum(["devis", "facture"]).optional() }).optional()).query(({ input }) => db.listDocuments(input?.kind)),
-      get: adminProcedure.input(z.object({ id: z.number().int().positive() })).query(({ input }) => db.getDocumentById(input.id)),
-      create: adminProcedure
+      list: staffProcedure.input(z.object({ kind: z.enum(["devis", "facture"]).optional() }).optional()).query(({ input }) => db.listDocuments(input?.kind)),
+      get: staffProcedure.input(z.object({ id: z.number().int().positive() })).query(({ input }) => db.getDocumentById(input.id)),
+      create: staffProcedure
         .input(z.object({ kind: z.enum(["devis", "facture"]), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), relatedDocumentId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES).optional(), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, isAiDraft: z.boolean().optional(), lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
         .mutation(({ ctx, input }) => db.createDocument({ ...input, createdById: ctx.user.id, lines: input.lines as EditableDocumentLine[] })),
-      update: adminProcedure
+      update: staffProcedure
         .input(z.object({ id: z.number().int().positive(), clientId: z.number().int().positive(), projectId: z.number().int().positive().optional(), status: z.enum(DOCUMENT_STATUSES), issueDate: dateText, dueDate: dateText.optional(), validUntil: dateText.optional(), notes: optionalText, lines: z.array(documentLineSchema).min(1).max(100) }).and(quotePaymentScheduleSchema).and(quoteDiscountSchema))
         .mutation(({ input }) => db.updateDocument({ ...input, lines: input.lines as EditableDocumentLine[] })),
-      updateStatus: adminProcedure
+      updateStatus: staffProcedure
         .input(z.object({ id: z.number().int().positive(), status: z.enum(DOCUMENT_STATUSES) }))
         .mutation(({ input }) => db.updateDocumentStatus(input.id, input.status)),
-      createDepositInvoice: adminProcedure
+      createDepositInvoice: staffProcedure
         .input(z.object({ quoteId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try {
@@ -981,7 +981,7 @@ export const appRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture d’acompte ne peut pas être générée." });
           }
         }),
-      createBalanceInvoice: adminProcedure
+      createBalanceInvoice: staffProcedure
         .input(z.object({ depositInvoiceId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try {
@@ -990,7 +990,7 @@ export const appRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "La facture de solde ne peut pas être générée." });
           }
         }),
-      createInvoiceFromQuote: adminProcedure
+      createInvoiceFromQuote: staffProcedure
         .input(z.object({ quoteId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
           try {
@@ -1003,7 +1003,7 @@ export const appRouter = router({
        * Envoie le devis/facture au client par SMTP (templates quote-sent / invoice-sent).
        * Passe le statut à « envoye » si l’envoi réussit.
        */
-      sendByEmail: adminProcedure
+      sendByEmail: staffProcedure
         .input(z.object({
           id: z.number().int().positive(),
           to: z.string().email().max(320).optional(),
@@ -1094,7 +1094,7 @@ export const appRouter = router({
         }),
     }),
     payments: router({
-      create: adminProcedure
+      create: staffProcedure
         .input(z.object({ documentId: z.number().int().positive(), amount: z.number().int().positive().max(9_000_000_000), paidAt: dateText, method: z.enum(["especes", "virement", "cheque", "mobile_money", "autre"]), reference: z.string().trim().max(120).optional(), notes: optionalText }))
         .mutation(async ({ ctx, input }) => {
           try {
@@ -1105,7 +1105,7 @@ export const appRouter = router({
         }),
     }),
     assistant: router({
-      summarizeClientHistory: adminProcedure
+      summarizeClientHistory: staffProcedure
         .input(z.object({ clientId: z.number().int().positive() }))
         .mutation(async ({ input }) => {
           const client = await db.getClientById(input.clientId);
@@ -1126,7 +1126,7 @@ export const appRouter = router({
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le résumé IA est indisponible. Réessayez dans un instant." });
           try { return { summary: JSON.parse(content) as { summary: string; attentionPoints: string[]; nextSteps: string[] }, requiresReview: true }; } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le résumé IA ne peut pas être lu. Réessayez dans un instant." }); }
         }),
-      generateReminder: adminProcedure
+      generateReminder: staffProcedure
         .input(z.object({ documentId: z.number().int().positive(), tone: z.enum(["courtois", "ferme"]).default("courtois") }))
         .mutation(async ({ ctx, input }) => {
           const document = await db.getDocumentById(input.documentId);
@@ -1150,7 +1150,58 @@ export const appRouter = router({
             return { reminder, requiresReview: true };
           } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance ne peut pas être lu. Réessayez dans un instant." }); }
         }),
-      prepareBatchReminders: adminProcedure
+      /**
+       * Envoie une relance par SMTP (après relecture humaine).
+       * WhatsApp volontairement non branché (sourdine démo).
+       */
+      sendReminderEmail: staffProcedure
+        .input(z.object({
+          documentId: z.number().int().positive(),
+          subject: z.string().trim().min(3).max(255),
+          greeting: z.string().trim().min(1).max(500),
+          body: z.string().trim().min(3).max(8000),
+          closing: z.string().trim().min(1).max(1000),
+          to: z.string().email().max(320).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          if (!isMailConfigured()) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "SMTP non configuré. Renseignez SMTP_HOST, SMTP_PORT, SMTP_USER et SMTP_PASS.",
+            });
+          }
+          const document = await db.getDocumentById(input.documentId);
+          if (!document || document.kind !== "facture" || document.balanceDue <= 0) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
+          }
+          const to = (input.to ?? document.clientEmail ?? "").trim();
+          if (!to) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Aucune adresse e-mail client. Renseignez l’e-mail sur la fiche client.",
+            });
+          }
+          const text = `${input.greeting}\n\n${input.body}\n\n${input.closing}`;
+          const html = `<p>${input.greeting.replace(/\n/g, "<br/>")}</p><p>${input.body.replace(/\n/g, "<br/>")}</p><p>${input.closing.replace(/\n/g, "<br/>")}</p>`;
+          try {
+            await sendMail({ to, subject: input.subject, text, html });
+          } catch (error) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: error instanceof Error ? error.message : "Échec d’envoi de la relance.",
+            });
+          }
+          await db.createClientActivity({
+            clientId: document.clientId,
+            documentId: document.id,
+            type: "note",
+            title: "Relance envoyée par e-mail",
+            description: `${document.number} → ${to} · ${input.subject}`,
+            createdById: ctx.user.id,
+          });
+          return { success: true, emailed: true, to } as const;
+        }),
+      prepareBatchReminders: staffProcedure
         .input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(BATCH_REMINDER_LIMIT), tone: z.enum(["courtois", "ferme"]).default("courtois"), instruction: z.string().trim().max(500).optional() }))
         .mutation(async ({ ctx, input }) => {
           let documentIds: number[];
@@ -1186,7 +1237,7 @@ export const appRouter = router({
             return { reminders, requiresReview: true, delivery: "brouillons_uniquement" as const };
           } catch (error) { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error instanceof Error ? error.message : "Les modèles de relance ne peuvent pas être lus. Réessayez dans un instant." }); }
         }),
-      extractClient: adminProcedure
+      extractClient: staffProcedure
         .input(z.object({ text: z.string().trim().min(10).max(6000) }))
         .mutation(async ({ input }) => {
           const models = await listLLMModels();
@@ -1208,7 +1259,7 @@ export const appRouter = router({
             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Les coordonnées extraites ne peuvent pas être lues. Réessayez dans un instant." });
           }
         }),
-      proposeQuote: adminProcedure
+      proposeQuote: staffProcedure
         .input(z.object({ description: z.string().trim().min(20).max(6000), projectType: z.enum(["btp", "forage", "mixte"]).optional(), taxRate: z.number().int().min(0).max(100).default(0) }))
         .mutation(async ({ input }) => {
           const catalog = await db.listServices();

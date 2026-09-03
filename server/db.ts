@@ -74,6 +74,7 @@ export async function getDb() {
         connectTimeout: 10000,
         enableKeepAlive: true,
         keepAliveInitialDelay: 30000,
+        charset: "utf8mb4",
       });
       _db = drizzle(_pool) as unknown as ReturnType<typeof drizzle>;
       // Test the connection
@@ -1845,6 +1846,16 @@ export async function recordPayment(input: {
     const paidAfter = paidBefore + input.amount;
     const status = invoicePaymentStatus(invoice.total, paidAfter, invoice.dueDate, invoice.status);
     await tx.update(documents).set({ status }).where(and(eq(documents.id, input.documentId), eq(documents.tenantId, currentTenant())));
+    const methodLabel = input.method === "mobile_money" ? "Mobile Money (saisie)" : input.method;
+    await tx.insert(clientActivities).values({
+      tenantId: currentTenant(),
+      clientId: invoice.clientId,
+      documentId: input.documentId,
+      type: "note",
+      title: "Paiement manuel enregistré",
+      description: `${invoice.number} · ${input.amount.toLocaleString("fr-GN")} GNF · ${methodLabel}${input.reference ? ` · réf. ${input.reference}` : ""}`,
+      createdById: input.createdById,
+    });
     return { id: Number(result[0].insertId), paidAmount: paidAfter, balanceDue: calculatePaymentBalance(invoice.total, paidAfter).balanceDue, status };
   });
 }

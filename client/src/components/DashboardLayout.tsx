@@ -27,6 +27,7 @@ import { trpc } from "@/lib/trpc";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import type { WorkspaceSearchFilters } from "@shared/workspaceSearch";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
+import { canAccessPath } from "@shared/roles";
 import {
   ArrowRight,
   Bot,
@@ -44,6 +45,7 @@ import {
   Mail,
   ScrollText,
   Search,
+  ShieldCheck,
   SlidersHorizontal,
   Maximize2,
   Minimize2,
@@ -79,6 +81,9 @@ const navigationGroups = [
     { icon: Mail, label: "Relances", path: "/relances" },
     { icon: CalendarDays, label: "Calendrier", path: "/calendrier" },
   ] },
+  { label: "Client", items: [
+    { icon: ShieldCheck, label: "Portail client", path: "/portail-client" },
+  ] },
   { label: "Agent & automatisations", items: [
     { icon: Bot, label: "Agent IA", path: "/agent-ia" },
     { icon: CalendarClock, label: "Planification IA", path: "/agent-ia/planification" },
@@ -90,7 +95,7 @@ const navigationGroups = [
     { icon: Settings, label: "Paramètres", path: "/parametres" },
   ] },
 ];
-const menuItems = navigationGroups.flatMap(group => group.items);
+
 
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";
 const LAST_ROUTE_KEY = "lucepress-last-route";
@@ -144,6 +149,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH, setSidebarWidth }: { children: React.ReactNode; sidebarWidth?: number; setSidebarWidth: (width: number) => void }) {
   const { user, logout } = useAuth();
+  const visibleGroups = useMemo(() => {
+    const role = user?.role;
+    return navigationGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(item => canAccessPath(role, item.path)),
+      }))
+      .filter(group => group.items.length > 0);
+  }, [user?.role]);
+  const menuItems = useMemo(() => visibleGroups.flatMap(group => group.items), [visibleGroups]);
   const { theme, toggleTheme } = useTheme();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
@@ -292,7 +307,7 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
             </div>
           </SidebarHeader>
           <SidebarContent className={`relative min-h-0 gap-0 overflow-y-auto ${isCompact ? "px-1 py-2" : "px-2 py-3"}`}>
-            {navigationGroups.map((group, groupIndex) => <div key={group.label} className={groupIndex ? `${isCompact ? "mt-1" : "mt-4 border-t border-white/[0.08] pt-3"}` : ""}>
+            {visibleGroups.map((group, groupIndex) => <div key={group.label} className={groupIndex ? `${isCompact ? "mt-1" : "mt-4 border-t border-white/[0.08] pt-3"}` : ""}>
               {!isCollapsed && !isCompact && <p className="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.19em] text-sidebar-foreground/42">{group.label}</p>}
               <SidebarMenu className="gap-1">
                 {group.items.map(item => <SidebarMenuItem key={item.path}>
