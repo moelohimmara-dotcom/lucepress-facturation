@@ -327,28 +327,45 @@ export type InvitationSearchResult = {
 };
 
 /**
- * Recherche une invitation par token (hash scrypt) SANS filtre tenant.
+ * Recherche une invitation par token (SHA-256) SANS filtre tenant.
  * Utilisé pour acceptInvitation (procédure publique — pas encore authentifié).
  * Le token est unique (contrainte DB), pas de risque de fuite inter-tenant.
  */
 export async function findInvitationByToken(
   token: string
 ): Promise<InvitationSearchResult> {
-  const db = await requireDb();
-  const { verifyPassword } = await import("./_core/password");
-  const all = await db.select().from(invitations);
-  console.log(`[DEBUG_FIND] token received: ${token} (length: ${token.length}) pending invitations: ${all.filter(i => i.status === "pending").length}`);
-  for (const inv of all) {
-    const ok = await verifyPassword(token, inv.tokenHash);
-    console.log(`[DEBUG_FIND] verify ${inv.email}: ${ok} (status: ${inv.status}, expires: ${inv.expiresAt.toISOString()})`);
-    if (!ok) continue;
-    // Le token correspond à cette invitation
-    if (inv.status === "accepted") return { invitation: inv, reason: "already_accepted" };
-    if (inv.status === "revoked") return { invitation: inv, reason: "revoked" };
-    if (inv.expiresAt.getTime() <= Date.now()) return { invitation: inv, reason: "expired" };
-    return { invitation: inv, reason: "pending" };
+  const { hashInvitationToken, isPlausibleInvitationToken } = await import("../shared/invitationToken");
+  if (!isPlausibleInvitationToken(token)) {
+    return { reason: "not_found" };
   }
-  return { reason: "not_found" };
+  const db = await requireDb();
+  const tokenHash = hashInvitationToken(token);
+  const [inv] = await db.select().from(invitations).where(eq(invitations.tokenHash, tokenHash)).limit(1);
+  if (!inv) return { reason: "not_found" };
+  if (inv.status === "accepted") return { invitation: inv, reason: "already_accepted" };
+  if (inv.status === "revoked") return { invitation: inv, reason: "revoked" };
+  if (inv.expiresAt.getTime() <= Date.now()) return { invitation: inv, reason: "expired" };
+  return { invitation: inv, reason: "pending" };
+}
+
+/** Régénère le jeton d’une invitation encore en attente (renvoi e-mail). */
+export async function rotateInvitationToken(id: number): Promise<{ token: string; email: string; role: AppRole; expiresAt: Date } | null> {
+  const db = await requireDb();
+  const [inv] = await db.select().from(invitations).where(and(
+    eq(invitations.id, id),
+    eq(invitations.tenantId, currentTenant()),
+  )).limit(1);
+  if (!inv || inv.status !== "pending") return null;
+  if (inv.expiresAt.getTime() <= Date.now()) return null;
+  const { createInvitationToken, hashInvitationToken } = await import("../shared/invitationToken");
+  const token = createInvitationToken();
+  const tokenHash = hashInvitationToken(token);
+  const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
+  await db.update(invitations).set({ tokenHash, expiresAt }).where(and(
+    eq(invitations.id, id),
+    eq(invitations.tenantId, currentTenant()),
+  ));
+  return { token, email: inv.email, role: inv.role as AppRole, expiresAt };
 }
 
 export async function markInvitationAccepted(tokenHash: string, acceptedByUser: number): Promise<void> {
@@ -2428,7 +2445,9 @@ export async function seedDefaultEmailTemplates(): Promise<void> {
     <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
     <p style="word-break:break-all; font-size:13px; color:#4f46e5;">{{inviteLink}}</p>
     <div class="footer">
-      Cet e-mail a été envoyé automatiquement. Si vous n'attendiez aucune invitation, ignorez ce message.
+      <p>Ce lien personnel expire le <strong>{{expiresAt}}</strong>.</p>
+      <p>Si vous ne voyez pas cet e-mail dans votre boîte de réception, vérifiez le dossier spam / indésirables.</p>
+      <p>Pour toute question, contactez-nous.</p>
     </div>
   </div>
 </body>

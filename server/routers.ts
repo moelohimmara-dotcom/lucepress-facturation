@@ -27,11 +27,15 @@ import { assertGuestShareRateLimit } from "./_core/guestShareRateLimit";
 import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
 import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
 
-/** Reconstruit l'origine (https://...) à partir de la requête Express. */
+/** Reconstruit l'origine publique (https://...) pour les liens e-mail. */
 function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
+  const configured = process.env.APP_PUBLIC_URL?.trim().replace(/\/$/, "");
+  if (configured) return configured;
   const proto = req.get?.("x-forwarded-proto") || req.protocol || "https";
   const host = req.get?.("x-forwarded-host") || req.get?.("host");
-  if (!host || host.includes("localhost")) return (process.env.APP_PUBLIC_URL || "https://lucepress.213.156.135.139.sslip.io").replace(/\/$/, "");
+  if (!host || host.includes("localhost") || host.startsWith("127.")) {
+    return "https://lucepress.213.156.135.139.sslip.io";
+  }
   return `${proto}://${host}`;
 }
 
@@ -95,10 +99,9 @@ async function issueInvitation(opts: {
       await db.revokeInvitation(inv.id);
     }
   }
-  const crypto = await import("node:crypto");
-  const { hashPassword } = await import("./_core/password");
-  const token = crypto.randomBytes(32).toString("hex");
-  const tokenHash = await hashPassword(token);
+  const { createInvitationToken, hashInvitationToken } = await import("../shared/invitationToken");
+  const token = createInvitationToken();
+  const tokenHash = hashInvitationToken(token);
   await db.createInvitation({
     tokenHash,
     email: opts.email,
@@ -110,23 +113,27 @@ async function issueInvitation(opts: {
   const inviteLink = `${origin}/invitation?token=${token}`;
   let emailed = false;
   let emailError: string | undefined;
-  try {
-    const rendered = await db.renderEmailTemplate("invitation", {
-      inviterName: opts.invitedByName ?? "Lucepres",
-      inviteLink,
-      organization: LUCEPRES_PUBLIC_PROFILE.legalName,
-      expiresAt: new Date(Date.now() + db.INVITATION_TTL_MS).toLocaleString("fr-FR"),
-    });
-    await sendMail({
-      to: opts.email,
-      subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
-      html: rendered?.html ?? "",
-      text: rendered?.text ?? `${opts.invitedByName ?? "Lucepres"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 72 heures.`,
-    });
-    emailed = true;
-  } catch (err) {
-    emailError = err instanceof Error ? err.message : "Échec d'envoi d'e-mail";
-    console.error("[invite] Échec d'envoi d'e-mail:", err);
+  if (!isMailConfigured()) {
+    emailError = "SMTP non configuré.";
+  } else {
+    try {
+      const rendered = await db.renderEmailTemplate("invitation", {
+        inviterName: opts.invitedByName ?? "Lucepres",
+        inviteLink,
+        organization: LUCEPRES_PUBLIC_PROFILE.legalName,
+        expiresAt: new Date(Date.now() + db.INVITATION_TTL_MS).toLocaleString("fr-FR"),
+      });
+      await sendMail({
+        to: opts.email,
+        subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
+        html: rendered?.html ?? "",
+        text: rendered?.text ?? `${opts.invitedByName ?? "Lucepres"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 72 heures.`,
+      });
+      emailed = true;
+    } catch (err) {
+      emailError = err instanceof Error ? err.message : "Échec d'envoi d'e-mail";
+      console.error("[invite] Échec d'envoi d'e-mail:", err);
+    }
   }
   return {
     success: true as const,
@@ -738,6 +745,50 @@ export const appRouter = router({
         });
       }),
     listInvitations: adminProcedure.query(() => db.listInvitations()),
+    resendInvitation: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        if (!isMailConfigured()) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "SMTP non configuré. Impossible de renvoyer l’invitation par e-mail.",
+          });
+        }
+        const rotated = await db.rotateInvitationToken(input.id);
+        if (!rotated) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invitation introuvable, déjà utilisée, révoquée ou expirée.",
+          });
+        }
+        const origin = getRequestOrigin(ctx.req);
+        const inviteLink = `${origin}/invitation?token=${rotated.token}`;
+        try {
+          const rendered = await db.renderEmailTemplate("invitation", {
+            inviterName: ctx.user.name ?? "Lucepres",
+            inviteLink,
+            organization: LUCEPRES_PUBLIC_PROFILE.legalName,
+            expiresAt: rotated.expiresAt.toLocaleString("fr-FR"),
+          });
+          await sendMail({
+            to: rotated.email,
+            subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
+            html: rendered?.html ?? "",
+            text: rendered?.text ?? `Invitation Lucepress : ${inviteLink}`,
+          });
+        } catch (error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error instanceof Error ? error.message : "Échec d’envoi de l’e-mail d’invitation.",
+          });
+        }
+        return {
+          success: true as const,
+          emailed: true as const,
+          email: rotated.email,
+          invitationLink: inviteLink,
+        };
+      }),
     revokeInvitation: adminProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {

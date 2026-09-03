@@ -87,6 +87,6 @@ export async function sendMail(options: AppSendMailOptions) {
       contentType: attachment.contentType,
     })),
   } as Parameters<Transporter["sendMail"]>[0]);
-  console.log(`[mailer] Envoyé: ${info.messageId}`);
+  console.log(`[mailer] Envoyé: ${info.messageId} → ${options.to}`);
   return info;
 }

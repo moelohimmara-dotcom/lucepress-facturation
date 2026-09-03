@@ -51,6 +51,12 @@ export default function UsersPage() {
   const [openDialog, setOpenDialog] = useState<null | "create" | "reset" | "remove" | "invite">(null);
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteEmailMeta, setInviteEmailMeta] = useState<{
+    email: string;
+    emailed: boolean;
+    emailError?: string;
+    smtpConfigured?: boolean;
+  } | null>(null);
 
   const createMutation = trpc.users.create.useMutation({
     onSuccess: () => {
@@ -64,14 +70,35 @@ export default function UsersPage() {
   const inviteMutation = trpc.users.invite.useMutation({
     onSuccess: (data) => {
       setInviteLink(data.invitationLink);
+      setInviteEmailMeta({
+        email: data.email,
+        emailed: data.emailed,
+        emailError: data.emailError,
+        smtpConfigured: data.smtpConfigured,
+      });
       utils.users.listInvitations.invalidate();
       if (data.emailed) {
-        toast.success(`Invitation envoyée à ${data.email}.`);
+        toast.success(`Invitation envoyée à ${data.email}. Vérifiez aussi les spams.`);
       } else if (!data.smtpConfigured) {
         toast.message("Invitation créée — SMTP non configuré, copiez le lien.");
       } else {
-        toast.message(data.emailError ? `E-mail non envoyé : ${data.emailError}` : "Invitation créée — copiez le lien.");
+        toast.error(data.emailError ? `E-mail non envoyé : ${data.emailError}` : "E-mail non envoyé — copiez le lien.");
       }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const resendInvitationMutation = trpc.users.resendInvitation.useMutation({
+    onSuccess: (data) => {
+      utils.users.listInvitations.invalidate();
+      toast.success(`Invitation renvoyée à ${data.email}. L’ancien lien est invalidé.`);
+      setInviteLink(data.invitationLink);
+      setInviteEmailMeta({
+        email: data.email,
+        emailed: true,
+        smtpConfigured: true,
+      });
+      setOpenDialog("invite");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -139,7 +166,7 @@ export default function UsersPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => { setInviteLink(null); setOpenDialog("invite"); }} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+            <Button onClick={() => { setInviteLink(null); setInviteEmailMeta(null); setOpenDialog("invite"); }} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
               <Mail className="mr-2 h-4 w-4" /> Inviter par e-mail
             </Button>
             <Button variant="outline" onClick={() => setOpenDialog("create")} className="h-10 rounded-xl font-bold">
@@ -217,7 +244,7 @@ export default function UsersPage() {
           <CardHeader>
             <CardTitle className="text-lg">Invitations en attente</CardTitle>
             <CardDescription>
-              Liens valables 72 heures. L’e-mail d’invitation part automatiquement si SMTP est configuré.
+              Liens valables 72 heures. Un nouvel envoi invalide l’ancien lien — utilisez « Renvoyer » plutôt que de révoquer si l’e-mail n’est pas encore arrivé.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -235,14 +262,24 @@ export default function UsersPage() {
                           Expire le {formatDate(inv.expiresAt)} · {APP_ROLE_LABELS[inv.role]}
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => revokeMutation.mutate({ id: inv.id })}
-                        disabled={revokeMutation.isPending}
-                      >
-                        Révoquer
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => resendInvitationMutation.mutate({ id: inv.id })}
+                          disabled={resendInvitationMutation.isPending}
+                        >
+                          <Mail className="mr-1 h-4 w-4" /> Renvoyer
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => revokeMutation.mutate({ id: inv.id })}
+                          disabled={revokeMutation.isPending}
+                        >
+                          Révoquer
+                        </Button>
+                      </div>
                     </li>
                   ))}
               </ul>
@@ -277,6 +314,17 @@ export default function UsersPage() {
           </DialogHeader>
           {inviteLink ? (
             <div className="space-y-3">
+              {inviteEmailMeta?.emailed ? (
+                <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900">
+                  E-mail envoyé à <strong>{inviteEmailMeta.email}</strong>. Demandez au destinataire de vérifier boîte de réception et spams. Une nouvelle invitation pour la même adresse invalide l’ancien lien.
+                </p>
+              ) : (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
+                  {inviteEmailMeta?.emailError
+                    ? `E-mail non parti (${inviteEmailMeta.emailError}). Copiez le lien et envoyez-le manuellement.`
+                    : "E-mail non parti. Copiez le lien et transmettez-le manuellement."}
+                </p>
+              )}
               <p className="text-sm font-medium">Lien d'invitation :</p>
               <div className="flex gap-2">
                 <Input readOnly value={inviteLink} className="font-mono text-xs" />

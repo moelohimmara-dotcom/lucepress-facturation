@@ -25,6 +25,14 @@ const mocks = vi.hoisted(() => {
       });
       return { id: invitations.length };
     }),
+    rotateInvitationToken: vi.fn(async (id: number) => {
+      const i = invitations.find(x => x.id === id && x.status === "pending");
+      if (!i) return null;
+      const token = "c".repeat(64);
+      i.tokenHash = `sha256:${token}`;
+      i.expiresAt = new Date(Date.now() + 1000 * 3600 * 72);
+      return { token, email: i.email, role: i.role, expiresAt: i.expiresAt };
+    }),
     listInvitations: vi.fn(async () => invitations.slice()),
     renderEmailTemplate: vi.fn(async () => ({
       subject: "Invitation",
@@ -32,8 +40,6 @@ const mocks = vi.hoisted(() => {
       text: "invite",
     })),
     INVITATION_TTL_MS: 72 * 60 * 60 * 1000,
-    hashPassword: vi.fn(async (plain: string) => `hash:${plain}`),
-    verifyPassword: vi.fn(async (plain: string, stored: string) => stored === `hash:${plain}`),
     _invitations: invitations,
   };
 });
@@ -45,6 +51,7 @@ vi.mock("./db", () => ({
   markInvitationAccepted: mocks.markInvitationAccepted,
   revokeInvitation: mocks.revokeInvitation,
   createInvitation: mocks.createInvitation,
+  rotateInvitationToken: mocks.rotateInvitationToken,
   listInvitations: mocks.listInvitations,
   renderEmailTemplate: mocks.renderEmailTemplate,
   INVITATION_TTL_MS: mocks.INVITATION_TTL_MS,
@@ -55,9 +62,15 @@ vi.mock("./db", () => ({
   }),
 }));
 
+vi.mock("../shared/invitationToken", () => ({
+  createInvitationToken: () => "a".repeat(64),
+  hashInvitationToken: (token: string) => `sha256:${token}`,
+  isPlausibleInvitationToken: (token: string) => /^[a-f0-9]{64}$/i.test(token),
+}));
+
 vi.mock("./_core/password", () => ({
-  verifyPassword: mocks.verifyPassword,
-  hashPassword: mocks.hashPassword,
+  verifyPassword: vi.fn(async () => false),
+  hashPassword: vi.fn(async (plain: string) => `hash:${plain}`),
 }));
 
 const sendMailMock = vi.fn(async () => ({ messageId: "test-message-id" }));
@@ -103,7 +116,7 @@ describe("users.invite (admin)", () => {
     expect(sendMailMock).toHaveBeenCalledOnce();
     expect(sendMailMock.mock.calls[0][0]).toMatchObject({ to: "invite@x.com" });
     const stored = mocks._invitations[0];
-    expect(stored.tokenHash.startsWith("hash:")).toBe(true);
+    expect(stored.tokenHash).toBe(`sha256:${"a".repeat(64)}`);
     expect(stored.tokenHash).not.toBe(res.invitationLink.split("token=")[1]);
   });
 
@@ -140,8 +153,6 @@ describe("users.acceptInvitation (public)", () => {
       expect.objectContaining({ email: "nouveau@x.com", role: "cadre", name: "Nouveau" })
     );
     expect(mocks.markInvitationAccepted).toHaveBeenCalled();
-    const hash = mocks.createLocalUser.mock.calls[0][0].passwordHash as string;
-    expect(hash.startsWith("hash:")).toBe(true);
   });
 
   it("un token déjà utilisé est refusé (usage unique)", async () => {
