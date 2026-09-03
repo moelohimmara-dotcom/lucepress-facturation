@@ -8,7 +8,7 @@ import { trpc } from "@/lib/trpc";
 
 export default function ResetPasswordPage() {
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
-  const reset = trpc.resetPassword.useMutation();
+  const reset = trpc.auth.resetPassword.useMutation();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [done, setDone] = useState(false);
@@ -98,8 +98,8 @@ export default function ResetPasswordPage() {
                 minLength={8}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={reset.isLoading}>
-              {reset.isLoading ? "Enregistrement…" : "Enregistrer le nouveau mot de passe"}
+            <Button type="submit" className="w-full" disabled={reset.isPending}>
+              {reset.isPending ? "Enregistrement…" : "Enregistrer le nouveau mot de passe"}
             </Button>
           </form>
         </CardContent>

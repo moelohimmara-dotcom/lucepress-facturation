@@ -11,14 +11,14 @@
  * En cas d'absence, un template par défaut est utilisé (voir renderEmailTemplate).
  */
 
-import nodemailer, { type SendMailOptions } from "nodemailer";
+import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer";
 
 const host = process.env.SMTP_HOST;
 const port = Number(process.env.SMTP_PORT);
 const user = process.env.SMTP_USER;
 const pass = process.env.SMTP_PASS;
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
 if (host && port && user && pass) {
   transporter = nodemailer.createTransport({

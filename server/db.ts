@@ -37,6 +37,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
+import type { AppRole } from "../shared/roles";
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
@@ -74,7 +75,7 @@ export async function getDb() {
         enableKeepAlive: true,
         keepAliveInitialDelay: 30000,
       });
-      _db = drizzle(_pool, { mode: "mysql" });
+      _db = drizzle(_pool) as unknown as ReturnType<typeof drizzle>;
       // Test the connection
       await _pool.query("SELECT 1");
     } catch (error) {
@@ -143,7 +144,7 @@ export async function createLocalUser(input: {
    * forçait auparavant `role: "admin"` en dur, ce qui donnait les pleins droits
    * à tout compte créé via `auth.register` (procédure publique).
    */
-  role: "admin" | "user";
+  role: AppRole;
   tenantId?: number;
 }): Promise<{ id: number; openId: string }> {
   const db = await requireDb();
@@ -189,7 +190,7 @@ export async function setUserPasswordHash(userId: number, passwordHash: string):
  * Retourne des champs sûrs : jamais le hash du mot de passe.
  */
 export async function listUsers(): Promise<
-  Array<{ id: number; openId: string; name: string | null; email: string | null; role: "admin" | "user"; loginMethod: string | null; lastSignedIn: Date; createdAt: Date }>
+  Array<{ id: number; openId: string; name: string | null; email: string | null; role: AppRole; loginMethod: string | null; lastSignedIn: Date; createdAt: Date }>
 > {
   const db = await requireDb();
   return db
@@ -209,7 +210,7 @@ export async function listUsers(): Promise<
 }
 
 /** Change le rôle d'un compte (admin -> user ou user -> admin). */
-export async function setUserRole(userId: number, role: "admin" | "user"): Promise<void> {
+export async function setUserRole(userId: number, role: AppRole): Promise<void> {
   const db = await requireDb();
   await db.update(users).set({ role }).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant())));
 }
@@ -258,7 +259,7 @@ export const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
 export type NewInvitation = {
   tokenHash: string;
   email: string;
-  role: "user" | "admin";
+  role: AppRole;
   invitedBy: number;
   tenantId?: number;
 };
@@ -527,6 +528,7 @@ export type CompanySettingsInput = {
 
 const emptyCompanySettings = (): Omit<typeof companySettings.$inferSelect, "id"> & { id: number } => ({
   id: 0,
+  tenantId: 1,
   legalName: LUCEPRES_PUBLIC_PROFILE.legalName,
   legalAddress: LUCEPRES_PUBLIC_PROFILE.location,
   phone: LUCEPRES_PUBLIC_PROFILE.phone,
@@ -546,6 +548,7 @@ const emptyCompanySettings = (): Omit<typeof companySettings.$inferSelect, "id">
 
 function normalizeCompanySettings(input: CompanySettingsInput): typeof companySettings.$inferInsert {
   return {
+    tenantId: currentTenant(),
     legalName: input.legalName,
     legalAddress: input.legalAddress || null,
     phone: input.phone || null,
@@ -1051,7 +1054,7 @@ export async function getIntegrationOperationsDashboard() {
 type AgentGrantRole = "directeur_general" | "responsable_commercial";
 type AgentGrantScope = "global" | "commercial";
 
-export async function getAgentOperatorAccess(userId: number, systemRole: "admin" | "user") {
+export async function getAgentOperatorAccess(userId: number, systemRole: AppRole) {
   if (systemRole === "admin") return { canApprove: true, canActivate: true, scope: "global" as const, isAdministrator: true, grantIds: [] as number[] };
   const db = await requireDb();
   const now = new Date();
@@ -1664,7 +1667,7 @@ export async function createDocument(input: {
   const result = await db.transaction(async tx => {
     await tx
       .insert(documentSequences)
-      .values({ kind: input.kind, lastValue: 1 })
+      .values({ tenantId: currentTenant(), kind: input.kind, lastValue: 1 })
       .onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
     const sequence = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, input.kind), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
@@ -1812,6 +1815,7 @@ export async function createInvoiceFromQuote(quoteId: number, createdById: numbe
     });
     const id = Number(result[0].insertId);
     await tx.insert(documentLines).values(lines.map((l: any) => ({
+      tenantId: currentTenant(),
       documentId: id, position: l.position, description: l.description, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPrice, taxRate: l.taxRate, lineTotal: l.lineTotal, serviceId: l.serviceId,
     })));
     return { id, number, existing: false };
@@ -1885,6 +1889,7 @@ export async function updateDocument(input: {
       const base = Math.round(line.quantity * line.unitPrice);
       const tax = Math.round((base * line.taxRate) / 100);
       return {
+        tenantId: currentTenant(),
         documentId: input.id,
         position: index + 1,
         description: line.description,

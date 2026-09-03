@@ -16,13 +16,14 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { ShieldCheck, Trash2, UserCog, UserPlus, KeyRound, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
+import { APP_ROLE_LABELS, type AppRole } from "@shared/roles";
 
 type UserRow = {
   id: number;
   openId: string;
   name: string | null;
   email: string | null;
-  role: "admin" | "user";
+  role: AppRole;
   loginMethod: string | null;
   lastSignedIn: Date | string;
   createdAt: Date | string;
@@ -158,7 +159,7 @@ export default function UsersPage() {
                         {u.role === "admin" ? (
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">Admin</span>
                         ) : (
-                          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Membre</span>
+                          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">{APP_ROLE_LABELS[u.role]}</span>
                         )}
                         {u.id === user?.id && <span className="text-[11px] text-muted-foreground">(vous)</span>}
                       </div>
@@ -172,7 +173,7 @@ export default function UsersPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setRoleMutation.mutate({ userId: u.id, role: u.role === "admin" ? "user" : "admin" })}
+                          onClick={() => setRoleMutation.mutate({ userId: u.id, role: u.role === "admin" ? "cadre" : "admin" })}
                           disabled={setRoleMutation.isPending}
                         >
                           <UserCog className="mr-1 h-4 w-4" />
@@ -222,7 +223,7 @@ export default function UsersPage() {
                       <div>
                         <p className="text-sm font-medium">{inv.email}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          Expire le {formatDate(inv.expiresAt)} · {inv.role === "admin" ? "Admin" : "Membre"}
+                          Expire le {formatDate(inv.expiresAt)} · {APP_ROLE_LABELS[inv.role]}
                         </p>
                       </div>
                       <Button
@@ -334,13 +335,13 @@ function CreateUserForm({
   onSubmit,
   pending,
 }: {
-  onSubmit: (v: { email: string; name?: string; password: string; role: "admin" | "user" }) => void;
+  onSubmit: (v: { email: string; name?: string; password: string; role: AppRole }) => void;
   pending: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "user">("user");
+  const [role, setRole] = useState<AppRole>("cadre");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: FormEvent) {
@@ -369,6 +370,7 @@ function CreateUserForm({
         <Label>Rôle</Label>
         <div className="flex gap-2">
           <Button type="button" variant={role === "cadre" ? "default" : "outline"} size="sm" onClick={() => setRole("cadre")}>Cadre</Button>
+          <Button type="button" variant={role === "directeur" ? "default" : "outline"} size="sm" onClick={() => setRole("directeur")}>Directeur</Button>
           <Button type="button" variant={role === "admin" ? "default" : "outline"} size="sm" onClick={() => setRole("admin")}>Admin</Button>
         </div>
       </div>
@@ -417,11 +419,11 @@ function InviteForm({
   onSubmit,
   pending,
 }: {
-  onSubmit: (v: { email: string; name?: string; role: "admin" | "cadre" }) => void;
+  onSubmit: (v: { email: string; name?: string; role: AppRole }) => void;
   pending: boolean;
 }) {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "cadre">("cadre");
+  const [role, setRole] = useState<AppRole>("cadre");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: FormEvent) {
@@ -441,6 +443,7 @@ function InviteForm({
         <Label>Rôle</Label>
         <div className="flex gap-2">
           <Button type="button" variant={role === "cadre" ? "default" : "outline"} size="sm" onClick={() => setRole("cadre")}>Cadre</Button>
+          <Button type="button" variant={role === "directeur" ? "default" : "outline"} size="sm" onClick={() => setRole("directeur")}>Directeur</Button>
           <Button type="button" variant={role === "admin" ? "default" : "outline"} size="sm" onClick={() => setRole("admin")}>Admin</Button>
         </div>
       </div>

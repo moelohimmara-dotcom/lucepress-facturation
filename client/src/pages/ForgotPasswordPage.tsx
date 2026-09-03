@@ -9,7 +9,7 @@ import { trpc } from "@/lib/trpc";
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [done, setDone] = useState(false);
-  const forgot = trpc.forgotPassword.useMutation();
+  const forgot = trpc.auth.forgotPassword.useMutation();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,8 +61,8 @@ export default function ForgotPasswordPage() {
                 autoComplete="email"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={forgot.isLoading}>
-              {forgot.isLoading ? "Envoi en cours…" : "Envoyer le lien de réinitialisation"}
+            <Button type="submit" className="w-full" disabled={forgot.isPending}>
+              {forgot.isPending ? "Envoi en cours…" : "Envoyer le lien de réinitialisation"}
             </Button>
           </form>
         </CardContent>

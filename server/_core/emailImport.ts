@@ -1,1 +1,8 @@
-import { listEmailTemplates, getEmailTemplateBySlug, createEmailTemplate, updateEmailTemplate, deleteEmailTemplate, renderEmailTemplate } from "./emailTemplates";
+export {
+  listEmailTemplates,
+  getEmailTemplateBySlug,
+  createEmailTemplate,
+  updateEmailTemplate,
+  deleteEmailTemplate,
+  renderEmailTemplate,
+} from "../db";

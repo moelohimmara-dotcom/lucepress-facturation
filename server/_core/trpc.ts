@@ -13,19 +13,22 @@ export const publicProcedure = t.procedure;
 const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
 
-  if (!ctx.user) {
+  const user = ctx.user;
+  const tenantId = ctx.tenantId;
+  if (!user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
-  if (!ctx.tenantId) {
+  if (!tenantId) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
   }
 
-  return runWithTenant(ctx.tenantId, () =>
+  return runWithTenant(tenantId, () =>
     next({
       ctx: {
         ...ctx,
-        user: ctx.user,
+        user,
+        tenantId,
       },
     }),
   );
@@ -37,19 +40,22 @@ export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    const user = ctx.user;
+    const tenantId = ctx.tenantId;
+    if (!user || user.role !== "admin") {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
-    if (!ctx.tenantId) {
+    if (!tenantId) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
     }
 
-    return runWithTenant(ctx.tenantId, () =>
+    return runWithTenant(tenantId, () =>
       next({
         ctx: {
           ...ctx,
-          user: ctx.user,
+          user,
+          tenantId,
         },
       }),
     );
@@ -64,19 +70,22 @@ export const directionProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || (ctx.user.role !== 'admin' && ctx.user.role !== 'directeur')) {
+    const user = ctx.user;
+    const tenantId = ctx.tenantId;
+    if (!user || (user.role !== "admin" && user.role !== "directeur")) {
       throw new TRPCError({ code: "FORBIDDEN", message: "Accès réservé à la direction." });
     }
 
-    if (!ctx.tenantId) {
+    if (!tenantId) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Aucun tenant associé." });
     }
 
-    return runWithTenant(ctx.tenantId, () =>
+    return runWithTenant(tenantId, () =>
       next({
         ctx: {
           ...ctx,
-          user: ctx.user,
+          user,
+          tenantId,
         },
       }),
     );

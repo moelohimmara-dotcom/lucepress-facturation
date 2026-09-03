@@ -11,6 +11,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { sendMail } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
+import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
+import { APP_ROLES } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
@@ -345,7 +347,8 @@ export const appRouter = router({
         return { success: true };
       }),
     me: publicProcedure.query(({ ctx }) => {
-      const { passwordHash, ...safeUser } = ctx.user ?? {};
+      if (!ctx.user) return null;
+      const { passwordHash: _passwordHash, ...safeUser } = ctx.user;
       return safeUser;
     }),
     /**
@@ -465,7 +468,7 @@ export const appRouter = router({
   /**
    * Gestion des collaborateurs (réservée aux administrateurs).
    * Dans l'architecture mono-tenant actuelle, un « collaborateur » est un compte
-   * `users` avec `role: "user"`. Les procédures ci-dessous permettent à un admin
+   * `users` avec un rôle `admin`, `directeur` ou `cadre`. Les procédures ci-dessous permettent à un admin
    * de lister, créer, promouvoir/rétrograder, réinitialiser le mot de passe et
    * révoquer ces comptes — sans jamais exposer le hash des mots de passe.
    */
@@ -476,7 +479,7 @@ export const appRouter = router({
         email: z.string().email().max(320),
         name: z.string().trim().min(2).max(180).optional(),
         password: z.string().min(8).max(128),
-        role: z.enum(["admin", "directeur", "cadre"]).default("cadre"),
+        role: z.enum(APP_ROLES).default("cadre"),
       }))
       .mutation(async ({ input }) => {
         const existant = await db.getUserByEmail(input.email);
@@ -494,7 +497,7 @@ export const appRouter = router({
         return { success: true, openId: user.openId, id: user.id } as const;
       }),
     setRole: adminProcedure
-      .input(z.object({ userId: z.number().int().positive(), role: z.enum(["admin", "directeur", "cadre"]) }))
+      .input(z.object({ userId: z.number().int().positive(), role: z.enum(APP_ROLES) }))
       .mutation(async ({ ctx, input }) => {
         // Garde-fou : un admin ne peut pas se rétrograder lui-même et laisser
         // l'instance sans administrateur.
@@ -544,7 +547,7 @@ export const appRouter = router({
       .input(z.object({
         email: z.string().email().max(320),
         name: z.string().trim().min(2).max(180).optional(),
-        role: z.enum(["admin", "directeur", "cadre"]).default("cadre"),
+        role: z.enum(APP_ROLES).default("cadre"),
       }))
       .mutation(async ({ ctx, input }) => {
         const existant = await db.getUserByEmail(input.email);
@@ -579,13 +582,13 @@ export const appRouter = router({
           const rendered = await db.renderEmailTemplate("invitation", {
             inviterName: ctx.user.name ?? "Un administrateur",
             inviteLink,
-            organization: ctx.tenant?.name ?? "Lucepress",
+            organization: LUCEPRES_PUBLIC_PROFILE.legalName,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleString("fr-FR"),
           });
           await sendMail({
             from: `"Lucepress" <${process.env.SMTP_USER}>`,
             to: input.email,
-            subject: rendered?.subject ?? `Invitation à rejoindre ${ctx.tenant?.name ?? "Lucepress"}`,
+            subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
             html: rendered?.html ?? "",
             text: rendered?.text ?? `${ctx.user.name ?? "Un administrateur"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
           });
@@ -696,7 +699,7 @@ export const appRouter = router({
     preview: adminProcedure
       .input(z.object({
         slug: z.string(),
-        variables: z.record(z.string()),
+        variables: z.record(z.string(), z.string()),
       }))
       .query(({ input }) => db.renderEmailTemplate(input.slug, input.variables)),
   }),

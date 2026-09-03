@@ -20,7 +20,17 @@ export function runWithTenant<T>(tenantId: number | null, fn: () => Promise<T>):
   return tenantStorage.run(tenantId, fn);
 }
 
-export function currentTenant(): number | undefined {
+/** Lecture optionnelle (tâches hors requête). */
+export function peekTenant(): number | undefined {
   const value = tenantStorage.getStore();
   return value == null ? undefined : value;
+}
+
+/** Tenant de la requête courante. Les procédures authentifiées l’ont toujours défini. */
+export function currentTenant(): number {
+  const value = tenantStorage.getStore();
+  if (value == null) {
+    throw new Error("Aucun tenant dans le contexte de requête.");
+  }
+  return value;
 }

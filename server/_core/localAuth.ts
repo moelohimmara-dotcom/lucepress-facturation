@@ -41,7 +41,7 @@ export async function verifyLocalSession(
       typeof openId !== "string" ||
       typeof email !== "string" ||
       typeof name !== "string" ||
-      (typeof tenantId !== "number" && tenantId != null)
+      typeof tenantId !== "number"
     ) {
       return null;
     }

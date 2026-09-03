@@ -13,7 +13,7 @@ type EmailTemplate = {
   subject: string;
   html: string;
   text: string | null;
-  enabled: boolean;
+  enabled: "oui" | "non";
 };
 
 const emptyTemplate = { name: "", subject: "", html: "", text: "" };
@@ -65,7 +65,7 @@ export default function EmailTemplatesPage() {
   }
 
   function startNew() {
-    setEditing({ id: 0, tenantId: null, slug: "", name: "", subject: "", html: "", text: "", enabled: true });
+    setEditing({ id: 0, tenantId: null, slug: "", name: "", subject: "", html: "", text: "", enabled: "oui" });
     setDraft(emptyTemplate);
   }
 
@@ -75,7 +75,7 @@ export default function EmailTemplatesPage() {
     if (editing.id === 0) {
       createMut.mutate({ ...draft, slug: draft.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") });
     } else {
-      updateMut.mutate({ id: editing.id, data: draft });
+      updateMut.mutate({ id: editing.id, ...draft });
     }
   }
 

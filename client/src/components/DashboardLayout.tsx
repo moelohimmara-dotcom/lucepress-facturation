@@ -106,7 +106,7 @@ const sidebarGuidanceSteps = [
   { eyebrow: "03 · Accélérer", title: "Gardez le travail en mouvement.", body: "Les raccourcis ouvrent vos points d’entrée : Alt + 1 pour Clients, Alt + 2 pour Chantiers et Alt + 3 pour l’assistant devis.", highlights: ["Alt + 1", "Alt + 2", "Alt + 3"] },
 ] as const;
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode; title?: string; subtitle?: string }) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
