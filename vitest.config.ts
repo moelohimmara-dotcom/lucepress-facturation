@@ -31,6 +31,12 @@ export default defineConfig({
     },
     setupFiles: ["./vitest.setup.ts"],
     include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
-    exclude: ["server/*.example.test.ts", "server/**/*.example.test.ts", "node_modules/**"],
+    exclude: [
+      "server/*.example.test.ts",
+      "server/**/*.example.test.ts",
+      "node_modules/**",
+      // Persistence tests need a live MySQL (DATABASE_URL); skip in CI without DB
+      ...(process.env.DATABASE_URL ? [] : ["server/**/*Persistence.test.ts"]),
+    ],
   },
 });
