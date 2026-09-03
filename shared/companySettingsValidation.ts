@@ -25,8 +25,8 @@ export function validateCompanyFinancialDetails(input: CompanyFinancialDetails):
   const swift = valueOf(input.swift).toUpperCase();
   const errors: CompanyFinancialErrors = {};
 
-  if (taxId && !/^[A-Za-z0-9][A-Za-z0-9 ./-]{3,99}$/.test(taxId)) errors.taxId = "Utilisez au moins 4 caractères alphanumériques ou les séparateurs . / -.";
-  if (registrationNumber && !/^[A-Za-z0-9][A-Za-z0-9 ./-]{3,99}$/.test(registrationNumber)) errors.registrationNumber = "Utilisez au moins 4 caractères alphanumériques ou les séparateurs . / -.";
+  if (taxId && taxId.length < 2) errors.taxId = "Saisissez au moins 2 caractères, ou laissez le champ vide.";
+  if (registrationNumber && registrationNumber.length < 2) errors.registrationNumber = "Saisissez au moins 2 caractères, ou laissez le champ vide.";
 
   const hasBankDetails = Boolean(bankName || accountName || accountNumber || iban || swift);
   if (hasBankDetails && bankName.length < 2) errors.bankName = "Indiquez le nom de la banque si des coordonnées de règlement sont saisies.";

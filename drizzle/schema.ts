@@ -96,6 +96,10 @@ export const clients = mysqlTable(
     phone: varchar("phone", { length: 64 }),
     address: text("address"),
     taxId: varchar("taxId", { length: 100 }),
+    identityKind: mysqlEnum("identityKind", ["immatriculee", "en_immatriculation", "personne_physique", "sans_immatriculation", "autre"])
+      .default("immatriculee")
+      .notNull(),
+    registrationNumber: varchar("registrationNumber", { length: 100 }),
     notes: text("notes"),
     defaultDiscountPercent: int("defaultDiscountPercent").default(0).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -340,6 +344,9 @@ export const companySettings = mysqlTable("company_settings", {
   phone: varchar("phone", { length: 64 }),
   email: varchar("email", { length: 320 }),
   website: varchar("website", { length: 255 }),
+  identityKind: mysqlEnum("identityKind", ["immatriculee", "en_immatriculation", "personne_physique", "sans_immatriculation", "autre"])
+    .default("immatriculee")
+    .notNull(),
   taxId: varchar("taxId", { length: 100 }),
   registrationNumber: varchar("registrationNumber", { length: 100 }),
   bankName: varchar("bankName", { length: 180 }),

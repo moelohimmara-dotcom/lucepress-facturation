@@ -12,6 +12,7 @@ import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure
 import { sendMail, isMailConfigured } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
+import { IDENTITY_KINDS, omitOptionalPaperworkMissingFields } from "../shared/identityPaperwork";
 import { APP_ROLES, isStaffRole, STAFF_ROLES } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
@@ -150,13 +151,17 @@ const documentLineSchema = z.object({
   serviceId: z.number().int().positive().optional(),
 });
 
+const identityKindSchema = z.enum(IDENTITY_KINDS);
+
 const clientInputSchema = z.object({
   companyName: z.string().trim().min(2).max(180),
   contactName: optionalText,
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().trim().max(64).optional(),
   address: optionalText,
+  identityKind: identityKindSchema.optional(),
   taxId: z.string().trim().max(100).optional(),
+  registrationNumber: z.string().trim().max(100).optional(),
   notes: optionalText,
   defaultDiscountPercent: z.number().int().min(0).max(99).optional(),
 });
@@ -167,6 +172,7 @@ const companySettingsInputSchema = z.object({
   phone: z.string().trim().max(64).optional(),
   email: z.string().email().optional().or(z.literal("")),
   website: z.string().trim().max(255).optional(),
+  identityKind: identityKindSchema.optional(),
   taxId: z.string().trim().max(100).optional(),
   registrationNumber: z.string().trim().max(100).optional(),
   bankName: z.string().trim().max(180).optional(),
@@ -188,6 +194,8 @@ const extractedClientSchema = z.object({
   phone: z.string().trim().max(64).optional().default(""),
   address: z.string().trim().max(2000).optional().default(""),
   taxId: z.string().trim().max(100).optional().default(""),
+  registrationNumber: z.string().trim().max(100).optional().default(""),
+  identityKind: identityKindSchema.optional().default("immatriculee"),
   notes: z.string().trim().max(2000).optional().default(""),
   missingFields: z.array(z.string().trim().max(100)).max(8).optional().default([]),
 });
@@ -1385,7 +1393,7 @@ export const appRouter = router({
           const result = await invokeLLM({
             model,
             messages: [
-              { role: "system", content: "Tu es l’assistant administratif de Lucepress. Extrais uniquement les coordonnées d’un prospect ou client contenues dans le texte fourni. Ne fabrique jamais une donnée absente : utilise une chaîne vide et indique le champ dans missingFields. companyName doit être le nom de l’entreprise ou du client, et si aucun nom exploitable n’est mentionné, utilise 'Client à confirmer' et signale-le. notes doit contenir seulement les précisions utiles au répertoire. La sortie est un brouillon à faire relire avant enregistrement." },
+              { role: "system", content: "Tu es l’assistant administratif de Lucepress. Extrais uniquement les coordonnées d’un prospect ou client contenues dans le texte fourni. Ne fabrique jamais une donnée absente : utilise une chaîne vide. companyName doit être le nom de l’entreprise, du particulier ou du client ; si aucun nom exploitable n’est mentionné, utilise 'Client à confirmer' et signale-le dans missingFields. NIF, RCCM et identifiants fiscaux sont facultatifs : ne les mets jamais dans missingFields. missingFields ne concerne que les coordonnées de contact vraiment utiles (e-mail, téléphone, adresse) si elles manquent. notes doit contenir seulement les précisions utiles au répertoire. La sortie est un brouillon à faire relire avant enregistrement." },
               { role: "user", content: input.text },
             ],
             response_format: { type: "json_schema", json_schema: clientExtractionResponseSchema },
@@ -1393,7 +1401,8 @@ export const appRouter = router({
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "L’extraction IA est indisponible. Réessayez dans un instant." });
           try {
-            return { client: extractedClientSchema.parse(JSON.parse(content)), requiresReview: true };
+            const client = extractedClientSchema.parse(JSON.parse(content));
+            return { client: { ...client, missingFields: omitOptionalPaperworkMissingFields(client.missingFields) }, requiresReview: true };
           } catch {
             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Les coordonnées extraites ne peuvent pas être lues. Réessayez dans un instant." });
           }

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { validateCompanyFinancialDetails } from "@shared/companySettingsValidation";
+import { IDENTITY_KIND_LABELS, IDENTITY_KINDS, type IdentityKind } from "@shared/identityPaperwork";
 import { isAdminRole } from "@shared/roles";
 import { AlertTriangle, Building2, FileText, Landmark, Loader2, Mail, Save, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -15,6 +16,7 @@ type SettingsDraft = {
   phone: string;
   email: string;
   website: string;
+  identityKind: IdentityKind;
   taxId: string;
   registrationNumber: string;
   bankName: string;
@@ -32,6 +34,7 @@ const emptySettings: SettingsDraft = {
   phone: LUCEPRES_PUBLIC_PROFILE.phone,
   email: LUCEPRES_PUBLIC_PROFILE.email,
   website: "",
+  identityKind: "immatriculee",
   taxId: "",
   registrationNumber: "",
   bankName: "",
@@ -61,6 +64,7 @@ export default function SettingsPage() {
       phone: settings.phone || "",
       email: settings.email || "",
       website: settings.website || "",
+      identityKind: settings.identityKind ?? "immatriculee",
       taxId: settings.taxId || "",
       registrationNumber: settings.registrationNumber || "",
       bankName: settings.bankName || "",
@@ -185,17 +189,22 @@ export default function SettingsPage() {
                 <SettingsField label="Téléphone"><input value={draft.phone} onChange={e => update("phone", e.target.value)} placeholder="+224 …" readOnly={!isAdmin} /></SettingsField>
                 <SettingsField label="E-mail"><input type="email" value={draft.email} onChange={e => update("email", e.target.value)} placeholder="contact@lucepres.com" readOnly={!isAdmin} /></SettingsField>
                 <SettingsField label="Site web"><input value={draft.website} onChange={e => update("website", e.target.value)} placeholder="https://…" readOnly={!isAdmin} /></SettingsField>
-                <SettingsField label="NIF / identifiant fiscal" error={validationErrors.taxId}><input value={draft.taxId} onChange={e => update("taxId", e.target.value)} placeholder="À renseigner après validation interne" readOnly={!isAdmin} /></SettingsField>
-                <SettingsField label="RCCM / immatriculation" error={validationErrors.registrationNumber}><input value={draft.registrationNumber} onChange={e => update("registrationNumber", e.target.value)} placeholder="À renseigner après validation interne" readOnly={!isAdmin} /></SettingsField>
+                <SettingsField label="Situation administrative" full>
+                  <select value={draft.identityKind} onChange={e => update("identityKind", e.target.value as IdentityKind)} disabled={!isAdmin}>
+                    {IDENTITY_KINDS.map(kind => <option key={kind} value={kind}>{IDENTITY_KIND_LABELS[kind]}</option>)}
+                  </select>
+                </SettingsField>
+                <SettingsField label="NIF (facultatif)" error={validationErrors.taxId}><input value={draft.taxId} onChange={e => update("taxId", e.target.value)} placeholder="Laisser vide si inconnu, en cours ou non applicable" readOnly={!isAdmin} /></SettingsField>
+                <SettingsField label="RCCM (facultatif)" error={validationErrors.registrationNumber}><input value={draft.registrationNumber} onChange={e => update("registrationNumber", e.target.value)} placeholder="Laisser vide si inconnu, en cours ou non applicable" readOnly={!isAdmin} /></SettingsField>
                 <SettingsField label="Adresse légale" full><textarea value={draft.legalAddress} onChange={e => update("legalAddress", e.target.value)} placeholder="Adresse complète de l’entreprise" readOnly={!isAdmin} /></SettingsField>
                 <SettingsField label="Pied de document personnalisé" full><textarea value={draft.documentFooter} onChange={e => update("documentFooter", e.target.value)} placeholder="Conditions générales disponibles sur demande" readOnly={!isAdmin} /></SettingsField>
               </div>
               <p className="mt-4 text-xs leading-5 text-muted-foreground">
-                La signature « {LUCEPRES_PUBLIC_PROFILE.documentFooter} » reste intégrée automatiquement à tous les documents.
+                Vous pouvez enregistrer l’entreprise sans NIF ni RCCM : le PDF n’affichera que ce qui est renseigné, ou une mention du type « immatriculation en cours ». La signature « {LUCEPRES_PUBLIC_PROFILE.documentFooter} » reste intégrée automatiquement à tous les documents.
               </p>
             </section>
             <section className="card-shadow rounded-2xl border border-border bg-card p-5 sm:p-6">
-              <SectionHeading icon={Landmark} title="Coordonnées bancaires et fiscales" text="Renseignez les données après validation interne : toute coordonnée partielle ou mal formatée est signalée avant enregistrement." />
+              <SectionHeading icon={Landmark} title="Coordonnées bancaires" text="Facultatives tant qu’elles ne sont pas confirmées. Un NIF ou un RCCM incomplet n’empêche pas d’enregistrer l’identité ci-dessus." />
               <div className="mt-5 flex items-start gap-3 rounded-xl border border-primary/15 bg-primary/[0.035] p-4">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <p className="text-xs leading-5 text-muted-foreground">
@@ -245,7 +254,7 @@ function SettingsField({ label, children, full = false, error }: { label: string
   return (
     <label className={`block text-xs font-extrabold ${full ? "sm:col-span-2" : ""}`}>
       {label}
-      <div className="mt-2 [&_input]:h-10 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-border [&_input]:bg-card [&_input]:px-3 [&_input]:text-sm [&_textarea]:min-h-24 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-border [&_textarea]:bg-card [&_textarea]:p-3 [&_textarea]:text-sm">
+      <div className="mt-2 [&_input]:h-10 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-border [&_input]:bg-card [&_input]:px-3 [&_input]:text-sm [&_select]:h-10 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-card [&_select]:px-3 [&_select]:text-sm [&_textarea]:min-h-24 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-border [&_textarea]:bg-card [&_textarea]:p-3 [&_textarea]:text-sm">
         {children}
       </div>
       {error && <p role="alert" className="mt-1 text-[11px] font-medium leading-4 text-destructive">{error}</p>}

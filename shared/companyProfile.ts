@@ -1,8 +1,11 @@
+import { formatIdentityRegistrationLine } from "./identityPaperwork";
+
 export type CompanyDocumentProfile = {
   legalAddress?: string | null;
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  identityKind?: string | null;
   taxId?: string | null;
   registrationNumber?: string | null;
   bankName?: string | null;
@@ -38,7 +41,7 @@ export function formatCompanyLegalLine(settings: CompanyDocumentProfile) {
 }
 
 export function formatCompanyRegistrationLine(settings: CompanyDocumentProfile) {
-  return joinPresent([settings.taxId ? `NIF : ${settings.taxId}` : "", settings.registrationNumber ? `RCCM : ${settings.registrationNumber}` : ""]);
+  return formatIdentityRegistrationLine(settings);
 }
 
 export function formatCompanyBankLine(settings: CompanyDocumentProfile) {

@@ -38,6 +38,7 @@ import {
 } from "../drizzle/schema";
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
 import type { AppRole } from "../shared/roles";
+import { normalizeIdentityKind, type IdentityKind } from "../shared/identityPaperwork";
 import { findPotentialClientDuplicates, type ClientDuplicateCandidate } from "../shared/clientDuplicates";
 import { buildClientActivityTimeline } from "../shared/clientActivityTimeline";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
@@ -441,6 +442,8 @@ export async function createClient(input: {
   phone?: string;
   address?: string;
   taxId?: string;
+  identityKind?: IdentityKind;
+  registrationNumber?: string;
   notes?: string;
   defaultDiscountPercent?: number;
 }) {
@@ -452,6 +455,8 @@ export async function createClient(input: {
     phone: input.phone || null,
     address: input.address || null,
     taxId: input.taxId || null,
+    identityKind: normalizeIdentityKind(input.identityKind),
+    registrationNumber: input.registrationNumber || null,
     notes: input.notes || null,
     defaultDiscountPercent: input.defaultDiscountPercent ?? 0,
   });
@@ -465,6 +470,8 @@ export type ClientInput = {
   phone?: string;
   address?: string;
   taxId?: string;
+  identityKind?: IdentityKind;
+  registrationNumber?: string;
   notes?: string;
   defaultDiscountPercent?: number;
 };
@@ -478,6 +485,8 @@ export async function updateClient(id: number, input: ClientInput) {
     phone: input.phone || null,
     address: input.address || null,
     taxId: input.taxId || null,
+    identityKind: normalizeIdentityKind(input.identityKind),
+    registrationNumber: input.registrationNumber || null,
     notes: input.notes || null,
     defaultDiscountPercent: input.defaultDiscountPercent ?? 0,
   }).where(and(eq(clients.id, id), eq(clients.tenantId, currentTenant())));
@@ -529,6 +538,7 @@ export type CompanySettingsInput = {
   phone?: string;
   email?: string;
   website?: string;
+  identityKind?: IdentityKind;
   taxId?: string;
   registrationNumber?: string;
   bankName?: string;
@@ -548,6 +558,7 @@ const emptyCompanySettings = (): Omit<typeof companySettings.$inferSelect, "id">
   phone: LUCEPRES_PUBLIC_PROFILE.phone,
   email: LUCEPRES_PUBLIC_PROFILE.email,
   website: null,
+  identityKind: "immatriculee",
   taxId: null,
   registrationNumber: null,
   bankName: null,
@@ -568,6 +579,7 @@ function normalizeCompanySettings(input: CompanySettingsInput): typeof companySe
     phone: input.phone || null,
     email: input.email || null,
     website: input.website || null,
+    identityKind: normalizeIdentityKind(input.identityKind),
     taxId: input.taxId || null,
     registrationNumber: input.registrationNumber || null,
     bankName: input.bankName || null,
@@ -1700,6 +1712,9 @@ export async function getDocumentById(id: number) {
       contactName: clients.contactName,
       clientAddress: clients.address,
       clientEmail: clients.email,
+      clientTaxId: clients.taxId,
+      clientRegistrationNumber: clients.registrationNumber,
+      clientIdentityKind: clients.identityKind,
       projectName: projects.name,
       projectLocation: projects.location,
     })

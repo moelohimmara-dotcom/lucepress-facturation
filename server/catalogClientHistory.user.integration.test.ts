@@ -19,6 +19,7 @@ vi.mock("@/lib/trpc", () => ({
         activities: { list: { useQuery: () => ({ data: [{ id: "payment-4", type: "paiement_enregistre", title: "Paiement de 125 000 GNF enregistré", description: "Facture FAC-2026-0009 · virement", documentId: 9, createdAt: new Date("2026-08-27") }, { id: "document-9", type: "document_genere", title: "Facture FAC-2026-0009 généré", description: "Document envoyé", documentId: 9, createdAt: new Date("2026-08-26") }], isLoading: false }) }, createNote: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) } },
         create: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
         update: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+        invitePortal: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       },
       assistant: { extractClient: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) }, summarizeClientHistory: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) } },
     },

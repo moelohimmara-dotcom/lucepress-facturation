@@ -190,6 +190,13 @@
       "when": 1788441000000,
       "tag": "0026_invitations_client_role",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1788442000000,
+      "tag": "0027_identity_paperwork",
+      "breakpoints": true
     }
   ]
 }

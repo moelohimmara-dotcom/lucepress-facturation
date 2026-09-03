@@ -7,6 +7,8 @@ describe("mentions entreprise dans les PDF", () => {
   it("compose les coordonnées légales et les identifiants à afficher", () => {
     expect(formatCompanyLegalLine(settings)).toContain("Kaloum, Conakry");
     expect(formatCompanyRegistrationLine(settings)).toBe("NIF : NIF-123 · RCCM : RCCM-456");
+    expect(formatCompanyRegistrationLine({ identityKind: "en_immatriculation" })).toBe("Immatriculation en cours");
+    expect(formatCompanyRegistrationLine({})).toBe("");
   });
 
   it("compose les coordonnées bancaires sans champs vides", () => {
