@@ -3,21 +3,25 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
+const layout = readFileSync(resolve(process.cwd(), "client/src/components/DashboardLayout.tsx"), "utf8");
 
-describe("alerte préventive de rappel du cockpit", () => {
-  it("signale les rappels attribués prévus le lendemain et nomme leur responsable", () => {
-    expect(source).toContain("isCollectionReminderTomorrow");
-    expect(source).toContain("Rappels de demain");
-    expect(source).toContain("tomorrowReminderLoads");
-    expect(source).toContain("Voir la file");
+describe("cockpit Aujourd’hui", () => {
+  it("expose une file de validation fondée sur buildTodayInbox", () => {
+    expect(source).toContain("buildTodayInbox");
+    expect(source).toContain("À valider");
+    expect(source).toContain("Votre file à traiter");
+    expect(source).toContain("mailStatus");
   });
 
-  it("propose un démarrage guidé court, fondé sur les premiers jalons métier", () => {
-    expect(source).toContain("Vos repères en trois minutes");
+  it("conserve le démarrage guidé court pour le test 48 h", () => {
     expect(source).toContain("gettingStartedTasks");
     expect(source).toContain("isGettingStartedTaskComplete");
+    expect(source).toContain("Trois gestes pour démarrer");
     expect(source).toContain("Guide de démarrage");
-    expect(source).toContain("Ajouter le premier client");
-    expect(source).toContain("Créer un devis avec l’IA");
+  });
+
+  it("renomme l’entrée de navigation en Aujourd’hui", () => {
+    expect(layout).toContain('label: "Aujourd’hui"');
+    expect(layout).toContain('path: "/"');
   });
 });

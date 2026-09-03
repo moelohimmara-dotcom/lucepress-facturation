@@ -11,7 +11,8 @@ import { registerIntegrationExternalRoutes } from "../integrations/externalRoute
 import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRoutes";
 import { setupVite, serveStatic } from "./vite";
 import { createContext } from "./context";
-import { seedDefaultEmailTemplates } from "../db";
+import { pingDatabase, seedDefaultEmailTemplates } from "../db";
+import { buildHealthPayload } from "./health";
 import { isMailConfigured, verifySmtp } from "./mailer";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -58,6 +59,11 @@ async function startServer() {
   registerProjectCostAttachmentRoutes(app);
   registerIntegrationExternalRoutes(app);
   registerAgentCampaignScheduleRoutes(app);
+
+  app.get("/api/health", async (_req, res) => {
+    const dbOk = await pingDatabase();
+    res.status(200).json(buildHealthPayload({ dbOk }));
+  });
 
   // tRPC API
   app.use(

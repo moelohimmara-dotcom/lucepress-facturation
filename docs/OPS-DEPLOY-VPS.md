@@ -33,5 +33,6 @@ Objectif : redeploy &lt; 10 min une fois le SSH et `.env` en place.
 
 ## Healthcheck
 
-`GET /api/health` doit répondre JSON avec `ok: true` (ou équivalent existant).  
-Si la route manque, le script tente `/` et signale le statut HTTP.
+`GET /api/health` répond JSON `{ ok, db, uptimeSec, poolLimit, timestamp }`.  
+`ok` suit le ping MySQL ; le statut HTTP reste 200 si le process Node répond (le moniteur VPS ne redémarre pas uniquement pour une DB courte).  
+Si la route manque encore sur un ancien SHA, le script tente `/` et `/api/trpc/system.health`.

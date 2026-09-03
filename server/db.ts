@@ -58,6 +58,7 @@ import { buildWorkspaceSearchResults, type WorkspaceSearchFilters } from "../sha
 import { createAgentMessageDraft, getDelegationPolicyErrors, isCampaignEligibleForSimulation, requiresSecondApproval, type AgentChannel, type AgentPurpose, type AgentTone } from "../shared/agentDelegationPolicy";
 import { ENV } from "./_core/env";
 import { createHash, randomBytes } from "node:crypto";
+import { parseDatabasePoolSize } from "./_core/dbPool";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: Pool | null = null;
@@ -70,7 +71,7 @@ export async function getDb() {
       }
       _pool = createPool({
         uri: process.env.DATABASE_URL,
-        connectionLimit: 10,
+        connectionLimit: parseDatabasePoolSize(process.env.DATABASE_POOL_SIZE),
         connectTimeout: 10000,
         enableKeepAlive: true,
         keepAliveInitialDelay: 30000,
@@ -86,6 +87,17 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function pingDatabase() {
+  try {
+    const db = await getDb();
+    if (!db || !_pool) return false;
+    await _pool.query("SELECT 1");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function requireDb() {
@@ -1423,6 +1435,8 @@ export async function listDocuments(kind?: DocumentKind, opts?: { limit?: number
       subtotal: documents.subtotal,
       taxTotal: documents.taxTotal,
       isAiDraft: documents.isAiDraft,
+      relatedDocumentId: documents.relatedDocumentId,
+      invoiceStage: documents.invoiceStage,
       collectionStatus: documents.collectionStatus,
       collectionReminderDate: documents.collectionReminderDate,
       collectionOwnerId: documents.collectionOwnerId,

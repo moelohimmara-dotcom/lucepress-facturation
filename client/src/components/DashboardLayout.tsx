@@ -68,7 +68,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 
 const navigationGroups = [
   { label: "Gestion commerciale", items: [
-    { icon: LayoutDashboard, label: "Vue d’ensemble", path: "/tableau-de-bord" },
+    { icon: LayoutDashboard, label: "Aujourd’hui", path: "/" },
     { icon: FileText, label: "Devis", path: "/devis" },
     { icon: ReceiptText, label: "Factures", path: "/factures" },
     { icon: UsersRound, label: "Clients", path: "/clients" },
@@ -106,7 +106,7 @@ const MIN_WIDTH = 224;
 const MAX_WIDTH = 380;
 
 const sidebarGuidanceSteps = [
-  { eyebrow: "01 · Se repérer", title: "Votre cockpit, au bon endroit.", body: "Les espaces sont regroupés par activité : commercial, financier, puis automatisations supervisées.", highlights: ["Vue d’ensemble", "Créances", "Agent IA"] },
+  { eyebrow: "01 · Se repérer", title: "Votre cockpit, au bon endroit.", body: "Commencez par Aujourd’hui : une file de décisions. Le reste est regroupé par activité — commercial, financier, automatisations.", highlights: ["Aujourd’hui", "Créances", "Agent IA"] },
   { eyebrow: "02 · S’adapter", title: "Ajustez l’espace à votre rythme.", body: "Passez du thème clair au thème sombre et activez le mode compact lorsque vous avez besoin de plus de place.", highlights: ["Thème clair / sombre", "Mode compact", "Largeur ajustable"] },
   { eyebrow: "03 · Accélérer", title: "Gardez le travail en mouvement.", body: "Les raccourcis ouvrent vos points d’entrée : Alt + 1 pour Clients, Alt + 2 pour Chantiers et Alt + 3 pour l’assistant devis.", highlights: ["Alt + 1", "Alt + 2", "Alt + 3"] },
 ] as const;
@@ -318,8 +318,8 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
               <SidebarMenu className="gap-1">
                 {group.items.map(item => <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
-                    isActive={location === item.path}
-                    aria-current={location === item.path ? "page" : undefined}
+                    isActive={item.path === "/" ? location === "/" || location === "/tableau-de-bord" : location === item.path}
+                    aria-current={(item.path === "/" ? location === "/" || location === "/tableau-de-bord" : location === item.path) ? "page" : undefined}
                     onClick={() => setLocation(item.path)}
                     tooltip={item.label}
                     className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-10 rounded-xl px-3 text-[13px]"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_9px_22px_-14px_oklch(0.07_0.03_164/80%)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}
