@@ -28,7 +28,7 @@ export default function DocumentsPage({ kind }: { kind: Kind }) {
   const Icon = kind === "devis" ? FileText : ReceiptText;
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl pb-10">
         <PageHeader kicker="Gestion commerciale" title={label} description={<>Créez, suivez et faites évoluer vos {kind === "devis" ? "propositions commerciales" : "demandes de règlement"}.</>} actions={<Button onClick={() => setLocation(`/${kind}/nouveau`)} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15"><FilePlus2 className="mr-2 h-4 w-4" />{kind === "devis" ? "Nouveau devis" : "Nouvelle facture"}</Button>} />
         <div className="lucepress-panel mt-6 flex h-11 max-w-md items-center gap-2 rounded-xl px-3"><Search className="h-4 w-4 text-muted-foreground" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Rechercher un numéro ou un client" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" /></div>
         {kind === "facture" && overdueCount > 0 && <div className="mt-4 flex items-start gap-3 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="text-sm font-extrabold">{overdueCount} facture{overdueCount > 1 ? "s" : ""} en retard</p><p className="mt-1 text-xs leading-5">Les lignes concernées sont mises en évidence. Ouvrez une facture pour enregistrer un règlement ou consulter le solde dû.</p></div></div>}

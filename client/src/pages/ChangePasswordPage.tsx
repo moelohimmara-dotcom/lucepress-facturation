@@ -43,7 +43,7 @@ export default function ChangePasswordPage() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-xl">
+      <div className="mx-auto max-w-xl pb-10">
         <PageHeader
           kicker="Mon compte"
           title="Changer mon mot de passe"
