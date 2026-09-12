@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { PageHeader } from "@/components/PageHeader";
+import { Metric } from "@/components/Metric";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
@@ -151,12 +152,3 @@ export default function StaffAuditPage() {
   );
 }
 
-function Metric({ icon: Icon, value, label }: { icon: typeof ScrollText; value: number; label: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <Icon className="h-5 w-5 text-primary" />
-      <p className="font-editorial mt-5 text-3xl font-semibold">{value}</p>
-      <p className="mt-1 text-xs font-bold text-muted-foreground">{label}</p>
-    </div>
-  );
-}

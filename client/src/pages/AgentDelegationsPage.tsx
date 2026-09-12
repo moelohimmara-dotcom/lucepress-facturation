@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { EmptyState } from "@/components/EmptyState";
+import { Metric } from "@/components/Metric";
 import { PageHeader } from "@/components/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +61,7 @@ export default function AgentDelegationsPage() {
   return <DashboardLayout><div className="mx-auto max-w-6xl pb-10">
     <PageHeader kicker="Agent IA · Gouvernance" title="Centre de délégations" description="Simulation interne uniquement. Pour envoyer une relance réelle au client, utilisez Relances (SMTP)." actions={<><Button variant="outline" className="rounded-xl border-primary/20 text-primary" onClick={() => setLocation("/relances")}><Mail className="mr-2 h-4 w-4" />Relances réelles</Button><Button variant="outline" className="rounded-xl border-primary/20 text-primary" onClick={() => setShowOperators(true)} disabled={user?.role !== "admin"}><UserCog className="mr-2 h-4 w-4" />Habilitations</Button><Button className="rounded-xl bg-primary font-bold text-primary-foreground" onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />Nouvelle délégation</Button></>} />
 
-    <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric icon={ShieldCheck} value={center?.summary.activeDelegations ?? 0} label="Délégations simulées" /><Metric icon={Clock3} value={center?.summary.pendingApprovals ?? 0} label="Approbations à traiter" /><Metric icon={FileText} value={center?.summary.simulationReady ?? 0} label="Brouillons prêts" /><Metric icon={ShieldAlert} value={center?.summary.blocked ?? 0} label="Éléments bloqués" warn={(center?.summary.blocked ?? 0) > 0} /></section>
+    <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric icon={ShieldCheck} value={center?.summary.activeDelegations ?? 0} label="Délégations simulées" /><Metric icon={Clock3} value={center?.summary.pendingApprovals ?? 0} label="Approbations à traiter" /><Metric icon={FileText} value={center?.summary.simulationReady ?? 0} label="Brouillons prêts" /><Metric icon={ShieldAlert} value={center?.summary.blocked ?? 0} label="Éléments bloqués" tone={(center?.summary.blocked ?? 0) > 0 ? "warn" : "primary"} /></section>
 
     <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5"><div className="flex gap-3"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-800" /><div><h2 className="text-sm font-extrabold text-amber-950">Mode simulation sécurisé</h2><p className="mt-1 text-xs leading-5 text-amber-950/80">Aucun message ne peut quitter Lucepress depuis cet écran. Les campagnes alimentent uniquement la boîte de test interne. L’envoi client réel se fait dans Relances.</p></div></div></section>
 
@@ -74,7 +75,7 @@ export default function AgentDelegationsPage() {
   </div><CreateDelegationDialog open={showCreate} onOpenChange={setShowCreate} pending={createDelegation.isPending} onCreate={(values: any) => createDelegation.mutate(values)} /><CreateCampaignDialog open={showCampaign !== null} onOpenChange={(open: boolean) => !open && setShowCampaign(null)} delegations={activeDelegations} selectedId={showCampaign} pending={simulateCampaign.isPending} onCreate={(values: any) => simulateCampaign.mutate(values)} /><OperatorsDialog open={showOperators} onOpenChange={setShowOperators} operators={operators ?? []} pending={updateGrant.isPending} onSave={(values: any) => updateGrant.mutate(values)} /><MessagePreview job={preview} onOpenChange={(open: boolean) => !open && setPreview(null)} /></DashboardLayout>;
 }
 
-function Metric({ icon: Icon, value, label, warn = false }: { icon: any; value: number; label: string; warn?: boolean }) { return <div className={`lucepress-panel rounded-[1.35rem] p-4 ${warn ? "border-amber-200" : ""}`}><Icon className={`h-5 w-5 ${warn ? "text-amber-600" : "text-primary"}`} /><p className="lucepress-value mt-5 text-3xl">{value}</p><p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">{label}</p></div>; }
+
 function SectionHeader({ eyebrow, title, detail }: { eyebrow: string; title: string; detail: string }) { return <div><p className="lucepress-kicker">{eyebrow}</p><h2 className="font-editorial mt-2 text-2xl font-semibold">{title}</h2><p className="mt-1 text-sm text-muted-foreground">{detail}</p></div>; }
 
 
