@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
@@ -462,8 +463,8 @@ function PortalShell({ children }: { children: React.ReactNode }) {
   );
 }
 function CenteredLoader() { return <div className="flex min-h-[55vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>; }
-function EmptyInvoices() { return <div className="p-10 text-center"><ReceiptText className="mx-auto h-7 w-7 text-primary/50" /><p className="mt-3 text-sm font-extrabold">Aucune facture disponible</p><p className="mt-1 text-xs text-muted-foreground">Vos prochaines factures apparaitront ici après émission par Lucepres.</p></div>; }
-function EmptyQuotes() { return <div className="p-10 text-center"><FileText className="mx-auto h-7 w-7 text-primary/50" /><p className="mt-3 text-sm font-extrabold">Aucun devis disponible</p><p className="mt-1 text-xs text-muted-foreground">Les devis envoyés par Lucepres apparaîtront ici pour acceptation ou refus.</p></div>; }
+function EmptyInvoices() { return <EmptyState icon={ReceiptText} title="Aucune facture disponible" description="Vos prochaines factures apparaitront ici après émission par Lucepres." compact />; }
+function EmptyQuotes() { return <EmptyState icon={FileText} title="Aucun devis disponible" description="Les devis envoyés par Lucepres apparaîtront ici pour acceptation ou refus." compact />; }
 function TotalLine({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return <div className={`flex justify-between gap-3 ${strong ? "text-base font-extrabold text-[#1e6051]" : "text-slate-600"}`}><span>{label}</span><span className="font-mono">{value}</span></div>;
 }
