@@ -52,6 +52,19 @@ const state = vi.hoisted(() => ({
       connection: null,
       readiness: "non_disponible",
     },
+    {
+      id: 4,
+      slug: "smtp-relay",
+      name: "SMTP Relay",
+      category: "communication",
+      transport: "api",
+      documentationUrl: "https://example.test/smtp",
+      authType: "api_key",
+      isSupported: "oui",
+      capabilities: [{ id: 4, label: "Envoyer un e-mail transactionnel", requiresApproval: "oui" }],
+      connection: null,
+      readiness: "a_preparer",
+    },
   ],
   audit: [],
   operationsDashboard: { connections: [], pendingApprovals: [], webhookEvents: [], summary: { activeConnections: 0, degradedConnections: 0, pendingApprovals: 0, acceptedWebhooks: 0, rejectedWebhooks: 0 } },
@@ -105,7 +118,7 @@ describe("centre d’intégrations", () => {
   it("prépare seulement un fournisseur disponible et bloque une intégration non disponible", () => {
     render(createElement(IntegrationsPage));
     fireEvent.click(screen.getByRole("button", { name: "Préparer l’accès" }));
-    expect(state.prepare).toHaveBeenCalledWith({ providerSlug: "whatsapp-business" });
+    expect(state.prepare).toHaveBeenCalledWith({ providerSlug: "smtp-relay" });
     expect(screen.getByRole("button", { name: "Bientôt disponible" })).toHaveProperty("disabled", true);
   });
 
