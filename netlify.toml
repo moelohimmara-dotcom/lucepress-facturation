@@ -1,0 +1,38 @@
+[build]
+  command = "pnpm build:netlify"
+  publish = "dist/public"
+  functions = "netlify/functions"
+
+[functions]
+  # L'app Express est bundlée en une seule function pour conserver le state partagé
+  # (pool Postgres, registre de routes) au chaud entre les invocations.
+  node_bundler = "esbuild"
+  included_files = ["shared/**/*"]
+  # Vite/rollup ne sont nécessaires qu'en mode dev (setupVite, jamais appelé
+  # en serverless). On les exclut du bundle pour éviter l'erreur de binaire
+  # natif @rollup/rollup-linux-x64-gnu manquant sur le runtime Lambda.
+  external_node_modules = ["vite", "rollup"]
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Les routes API et le proxy de stockage sont servis par la Function Express.
+# Le path d'origine (/api/...) est préservé dans la Request Web transmise à la
+# fonction par le runtime Netlify v2.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/storage/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+# Toutes les autres routes retombent sur le SPA frontend en statique.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

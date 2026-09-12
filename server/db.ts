@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 import { currentTenant, runWithTenant } from "./_core/tenantContext";
-import { drizzle } from "drizzle-orm/mysql2";
-import { createPool, type Pool } from "mysql2/promise";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres, { type Sql } from "postgres";
 import {
   agentAuditLogs,
   agentCampaigns,
@@ -72,39 +72,43 @@ import { createHash, randomBytes } from "node:crypto";
 import { parseDatabasePoolSize } from "./_core/dbPool";
 
 let _db: ReturnType<typeof drizzle> | null = null;
-let _pool: Pool | null = null;
+let _client: Sql | null = null;
+let _lastDbError: string | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      if (_pool) {
-        try { await _pool.end(); } catch {}
+      if (_client) {
+        try { await _client.end(); } catch {}
       }
-      _pool = createPool({
-        uri: process.env.DATABASE_URL,
-        connectionLimit: parseDatabasePoolSize(process.env.DATABASE_POOL_SIZE),
-        connectTimeout: 10000,
-        enableKeepAlive: true,
-        keepAliveInitialDelay: 30000,
-        charset: "utf8mb4",
+      _client = postgres(process.env.DATABASE_URL, {
+        max: parseDatabasePoolSize(process.env.DATABASE_POOL_SIZE),
+        connect_timeout: 10,
+        idle_timeout: 30,
+        prepare: false,
       });
-      _db = drizzle(_pool) as unknown as ReturnType<typeof drizzle>;
+      _db = drizzle(_client) as unknown as ReturnType<typeof drizzle>;
       // Test the connection
-      await _pool.query("SELECT 1");
+      await _client`SELECT 1`;
     } catch (error) {
+      _lastDbError = error instanceof Error ? error.message : String(error);
       console.warn("[Database] Failed to connect:", error);
       _db = null;
-      _pool = null;
+      _client = null;
     }
   }
   return _db;
 }
 
+export function getLastDbError(): string | null {
+  return _lastDbError;
+}
+
 export async function pingDatabase() {
   try {
     const db = await getDb();
-    if (!db || !_pool) return false;
-    await _pool.query("SELECT 1");
+    if (!db || !_client) return false;
+    await _client`SELECT 1`;
     return true;
   } catch {
     return false;
@@ -139,7 +143,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     values.role = "admin";
     updateSet.role = "admin";
   }
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -182,8 +186,8 @@ export async function createLocalUser(input: {
     role: input.role,
     tenantId: input.tenantId ?? 1,
     lastSignedIn: new Date(),
-  } as any);
-  return { id: Number(result[0].insertId), openId };
+  } as any).returning({ id: users.id });
+  return { id: result[0].id, openId };
 }
 
 /**
@@ -301,7 +305,7 @@ export async function createInvitation(input: NewInvitation): Promise<{ id: numb
       status: "pending",
       expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
     })
-    .$returningId();
+    .returning({ id: invitations.id });
   return { id: row.id };
 }
 
@@ -417,7 +421,7 @@ export async function createPasswordReset(input: {
       tokenHash: input.tokenHash,
       expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
     })
-    .$returningId();
+    .returning({ id: passwordResets.id });
   return { id: row.id };
 }
 
@@ -485,8 +489,8 @@ export async function createClient(input: {
     registrationNumber: input.registrationNumber || null,
     notes: input.notes || null,
     defaultDiscountPercent: input.defaultDiscountPercent ?? 0,
-  });
-  return { id: Number(result[0].insertId) };
+  }).returning({ id: clients.id });
+  return { id: result[0].id };
 }
 
 export type ClientInput = {
@@ -538,14 +542,14 @@ export async function listClientAttachments(clientId: number) {
 
 export async function createClientAttachment(input: { clientId: number; fileName: string; contentType: string; size: number; storageKey: string; storageUrl: string; createdById: number }) {
   const db = await requireDb();
-  const result = await db.insert(clientAttachments).values({ ...input, tenantId: currentTenant() });
-  return { id: Number(result[0].insertId) };
+  const result = await db.insert(clientAttachments).values({ ...input, tenantId: currentTenant() }).returning({ id: clientAttachments.id });
+  return { id: result[0].id };
 }
 
 export async function createClientActivity(input: { clientId: number; documentId?: number; type: ClientActivityType; title: string; description?: string; createdById: number }) {
   const db = await requireDb();
-  const result = await db.insert(clientActivities).values({ tenantId: currentTenant(), ...input, documentId: input.documentId ?? null, description: input.description ?? null });
-  return { id: Number(result[0].insertId) };
+  const result = await db.insert(clientActivities).values({ tenantId: currentTenant(), ...input, documentId: input.documentId ?? null, description: input.description ?? null }).returning({ id: clientActivities.id });
+  return { id: result[0].id };
 }
 
 export async function listStaffAuditJournal(input?: { limit?: number; type?: ClientActivityType }) {
@@ -872,8 +876,8 @@ export async function createProject(input: {
     reference: input.reference || null,
     location: input.location || null,
     description: input.description || null,
-  });
-  return { id: Number(result[0].insertId) };
+  }).returning({ id: projects.id });
+  return { id: result[0].id };
 }
 
 export async function updateProjectPlannedBudget(input: { id: number; plannedBudget: number }) {
@@ -914,8 +918,8 @@ export async function createProjectCost(input: ProjectCostInput) {
   const db = await requireDb();
   const project = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.projectId), eq(projects.tenantId, currentTenant()))).limit(1);
   if (!project[0]) throw new Error("Le chantier sélectionné est introuvable.");
-  const result = await db.insert(projectCosts).values({ tenantId: currentTenant(), ...input, incurredAt: new Date(input.incurredAt) });
-  return { id: Number(result[0].insertId) };
+  const result = await db.insert(projectCosts).values({ tenantId: currentTenant(), ...input, incurredAt: new Date(input.incurredAt) }).returning({ id: projectCosts.id });
+  return { id: result[0].id };
 }
 
 export async function deleteProjectCost(id: number) {
@@ -937,8 +941,8 @@ export async function listProjectCostAttachments(projectCostId: number) {
 
 export async function createProjectCostAttachment(input: { projectCostId: number; fileName: string; contentType: string; size: number; storageKey: string; storageUrl: string; createdById: number }) {
   const db = await requireDb();
-  const result = await db.insert(projectCostAttachments).values({ ...input, tenantId: currentTenant() });
-  return { id: Number(result[0].insertId) };
+  const result = await db.insert(projectCostAttachments).values({ ...input, tenantId: currentTenant() }).returning({ id: projectCostAttachments.id });
+  return { id: result[0].id };
 }
 
 export async function deleteProjectCostAttachment(id: number) {
@@ -982,8 +986,8 @@ export async function createService(input: {
   const result = await db.insert(services).values({ tenantId: currentTenant(),
     ...input,
     description: input.description || null,
-  });
-  return { id: Number(result[0].insertId) };
+  }).returning({ id: services.id });
+  return { id: result[0].id };
 }
 
 export async function updateServiceTariff(input: { id: number; defaultUnitPrice: number; defaultTaxRate: number; changedById: number }) {
@@ -1022,7 +1026,8 @@ async function ensureDefaultIntegrationProviders() {
       authType: provider.authType,
       isSupported: provider.isSupported,
       sortOrder: provider.sortOrder,
-    }).onDuplicateKeyUpdate({
+    }).onConflictDoUpdate({
+      target: integrationProviders.slug,
       set: {
         name: provider.name,
         category: provider.category,
@@ -1041,7 +1046,8 @@ async function ensureDefaultIntegrationProviders() {
     const providerId = providerIds.get(provider.slug);
     if (!providerId) continue;
     for (const capability of provider.capabilities) {
-      await db.insert(integrationCapabilities).values({ providerId, ...capability }).onDuplicateKeyUpdate({
+      await db.insert(integrationCapabilities).values({ providerId, ...capability }).onConflictDoUpdate({
+        target: [integrationCapabilities.providerId, integrationCapabilities.code],
         set: {
           label: capability.label,
           direction: capability.direction,
@@ -1110,8 +1116,8 @@ export async function prepareIntegrationConnection(providerSlug: string, userId:
       connectionId = existing.id;
       await tx.update(integrationConnections).set(createPreparedIntegrationConnectionValues(userId)).where(and(eq(integrationConnections.id, connectionId), eq(integrationConnections.tenantId, currentTenant())));
     } else {
-      const result = await tx.insert(integrationConnections).values({ tenantId: currentTenant(), providerId: provider.id, ...createPreparedIntegrationConnectionValues(userId) });
-      connectionId = Number(result[0].insertId);
+      const result = await tx.insert(integrationConnections).values({ tenantId: currentTenant(), providerId: provider.id, ...createPreparedIntegrationConnectionValues(userId) }).returning({ id: integrationConnections.id });
+      connectionId = result[0].id;
     }
     await tx.insert(integrationAuditLogs).values({ connectionId, actorId: userId, action: "connection_prepared", target: provider.slug, decision: "information", metadata: JSON.stringify({ transport: provider.transport, authType: provider.authType }) });
     return { id: connectionId, status: "credentials_pending" as const, reused: false };
@@ -1199,8 +1205,8 @@ export async function startGoogleWorkspaceOAuth(input: { clientId: string; redir
     stateHash,
     expiresAt,
     createdById: input.userId,
-  });
-  const sessionId = Number(result[0].insertId);
+  }).returning({ id: integrationOauthSessions.id });
+  const sessionId = result[0].id;
   await db.insert(integrationAuditLogs).values({ connectionId: connection.connectionId, actorId: input.userId, action: "google_oauth_started", target: "google-workspace", decision: "information", metadata: JSON.stringify({ scopes, sessionId }) });
   return { sessionId, authorizationUrl: buildGoogleWorkspaceAuthorizationUrl({ clientId, redirectUri, scopes, state }), expiresAt };
 }
@@ -1279,8 +1285,8 @@ export async function recordWhatsAppWebhookEvent(input: { connectionId: number; 
     payloadHash: input.payloadHash.slice(0, 128),
     summary: input.summary?.slice(0, 500) || null,
     error: input.error || null,
-  }).onDuplicateKeyUpdate({ set: { signatureStatus: input.signatureStatus, processingStatus: input.processingStatus, deliveryStatus: input.deliveryStatus?.slice(0, 120) || null, summary: input.summary?.slice(0, 500) || null, error: input.error || null, receivedAt: new Date() } });
-  return { id: Number(result[0].insertId) };
+  }).onConflictDoUpdate({ target: [integrationWebhookEvents.connectionId, integrationWebhookEvents.externalEventId], set: { signatureStatus: input.signatureStatus, processingStatus: input.processingStatus, deliveryStatus: input.deliveryStatus?.slice(0, 120) || null, summary: input.summary?.slice(0, 500) || null, error: input.error || null, receivedAt: new Date() } }).returning({ id: integrationWebhookEvents.id });
+  return { id: result[0].id };
 }
 
 export async function getIntegrationOperationsDashboard() {
@@ -1362,7 +1368,7 @@ export async function upsertAgentOperatorGrant(input: {
     grantedById: input.grantedById,
   };
   await db.transaction(async tx => {
-    await tx.insert(agentOperatorGrants).values(values).onDuplicateKeyUpdate({ set: { ...values, updatedAt: new Date() } });
+    await tx.insert(agentOperatorGrants).values(values).onConflictDoUpdate({ target: [agentOperatorGrants.userId, agentOperatorGrants.role], set: { ...values, updatedAt: new Date() } });
     await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), actorId: input.grantedById, action: "operator_grant_upserted", target: `user:${input.userId}`, decision: "autorise", metadata: JSON.stringify({ role: input.role, scope: input.scope, canApprove: input.canApprove, canActivate: input.canActivate, status: input.status, expiresAt: input.expiresAt ?? null }) });
   });
   return { success: true };
@@ -1421,8 +1427,8 @@ export async function createAgentDelegation(input: {
   if (Object.keys(errors).length) throw new Error(Object.values(errors)[0]);
   const db = await requireDb();
   const result = await db.transaction(async tx => {
-    const created = await tx.insert(agentDelegations).values({ tenantId: currentTenant(), ...input, status: "brouillon", requiresSecondApproval: "non" });
-    const delegationId = Number(created[0].insertId);
+    const created = await tx.insert(agentDelegations).values({ tenantId: currentTenant(), ...input, status: "brouillon", requiresSecondApproval: "non" }).returning({ id: agentDelegations.id });
+    const delegationId = created[0].id;
     await tx.insert(agentAuditLogs).values({ tenantId: currentTenant(), delegationId, actorId: input.ownerId, action: "delegation_created", target: input.name, decision: "information", metadata: JSON.stringify({ purpose: input.purpose, channel: input.channel, expiresAt: input.expiresAt, dailyLimit: input.dailyLimit, contactCooldownDays: input.contactCooldownDays }) });
     return { id: delegationId };
   });
@@ -1501,8 +1507,8 @@ export async function createAgentCampaignSimulation(input: { delegationId: numbe
   const createdAt = new Date();
   const skippedCount = Math.max(0, matchingDocuments.length - eligible.length);
   return db.transaction(async tx => {
-    const created = await tx.insert(agentCampaigns).values({ tenantId: currentTenant(), delegationId: delegation.id, name: input.name, status: "simulee", scheduledFor: effectiveScheduledFor, eligibleCount: eligible.length, preparedById: input.preparedById });
-    const campaignId = Number(created[0].insertId);
+    const created = await tx.insert(agentCampaigns).values({ tenantId: currentTenant(), delegationId: delegation.id, name: input.name, status: "simulee", scheduledFor: effectiveScheduledFor, eligibleCount: eligible.length, preparedById: input.preparedById }).returning({ id: agentCampaigns.id });
+    const campaignId = created[0].id;
     for (const document of eligible) {
       const draft = createAgentMessageDraft({ purpose: delegation.purpose, tone: delegation.tone, documentNumber: document.number, clientName: document.clientName, balanceDue: document.balanceDue, dueDate: document.dueDate, validUntil: document.validUntil });
       const contentHash = createHash("sha256").update(`${draft.subject}\n${draft.body}`).digest("hex");
@@ -1621,7 +1627,7 @@ async function deliverAgentCampaignToTestInbox(input: { campaignId: number; runK
   }
   await db.transaction(async tx => {
     for (const job of jobs) {
-      await tx.insert(agentTestEmailDeliveries).values({ tenantId: currentTenant(), campaignId: input.campaignId, messageJobId: job.id, subject: job.subject, body: job.body, status: "remis_test", runKey: `${input.runKeyPrefix}:${job.id}`, deliveredAt }).onDuplicateKeyUpdate({ set: { status: "remis_test", deliveredAt } });
+      await tx.insert(agentTestEmailDeliveries).values({ tenantId: currentTenant(), campaignId: input.campaignId, messageJobId: job.id, subject: job.subject, body: job.body, status: "remis_test", runKey: `${input.runKeyPrefix}:${job.id}`, deliveredAt }).onConflictDoUpdate({ target: agentTestEmailDeliveries.runKey, set: { status: "remis_test", deliveredAt } });
       await tx.update(agentMessageJobs).set({ status: "remis_test" }).where(and(eq(agentMessageJobs.id, job.id), eq(agentMessageJobs.tenantId, currentTenant())));
     }
     await tx.update(agentCampaigns).set({ lastExecutedAt: deliveredAt, lastExecutionStatus: "success" }).where(and(eq(agentCampaigns.id, input.campaignId), eq(agentCampaigns.tenantId, currentTenant())));
@@ -1899,7 +1905,7 @@ export async function createClientPaymentPromise(input: { email?: string | null;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   if (Number.isNaN(promisedDate.getTime()) || promisedDate < today) throw new Error("La date prévue doit être aujourd’hui ou ultérieure.");
   const db = await requireDb();
-  await db.insert(paymentPromises).values({ tenantId: currentTenant(), documentId: input.documentId, promisedDate, note: input.note?.trim() || null, createdById: input.createdById }).onDuplicateKeyUpdate({ set: { promisedDate, note: input.note?.trim() || null, createdById: input.createdById, updatedAt: new Date() } });
+  await db.insert(paymentPromises).values({ tenantId: currentTenant(), documentId: input.documentId, promisedDate, note: input.note?.trim() || null, createdById: input.createdById }).onConflictDoUpdate({ target: paymentPromises.documentId, set: { promisedDate, note: input.note?.trim() || null, createdById: input.createdById, updatedAt: new Date() } });
   return { success: true };
 }
 
@@ -1980,7 +1986,7 @@ export async function createDocument(input: {
     await tx
       .insert(documentSequences)
       .values({ tenantId: currentTenant(), kind: input.kind, lastValue: 1 })
-      .onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+      .onConflictDoUpdate({ target: documentSequences.kind, set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
     const sequence = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, input.kind), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const documentValues: typeof documents.$inferInsert = {
@@ -2006,8 +2012,8 @@ export async function createDocument(input: {
       isAiDraft: input.isAiDraft ? "oui" : "non",
       createdById: input.createdById,
     };
-    const documentResult = await tx.insert(documents).values(documentValues);
-    const documentId = Number(documentResult[0].insertId);
+    const documentResult = await tx.insert(documents).values(documentValues).returning({ id: documents.id });
+    const documentId = documentResult[0].id;
     if (input.lines.length) {
       await tx.insert(documentLines).values(
         input.lines.map((line, index) => {
@@ -2072,7 +2078,7 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
     const existingDeposit = reuseExistingGeneratedInvoice(existing[0]);
     if (existingDeposit) return existingDeposit;
     const amount = calculateDepositInvoiceAmount(quote.total, quote.depositPercent);
-    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onConflictDoUpdate({ target: documentSequences.kind, set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
     const sequence = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, "facture"), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
@@ -2082,8 +2088,8 @@ export async function createDepositInvoiceFromQuote(quoteId: number, createdById
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
       subtotal: amount, taxTotal: 0, total: amount,
       notes: `Facture d’acompte de ${quote.depositPercent}% générée à partir du devis ${quote.number}.`, isAiDraft: "non", createdById,
-    });
-    const id = Number(result[0].insertId);
+    }).returning({ id: documents.id });
+    const id = result[0].id;
     await tx.insert(documentLines).values({ tenantId: currentTenant(), documentId: id, position: 1, description: `Acompte de ${quote.depositPercent}% sur devis ${quote.number}`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
     return { id, number, existing: false };
   });
@@ -2109,7 +2115,7 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
     if (existingBalance) return existingBalance;
 
     const amount = calculateBalanceInvoiceAmount(quote.total, deposit.total);
-    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onConflictDoUpdate({ target: documentSequences.kind, set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
     const sequence = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, "facture"), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const serial = sequence[0]?.lastValue ?? 1;
     const number = formatDocumentNumber("facture", quote.issueDate.getUTCFullYear(), serial);
@@ -2119,8 +2125,8 @@ export async function createBalanceInvoiceFromDeposit(depositInvoiceId: number, 
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: 0, discountAmount: 0,
       subtotal: amount, taxTotal: 0, total: amount,
       notes: `Facture de solde générée après règlement de l’acompte lié au devis ${quote.number}.`, isAiDraft: "non", createdById,
-    });
-    const id = Number(result[0].insertId);
+    }).returning({ id: documents.id });
+    const id = result[0].id;
     await tx.insert(documentLines).values({ tenantId: currentTenant(), documentId: id, position: 1, description: `Solde sur devis ${quote.number} après acompte`, quantity: "1.00", unit: "forfait", unitPrice: amount, taxRate: 0, lineTotal: amount, serviceId: null });
     return { id, number, existing: false };
   });
@@ -2137,7 +2143,7 @@ export async function createInvoiceFromQuote(quoteId: number, createdById: numbe
     if (existing[0]) return { id: existing[0].id, existing: true };
     const lines = await tx.select().from(documentLines).where(and(eq(documentLines.documentId, quoteId), eq(documentLines.tenantId, currentTenant()))).orderBy(documentLines.position);
     if (!lines.length) throw new Error("Le devis ne contient aucune ligne à facturer.");
-    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onDuplicateKeyUpdate({ set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
+    await tx.insert(documentSequences).values({ tenantId: currentTenant(), kind: "facture", lastValue: 1 }).onConflictDoUpdate({ target: documentSequences.kind, set: { lastValue: sql`${documentSequences.lastValue} + 1` } });
     const seq = await tx.select().from(documentSequences).where(and(eq(documentSequences.kind, "facture"), eq(documentSequences.tenantId, currentTenant()))).limit(1);
     const number = formatDocumentNumber("facture", new Date().getUTCFullYear(), seq[0]?.lastValue ?? 1);
     const result = await tx.insert(documents).values({ tenantId: currentTenant(),
@@ -2146,8 +2152,8 @@ export async function createInvoiceFromQuote(quoteId: number, createdById: numbe
       depositPercent: null, depositDueDate: null, balanceDueDate: null, discountPercent: quote.discountPercent, discountAmount: quote.discountAmount,
       subtotal: quote.subtotal, taxTotal: quote.taxTotal, total: quote.total,
       notes: `Facture générée à partir du devis ${quote.number}.`, isAiDraft: "non", createdById,
-    });
-    const id = Number(result[0].insertId);
+    }).returning({ id: documents.id });
+    const id = result[0].id;
     await tx.insert(documentLines).values(lines.map((l: any) => ({
       tenantId: currentTenant(),
       documentId: id, position: l.position, description: l.description, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPrice, taxRate: l.taxRate, lineTotal: l.lineTotal, serviceId: l.serviceId,
@@ -2175,7 +2181,7 @@ export async function recordPayment(input: {
     const paidBefore = existingPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const balanceBefore = calculatePaymentBalance(invoice.total, paidBefore);
     if (input.amount > balanceBefore.balanceDue) throw new Error("Le montant saisi dépasse le solde restant dû.");
-    const result = await tx.insert(payments).values({ tenantId: currentTenant(), documentId: input.documentId, amount: input.amount, paidAt: new Date(`${input.paidAt}T00:00:00.000Z`), method: input.method, reference: input.reference || null, notes: input.notes || null, createdById: input.createdById });
+    const result = await tx.insert(payments).values({ tenantId: currentTenant(), documentId: input.documentId, amount: input.amount, paidAt: new Date(`${input.paidAt}T00:00:00.000Z`), method: input.method, reference: input.reference || null, notes: input.notes || null, createdById: input.createdById }).returning({ id: payments.id });
     const paidAfter = paidBefore + input.amount;
     const status = invoicePaymentStatus(invoice.total, paidAfter, invoice.dueDate, invoice.status);
     await tx.update(documents).set({ status }).where(and(eq(documents.id, input.documentId), eq(documents.tenantId, currentTenant())));
@@ -2189,7 +2195,7 @@ export async function recordPayment(input: {
       description: `${invoice.number} · ${input.amount.toLocaleString("fr-GN")} GNF · ${methodLabel}${input.reference ? ` · réf. ${input.reference}` : ""}`,
       createdById: input.createdById,
     });
-    return { id: Number(result[0].insertId), paidAmount: paidAfter, balanceDue: calculatePaymentBalance(invoice.total, paidAfter).balanceDue, status };
+    return { id: result[0].id, paidAmount: paidAfter, balanceDue: calculatePaymentBalance(invoice.total, paidAfter).balanceDue, status };
   });
 }
 
@@ -2346,7 +2352,7 @@ export async function createEmailTemplate(input: {
       text: input.text ?? null,
       tenantId: input.tenantId ?? currentTenant(),
     })
-    .$returningId();
+    .returning({ id: emailTemplates.id });
   return { id: row.id };
 }
 

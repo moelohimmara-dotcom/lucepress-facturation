@@ -116,3 +116,6 @@ client/public/__manus__/version.json
 # Playwright 
 playwright-report/ 
 test-results/ 
+
+# Local Netlify folder
+.netlify
