@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lucepres — Atelier du devis (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+    --font-mono: "DM Mono", ui-monospace, monospace;
+    --radius: 1.15rem;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --background: oklch(0.976 0.011 88);
+    --foreground: oklch(0.225 0.033 165);
+    --card: oklch(0.993 0.005 88);
+    --muted: oklch(0.946 0.012 85);
+    --muted-foreground: oklch(0.44 0.029 162);
+    --brand: oklch(0.3 0.079 166);
+    --brand-foreground: oklch(0.98 0.009 93);
+    --action: oklch(0.735 0.125 89);
+    --action-foreground: oklch(0.23 0.05 163);
+    --watch: oklch(0.78 0.13 75);
+    --risk: oklch(0.55 0.19 28);
+    --success: oklch(0.62 0.12 150);
+    --border: oklch(0.874 0.025 83);
+    --input: oklch(0.88 0.024 82);
+    --ring: oklch(0.56 0.111 162);
+    --sidebar: oklch(0.255 0.067 164);
+    --sidebar-foreground: oklch(0.94 0.012 91);
+    --sidebar-border: oklch(0.51 0.055 164 / 55%);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--background);
+    color: var(--foreground);
+    background-image: radial-gradient(circle at 76% -12%, oklch(0.88 0.058 89 / 22%), transparent 32rem), radial-gradient(circle at 4% 100%, oklch(0.84 0.057 157 / 12%), transparent 28rem);
+    -webkit-font-smoothing: antialiased;
+    text-wrap: pretty;
+  }
+  ::selection { background: oklch(0.82 0.08 88); color: oklch(0.26 0.06 164); }
+
+  /* ===== Layout shell ===== */
+  .shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+  .sidebar {
+    background: var(--sidebar);
+    color: var(--sidebar-foreground);
+    display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+    border-right: 1px solid var(--sidebar-border);
+  }
+  .sidebar-brand { padding: 1.4rem 1.25rem 1rem; display: flex; align-items: center; gap: 0.7rem; }
+  .sidebar-brand .mark {
+    width: 34px; height: 34px; border-radius: 0.7rem;
+    background: var(--action); color: var(--action-foreground);
+    display: grid; place-items: center;
+    font-family: var(--font-serif); font-style: italic; font-weight: 700; font-size: 1.25rem;
+  }
+  .sidebar-brand .name { font-family: var(--font-serif); font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+  .sidebar-brand .name small { display: block; font-family: var(--font-sans); font-weight: 600; font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.55; margin-top: 1px; }
+  .nav-group { padding: 0.5rem 0.75rem; }
+  .nav-group-label { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: oklch(0.7 0.03 92); padding: 0.6rem 0.5rem 0.35rem; }
+  .nav-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.6rem; border-radius: 0.6rem;
+    font-size: 0.83rem; font-weight: 600; color: oklch(0.82 0.02 92);
+    cursor: pointer; transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
+  }
+  .nav-item:hover { background: oklch(0.35 0.066 163 / 60%); color: #fff; }
+  .nav-item.active { background: var(--action); color: var(--action-foreground); }
+  .nav-item.active { color: oklch(0.18 0.05 163); }
+  .nav-item .ic { width: 16px; height: 16px; opacity: 0.85; }
+  .nav-item.active .ic { opacity: 1; }
+
+  /* ===== Main ===== */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border);
+    background: oklch(0.985 0.006 88 / 80%); backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .crumb { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; color: var(--brand); cursor: pointer; }
+  .crumb:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .topbar-actions { display: flex; align-items: center; gap: 0.6rem; }
+  .kbd-hint { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 700; color: var(--muted-foreground); }
+  .kbd { font-family: var(--font-mono); font-size: 0.66rem; background: var(--card); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 0.35rem; padding: 1px 5px; }
+
+  /* ===== Editor header ===== */
+  .editor-head { padding: 1.5rem 1.75rem 1.25rem; border-bottom: 1px solid var(--border); }
+  .editor-head .eyebrow { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--brand); }
+  .editor-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: clamp(1.6rem, 2.4vw, 2.1rem); letter-spacing: -0.02em; margin: 0.5rem 0 0; }
+  .editor-head .sub { font-size: 0.82rem; color: var(--muted-foreground); margin-top: 0.4rem; }
+  .editor-head .meta-row { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 0.9rem; align-items: center; }
+  .meta-chip { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 700; color: var(--foreground); }
+  .meta-chip .lab { color: var(--muted-foreground); font-weight: 600; }
+  .meta-chip .val { font-family: var(--font-mono); }
+  .draft-tag { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; color: var(--watch); background: oklch(0.92 0.06 80 / 50%); padding: 0.2rem 0.5rem; border-radius: 999px; }
+
+  /* ===== Atelier grid ===== */
+  .atelier { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 0; flex: 1; min-height: 0; }
+  @media (max-width: 1180px) { .atelier { grid-template-columns: 1fr; } .dock { position: static !important; border-left: none !important; border-top: 1px solid var(--border); } }
+
+  .canvas { padding: 1.5rem 1.75rem 3rem; min-width: 0; }
+
+  /* ===== Client card incrustée ===== */
+  .client-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 0.85rem 1rem; display: flex; gap: 0.85rem; align-items: center; margin-bottom: 1.4rem; }
+  .client-card .avatar { width: 38px; height: 38px; border-radius: 999px; background: var(--brand); color: var(--brand-foreground); display: grid; place-items: center; font-weight: 800; font-size: 0.95rem; flex-shrink: 0; }
+  .client-card .who { font-weight: 800; font-size: 0.92rem; }
+  .client-card .who small { display: block; font-weight: 500; font-size: 0.74rem; color: var(--muted-foreground); margin-top: 1px; }
+  .client-card .pill { margin-left: auto; font-size: 0.68rem; font-weight: 800; color: var(--muted-foreground); background: var(--muted); padding: 0.25rem 0.6rem; border-radius: 999px; }
+
+  /* ===== Lines table ===== */
+  .lines-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.7rem; }
+  .lines-head h2 { font-family: var(--font-serif); font-weight: 600; font-size: 1.3rem; margin: 0; }
+  .lines-head .hint { font-size: 0.76rem; color: var(--muted-foreground); }
+  .line-grid { display: grid; grid-template-columns: 1fr 64px 84px 110px 56px 120px 32px; gap: 0.5rem; align-items: center; }
+  .line-grid.colhead { padding: 0 0.6rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-foreground); }
+  .line-grid.colhead .right { text-align: right; }
+  .line-row { padding: 0.5rem 0.6rem; border-radius: 0.7rem; transition: background 140ms var(--ease-out); }
+  .line-row:hover { background: oklch(0.97 0.012 88); }
+  .line-row.ai-proposed { background: oklch(0.96 0.04 86 / 60%); box-shadow: inset 3px 0 0 var(--action); }
+  .cell { font-size: 0.84rem; }
+  .cell.desc { font-weight: 600; }
+  .cell.desc small { display: block; font-weight: 500; font-size: 0.7rem; color: var(--muted-foreground); }
+  .cell.num { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .unit-sel { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted-foreground); }
+  .tax { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted-foreground); }
+  .del { color: var(--muted-foreground); cursor: pointer; opacity: 0; transition: opacity 140ms var(--ease-out), color 140ms var(--ease-out); }
+  .line-row:hover .del { opacity: 1; }
+  .del:hover { color: var(--risk); }
+  .add-line { margin-top: 0.7rem; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 700; color: var(--brand); cursor: pointer; padding: 0.4rem 0.6rem; border-radius: 0.6rem; transition: background 140ms var(--ease-out); }
+  .add-line:hover { background: oklch(0.94 0.03 165 / 40%); }
+
+  /* AI accept strip */
+  .ai-strip { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.8rem; padding: 0.6rem 0.8rem; border-radius: 0.7rem; background: oklch(0.95 0.045 86 / 50%); border: 1px dashed oklch(0.74 0.1 88 / 60%); font-size: 0.78rem; }
+  .ai-strip .spark { color: var(--action-foreground); background: var(--action); width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; flex-shrink: 0; }
+  .ai-strip b { font-weight: 800; }
+  .ai-strip .acts { margin-left: auto; display: flex; gap: 0.4rem; }
+  .ai-strip button { font: inherit; font-weight: 700; font-size: 0.74rem; border: 1px solid var(--border); background: var(--card); border-radius: 0.5rem; padding: 0.3rem 0.6rem; cursor: pointer; }
+  .ai-strip button.primary { background: var(--brand); color: var(--brand-foreground); border-color: var(--brand); }
+
+  /* Totals */
+  .totals { margin-top: 1.4rem; margin-left: auto; width: 320px; }
+  .totals .trow { display: flex; justify-content: space-between; padding: 0.4rem 0.1rem; font-size: 0.84rem; }
+  .totals .trow.muted { color: var(--muted-foreground); }
+  .totals .trow.grand { border-top: 1px solid var(--border); margin-top: 0.4rem; padding-top: 0.7rem; font-family: var(--font-serif); font-weight: 600; font-size: 1.05rem; }
+  .totals .trow .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  /* Conditions strip */
+  .conditions { margin-top: 1.8rem; border-top: 1px solid var(--border); padding-top: 1.1rem; }
+  .conditions h3 { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted-foreground); margin: 0 0 0.7rem; }
+  .cond-grid { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+  .cond { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.78rem; }
+  .cond .l { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-foreground); }
+  .cond .v { font-family: var(--font-mono); font-weight: 600; }
+  .schedule { display: flex; gap: 0.8rem; margin-top: 0.9rem; }
+  .schedule .step { flex: 1; border: 1px solid var(--border); border-radius: 0.7rem; padding: 0.6rem 0.7rem; }
+  .schedule .step .pct { font-family: var(--font-mono); font-weight: 600; font-size: 0.78rem; color: var(--brand); }
+  .schedule .step .lbl { font-size: 0.72rem; font-weight: 700; margin-top: 0.2rem; }
+  .schedule .step .amt { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.95rem; font-weight: 500; margin-top: 0.2rem; }
+  .schedule .step .due { font-size: 0.68rem; color: var(--muted-foreground); margin-top: 0.1rem; }
+
+  /* ===== Dock (copilote) ===== */
+  .dock { border-left: 1px solid var(--border); background: oklch(0.985 0.006 90); position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
+  .dock-inner { padding: 1.4rem 1.2rem 3rem; }
+  .dock-tabs { display: flex; gap: 0.3rem; margin-bottom: 1.1rem; }
+  .dock-tab { font: inherit; font-size: 0.74rem; font-weight: 800; color: var(--muted-foreground); padding: 0.4rem 0.7rem; border-radius: 999px; border: 1px solid transparent; cursor: pointer; transition: all 140ms var(--ease-out); }
+  .dock-tab:hover { color: var(--foreground); background: var(--muted); }
+  .dock-tab.active { background: var(--brand); color: var(--brand-foreground); border-color: var(--brand); }
+  .dock h3 { font-family: var(--font-serif); font-weight: 600; font-size: 1.15rem; margin: 0 0 0.3rem; }
+  .dock .lead { font-size: 0.78rem; color: var(--muted-foreground); margin: 0 0 1rem; }
+
+  .tpl-grid { display: grid; gap: 0.5rem; }
+  .tpl { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.7rem 0.8rem; border: 1px solid var(--border); border-radius: 0.7rem; background: var(--card); cursor: pointer; transition: border-color 160ms var(--ease-out), transform 160ms var(--ease-out); }
+  .tpl:hover { border-color: oklch(0.6 0.08 165); transform: translateY(-1px); }
+  .tpl .glyph { width: 30px; height: 30px; border-radius: 0.5rem; flex-shrink: 0; display: grid; place-items: center; font-size: 0.95rem; }
+  .tpl .name { font-weight: 800; font-size: 0.84rem; }
+  .tpl .sum { font-size: 0.72rem; color: var(--muted-foreground); margin-top: 0.15rem; line-height: 1.35; }
+  .g-hyd { background: oklch(0.9 0.06 230); color: oklch(0.3 0.08 230); }
+  .g-btp { background: oklch(0.9 0.05 60); color: oklch(0.32 0.06 60); }
+  .g-hyg { background: oklch(0.9 0.07 95); color: oklch(0.34 0.08 80); }
+  .g-mnt { background: oklch(0.9 0.05 160); color: oklch(0.3 0.06 160); }
+
+  .assistant { display: flex; flex-direction: column; gap: 0.7rem; }
+  .prompt-wrap { border: 1px solid var(--border); border-radius: 0.8rem; background: var(--card); padding: 0.7rem; }
+  .prompt-wrap textarea { width: 100%; border: 0; outline: 0; resize: none; font-family: var(--font-sans); font-size: 0.84rem; line-height: 1.5; min-height: 84px; background: transparent; color: var(--foreground); }
+  .prompt-wrap textarea::placeholder { color: oklch(0.55 0.02 90); }
+  .prompt-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 0.4rem; }
+  .prompt-foot .count { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted-foreground); }
+  .send-btn { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; background: var(--action); color: var(--action-foreground); border: 0; border-radius: 0.6rem; padding: 0.45rem 0.85rem; cursor: pointer; transition: transform 140ms var(--ease-out); }
+  .send-btn:hover { transform: translateY(-1px); }
+  .send-btn:active { transform: translateY(0); }
+  .proposals { display: flex; flex-direction: column; gap: 0.5rem; }
+  .prop { border: 1px solid oklch(0.74 0.1 88 / 50%); background: oklch(0.97 0.03 88 / 60%); border-radius: 0.7rem; padding: 0.65rem 0.75rem; }
+  .prop .pt { display: flex; align-items: center; gap: 0.4rem; font-size: 0.76rem; font-weight: 800; color: var(--action-foreground); }
+  .prop .pb { font-size: 0.74rem; color: var(--foreground); margin-top: 0.3rem; line-height: 1.4; }
+  .prop .pacts { display: flex; gap: 0.35rem; margin-top: 0.5rem; }
+  .prop .pacts button { font: inherit; font-size: 0.7rem; font-weight: 700; border: 1px solid var(--border); background: var(--card); border-radius: 0.45rem; padding: 0.25rem 0.5rem; cursor: pointer; }
+
+  .preview-note { font-size: 0.74rem; color: var(--muted-foreground); line-height: 1.5; }
+  .preview-mock { border: 1px solid var(--border); border-radius: 0.7rem; background: #fff; padding: 1rem 1.1rem; margin-top: 0.6rem; }
+  .preview-mock .pm-top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid oklch(0.9 0.02 88); padding-bottom: 0.7rem; }
+  .preview-mock .pm-l { font-family: var(--font-serif); font-weight: 700; font-size: 1.05rem; }
+  .preview-mock .pm-l small { display: block; font-family: var(--font-sans); font-weight: 500; font-size: 0.66rem; color: var(--muted-foreground); margin-top: 2px; }
+  .preview-mock .pm-r { text-align: right; font-size: 0.66rem; color: var(--muted-foreground); }
+  .preview-mock .pm-r b { font-family: var(--font-mono); font-size: 0.78rem; color: var(--foreground); display: block; }
+  .preview-mock .pm-lines { margin-top: 0.6rem; font-size: 0.7rem; }
+  .preview-mock .pm-lines div { display: flex; justify-content: space-between; padding: 0.18rem 0; border-bottom: 1px dotted oklch(0.9 0.02 88); }
+  .preview-mock .pm-lines div span:last-child { font-family: var(--font-mono); }
+  .preview-mock .pm-tot { display: flex; justify-content: space-between; margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px solid oklch(0.85 0.02 88); font-family: var(--font-serif); font-weight: 600; }
+  .preview-mock .pm-tot span:last-child { font-family: var(--font-mono); }
+
+  /* coachover */
+  .coachover { position: relative; margin: 1.4rem 0; }
+  .coachover .card { border: 1px solid oklch(0.74 0.1 89 / 45%); background: oklch(0.98 0.02 88); border-radius: 0.7rem; padding: 0.7rem 0.85rem; font-size: 0.78rem; }
+  .coachover .card b { color: var(--brand); }
+  .coachover .card .step-no { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 700; color: var(--action-foreground); background: var(--action); padding: 1px 6px; border-radius: 999px; margin-right: 0.4rem; }
+  .coachover .card .close { float: right; cursor: pointer; color: var(--muted-foreground); font-size: 0.9rem; line-height: 1; }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 0.45rem; font: inherit; font-weight: 800; font-size: 0.82rem; border-radius: 0.7rem; padding: 0.55rem 0.95rem; cursor: pointer; border: 1px solid transparent; transition: transform 140ms var(--ease-out), background 140ms var(--ease-out); }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--action); color: var(--action-foreground); }
+  .btn-primary:hover { background: oklch(0.78 0.12 88); }
+  .btn-ghost { background: transparent; color: var(--foreground); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--muted); }
+
+  .save-bar { display: flex; gap: 0.6rem; margin-top: 1.8rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+
+  /* small inline svg */
+  svg { display: block; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="mark">L</div>
+      <div class="name">Lucepres<small>Gestion</small></div>
+    </div>
+    <nav style="flex:1; overflow-y:auto">
+      <div class="nav-group">
+        <div class="nav-group-label">Gestion commerciale</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Aujourd'hui</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>Devis</div>
+        <div class="nav-item active"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Nouveau devis</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h6"/></svg>Factures</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11"/></svg>Clients</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Chantiers</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Prestations</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Pilotage</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 6v12"/></svg>Coûts & marges</div>
+        <div class="nav-item"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Créances</div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <span class="crumb"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg>Devis</span>
+      <div class="topbar-actions">
+        <span class="kbd-hint">Recherche <span class="kbd">⌘</span><span class="kbd">K</span></span>
+        <button class="btn btn-ghost">Aperçu</button>
+        <button class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 7"/></svg>Enregistrer le devis</button>
+      </div>
+    </div>
+
+    <div class="editor-head">
+      <div class="eyebrow">Atelier · Devis</div>
+      <h1>Nouveau devis</h1>
+      <p class="sub">Tous les montants sont enregistrés et présentés en francs guinéens (GNF).</p>
+      <div class="meta-row">
+        <span class="meta-chip"><span class="lab">N°</span><span class="val">DEV-2026-042</span></span>
+        <span class="meta-chip"><span class="lab">Émis le</span><span class="val">12 sept. 2026</span></span>
+        <span class="meta-chip"><span class="lab">Valide jusqu'au</span><span class="val">27 sept. 2026</span></span>
+        <span class="draft-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg>Brouillon</span>
+      </div>
+    </div>
+
+    <!-- Coachover discret -->
+    <div class="canvas">
+      <div class="coachover">
+        <div class="card">
+          <span class="close">×</span>
+          <span class="step-no">2 / 3</span><b>Partez d'une base.</b> Un modèle BTP structure vos postes ; l'assistant peut aussi préparer un brouillon à relire, ligne par ligne.
+        </div>
+      </div>
+
+      <!-- Client incrusté -->
+      <div class="client-card">
+        <div class="avatar">KP</div>
+        <div>
+          <div class="who">Commune de Kipé<small>Conakry · BTP · client récurrent</small></div>
+        </div>
+        <span class="pill">Remise 5 %</span>
+      </div>
+
+      <!-- Lines -->
+      <div class="lines-head">
+        <h2>Prestations</h2>
+        <span class="hint">Cliquez une ligne pour l'éditer · le copilote propose à droite</span>
+      </div>
+      <div class="line-grid colhead">
+        <div>Description</div>
+        <div class="right">Qté</div>
+        <div class="right">P.U.</div>
+        <div class="right">Total HT</div>
+        <div class="right">Taxe</div>
+        <div class="right">Total TTC</div>
+        <div></div>
+      </div>
+      <div class="lines">
+        <div class="line-grid line-row">
+          <div class="cell desc">Étude et reconnaissance de site<small>HYD-ETU-001 · hydraulique</small></div>
+          <div class="cell num">1</div>
+          <div class="cell num">1 200 000</div>
+          <div class="cell num">1 200 000</div>
+          <div class="tax">0 %</div>
+          <div class="cell num">1 200 000</div>
+          <div class="del"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+        </div>
+        <div class="line-grid line-row ai-proposed">
+          <div class="cell desc">Adduction et pose de canalisation<small>HYD-ADD-001 · proposé par l'IA — à relire</small></div>
+          <div class="cell num">180</div>
+          <div class="cell num">42 000</div>
+          <div class="cell num">7 560 000</div>
+          <div class="tax">0 %</div>
+          <div class="cell num">7 560 000</div>
+          <div class="del"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+        </div>
+        <div class="line-grid line-row ai-proposed">
+          <div class="cell desc">Équipement hydraulique & pompe<small>HYD-EQP-001 · proposé par l'IA — à relire</small></div>
+          <div class="cell num">1</div>
+          <div class="cell num">4 800 000</div>
+          <div class="cell num">4 800 000</div>
+          <div class="tax">0 %</div>
+          <div class="cell num">4 800 000</div>
+          <div class="del"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+        </div>
+        <div class="line-grid line-row">
+          <div class="cell desc">Mobilisation & déplacement chantier<small>Forfait · 1 lot</small></div>
+          <div class="cell num">1</div>
+          <div class="cell num">850 000</div>
+          <div class="cell num">850 000</div>
+          <div class="tax">0 %</div>
+          <div class="cell num">850 000</div>
+          <div class="del"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+        </div>
+      </div>
+      <div class="add-line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</div>
+
+      <!-- AI strip -->
+      <div class="ai-strip">
+        <span class="spark"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg></span>
+        <span><b>2 lignes proposées par l'assistant</b> · surlignées laiton. Relisez chaque prix et quantité avant de valider.</span>
+        <span class="acts">
+          <button>Rejeter</button>
+          <button class="primary">Accepter les 2 lignes</button>
+        </span>
+      </div>
+
+      <!-- Totals -->
+      <div class="totals">
+        <div class="trow muted"><span>Sous-total HT</span><span class="v">14 410 000</span></div>
+        <div class="trow muted"><span>Remise (5 %)</span><span class="v">−720 500</span></div>
+        <div class="trow muted"><span>TVA</span><span class="v">0</span></div>
+        <div class="trow grand"><span>Total TTC</span><span class="v">13 689 500 GNF</span></div>
+      </div>
+
+      <!-- Conditions -->
+      <div class="conditions">
+        <h3>Conditions & échéancier</h3>
+        <div class="cond-grid">
+          <div class="cond"><span class="l">Validité</span><span class="v">15 jours</span></div>
+          <div class="cond"><span class="l">Délai d'exécution</span><span class="v">3 semaines</span></div>
+          <div class="cond"><span class="l">Réception</span><span class="v">Sur site</span></div>
+        </div>
+        <div class="schedule">
+          <div class="step"><div class="pct">40 %</div><div class="lbl">Acompte à la commande</div><div class="amt">5 475 800</div><div class="due">À la signature</div></div>
+          <div class="step"><div class="pct">60 %</div><div class="lbl">Solde à la réception</div><div class="amt">8 213 700</div><div class="due">À la réception</div></div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-ghost">Enregistrer en brouillon</button>
+        <button class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 7"/></svg>Enregistrer et préparer l'envoi</button>
+      </div>
+    </div>
+
+    <!-- Dock copilote -->
+    <aside class="dock">
+      <div class="dock-inner">
+        <div class="dock-tabs">
+          <button class="dock-tab active">Modèles</button>
+          <button class="dock-tab">Assistant IA</button>
+          <button class="dock-tab">Aperçu</button>
+        </div>
+        <h3>Partir d'un modèle</h3>
+        <p class="lead">Choisissez un cadre par pôle d'activité. Les lignes s'adaptent, vous gardez la main sur chaque prix.</p>
+        <div class="tpl-grid">
+          <div class="tpl"><span class="glyph g-hyd"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 8 5 12 5 16a7 7 0 0 0 14 0c0-4-3-8-7-14z"/></svg></span><div><div class="name">Hydraulique</div><div class="sum">Diagnostic, adduction et équipements à adapter au site.</div></div></div>
+          <div class="tpl"><span class="glyph g-btp"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="10" width="6" height="11"/><rect x="11" y="6" width="6" height="15"/><rect x="3" y="14" width="14" height="2" fill="currentColor"/></svg></span><div><div class="name">Gros œuvre</div><div class="sum">Préparer, chiffrer et valider les étapes structurelles du chantier.</div></div></div>
+          <div class="tpl"><span class="glyph g-hyg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg></span><div><div class="name">Hygiène</div><div class="sum">Nettoyage, assainissement et entretien périodique de site.</div></div></div>
+          <div class="tpl"><span class="glyph g-mnt"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/></svg></span><div><div class="name">Maintenance</div><div class="sum">Diagnostic, préventive et réhabilitation d'installation.</div></div></div>
+        </div>
+
+        <div style="margin-top:1.5rem">
+          <h3>Assistant IA</h3>
+          <p class="lead">Décrivez le chantier en une phrase. L'assistant prépare un brouillon complet — toujours à relire avant validation.</p>
+          <div class="prompt-wrap">
+            <textarea placeholder="Ex. : Forage et adduction pour la commune de Kipé, 180 ml de canalisation, pompe et raccordement. Terrain plat, accès route.">Forage et adduction pour la commune de Kipé, 180 ml de canalisation, pompe et raccordement.</textarea>
+            <div class="prompt-foot">
+              <span class="count">92 / 20 min.</span>
+              <button class="send-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l14-7-7 14-2-5-5-2z"/></svg>Préparer le devis</button>
+            </div>
+          </div>
+          <div class="proposals" style="margin-top:0.8rem">
+            <div class="prop">
+              <div class="pt"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>Proposition prête</div>
+              <div class="pb">2 lignes ajoutées (adduction + équipement), validité 15 j, échéancier 40/60 suggéré d'après un chantier similaire à Matam.</div>
+              <div class="pacts"><button>Rejeter</button><button style="background:var(--brand);color:var(--brand-foreground);border-color:var(--brand)">Accepter</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.5rem">
+          <h3>Aperçu live</h3>
+          <p class="preview-note">Voici ce que le client recevra. Tout changement à gauche se reflète ici.</p>
+          <div class="preview-mock">
+            <div class="pm-top">
+              <div class="pm-l">DEV-2026-042<small>Commune de Kipé</small></div>
+              <div class="pm-r">Lucepres Sarl<b>Conakry</b></div>
+            </div>
+            <div class="pm-lines">
+              <div><span>Étude de site</span><span>1 200 000</span></div>
+              <div><span>Adduction 180 ml</span><span>7 560 000</span></div>
+              <div><span>Équipement & pompe</span><span>4 800 000</span></div>
+              <div><span>Mobilisation</span><span>850 000</span></div>
+            </div>
+            <div class="pm-tot"><span>Total TTC</span><span>13 689 500 GNF</span></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+  // Tab switching demo
+  document.querySelectorAll('.dock-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.dock-tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
