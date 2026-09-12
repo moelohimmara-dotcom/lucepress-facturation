@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { countGettingStartedTasks, gettingStartedTasks, isGettingStartedTaskComplete } from "@shared/gettingStarted";
@@ -50,29 +51,27 @@ export default function Home() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-3xl pb-10">
-        <header className="border-b border-border pb-6">
-          <p className="lucepress-kicker">Aujourd’hui</p>
-          <h1 className="font-editorial mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-            {summary.total ? "Votre file à traiter." : "Rien d’urgent pour l’instant."}
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-            Une carte = une décision. Validez, envoyez ou suivez — le reste de Lucepres reste accessible dans le menu.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="h-10 rounded-xl bg-primary px-4 font-bold text-primary-foreground">
-              <FilePlus2 className="mr-2 h-4 w-4" />Nouveau devis
-            </Button>
-            <Button variant="outline" onClick={() => setLocation("/creances")} className="h-10 rounded-xl border-border bg-card font-bold">
-              Créances
-            </Button>
-            <Button variant="outline" onClick={() => setLocation("/calendrier")} className="h-10 rounded-xl border-border bg-card font-bold">
-              <CalendarDays className="mr-2 h-4 w-4" />Calendrier
-            </Button>
-            <Button variant="outline" onClick={() => setLocation("/relances")} className="h-10 rounded-xl border-border bg-card font-bold">
-              <Mail className="mr-2 h-4 w-4" />Relances
-            </Button>
-          </div>
-        </header>
+        <PageHeader
+          kicker="Aujourd’hui"
+          title={summary.total ? "Votre file à traiter." : "Rien d’urgent pour l’instant."}
+          description="Une carte = une décision. Validez, envoyez ou suivez — le reste de Lucepres reste accessible dans le menu."
+          actions={
+            <>
+              <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="h-10 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-lg shadow-primary/15">
+                <FilePlus2 className="mr-2 h-4 w-4" />Nouveau devis
+              </Button>
+              <Button variant="outline" onClick={() => setLocation("/creances")} className="h-10 rounded-xl border-border bg-card font-bold">
+                Créances
+              </Button>
+              <Button variant="outline" onClick={() => setLocation("/calendrier")} className="h-10 rounded-xl border-border bg-card font-bold">
+                <CalendarDays className="mr-2 h-4 w-4" />Calendrier
+              </Button>
+              <Button variant="outline" onClick={() => setLocation("/relances")} className="h-10 rounded-xl border-border bg-card font-bold">
+                <Mail className="mr-2 h-4 w-4" />Relances
+              </Button>
+            </>
+          }
+        />
 
         {showGettingStarted && gettingStartedCount < gettingStartedTasks.length ? (
           <GettingStartedPanel
@@ -123,22 +122,30 @@ export default function Home() {
             </div>
           ) : inbox.length ? (
             <div className="space-y-3">
-              {inbox.map(item => (
-                <InboxCard key={item.id} item={item} onOpen={() => setLocation(item.href)} />
+              {inbox.map((item, index) => (
+                <div
+                  key={item.id}
+                  style={{ animation: `lucepress-rise 0.4s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` }}
+                >
+                  <InboxCard item={item} onOpen={() => setLocation(item.href)} />
+                </div>
               ))}
             </div>
           ) : (
-            <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary">
-                <CheckCircle2 className="h-5 w-5" />
+            <div className="surface-grid relative flex min-h-56 flex-col items-center justify-center overflow-hidden rounded-2xl border border-border bg-card px-6 text-center">
+              <div className="lucepress-ornament absolute inset-0 opacity-40" aria-hidden />
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-editorial text-lg font-semibold">File vide</h3>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                  Créez un devis ou enregistrez un paiement : les prochaines actions apparaîtront ici automatiquement.
+                </p>
+                <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="mt-5 h-10 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15">
+                  <Sparkles className="mr-2 h-4 w-4" />Créer un devis avec l’IA
+                </Button>
               </div>
-              <h3 className="mt-4 text-sm font-extrabold">File vide</h3>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                Créez un devis ou enregistrez un paiement : les prochaines actions apparaîtront ici automatiquement.
-              </p>
-              <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="mt-5 h-10 rounded-xl bg-primary font-bold text-primary-foreground">
-                <Sparkles className="mr-2 h-4 w-4" />Créer un devis avec l’IA
-              </Button>
             </div>
           )}
         </section>
@@ -152,13 +159,13 @@ function InboxCard({ item, onOpen }: { item: TodayInboxItem; onOpen: () => void 
     item.priority === "urgent"
       ? "border-red-200 bg-red-50/80"
       : item.priority === "action"
-        ? "border-primary/20 bg-primary/[0.03]"
-        : "border-border bg-card";
+        ? "border-primary/20 bg-primary/[0.03] shadow-[0_18px_40px_-30px_oklch(0.3_0.079_166/55%)]"
+        : "border-border bg-card shadow-[0_18px_40px_-32px_oklch(0.18_0.06_164/40%)]";
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`flex w-full items-start justify-between gap-4 rounded-2xl border p-4 text-left transition-transform duration-150 hover:-translate-y-0.5 sm:p-5 ${tone}`}
+      className={`flex w-full items-start justify-between gap-4 rounded-2xl border p-4 text-left transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 sm:p-5 ${tone}`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
