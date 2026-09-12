@@ -74,7 +74,7 @@ export default function StaffAuditPage() {
 
   return (
     <DashboardLayout>
-      <main className="mx-auto max-w-6xl pb-10">
+      <div className="mx-auto max-w-6xl pb-10">
         <PageHeader
           kicker="Pilotage · Conformité"
           title="Journal d’audit"
@@ -147,7 +147,7 @@ export default function StaffAuditPage() {
             </div>
           )}
         </section>
-      </main>
+      </div>
     </DashboardLayout>
   );
 }

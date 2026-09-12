@@ -229,7 +229,7 @@ export default function ReceivablesPage() {
     } catch (error) { toast.error(error instanceof Error ? error.message : "Le rapport PDF n’a pas pu être généré."); }
   }
 
-  return <DashboardLayout><main className="mx-auto max-w-7xl pb-10">
+  return <DashboardLayout><div className="mx-auto max-w-7xl pb-10">
     <header className="relative overflow-hidden rounded-[1.45rem] border border-primary/15 bg-primary/[0.035] px-5 py-6 sm:px-7 sm:py-7">
       <div className="absolute -right-16 -top-24 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -278,7 +278,7 @@ export default function ReceivablesPage() {
     <CollectionReassignDialog open={reassignDialogOpen} selectedCount={visibleSelectedInvoiceIds.length} assignees={assignees} pending={reassignCollection.isPending} onOpenChange={setReassignDialogOpen} onConfirm={collectionOwnerId => reassignCollection.mutate({ documentIds: visibleSelectedInvoiceIds, collectionOwnerId })} />
     <CollectionFollowUpDialog key={followUpInvoice?.id ?? 0} invoice={followUpInvoice} assignees={assignees} pending={updateFollowUp.isPending} onClose={closeFollowUpDialog} onSave={input => updateFollowUp.mutate(input)} />
     <CollectionMonthlyReportDialog open={reportDialogOpen} month={reportMonth} pending={monthlyReport.isFetching} onOpenChange={setReportDialogOpen} onMonthChange={setReportMonth} onDownload={downloadMonthlyReport} />
-  </main></DashboardLayout>;
+  </div></DashboardLayout>;
 }
 
 function Metric({ icon: Icon, label, value, detail, tone = "primary" }: { icon: React.ElementType; label: string; value: string; detail: string; tone?: "primary" | "danger" | "neutral" }) {

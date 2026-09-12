@@ -115,7 +115,7 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-5xl pb-10">
         <PageHeader
           kicker={isAdmin ? "Administration" : "Entreprise"}
           title="Paramètres entreprise"

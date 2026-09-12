@@ -51,7 +51,7 @@ export default function RemindersPage() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl pb-10">
         <PageHeader
           kicker="Recouvrement assisté"
           title="Relances de factures"
