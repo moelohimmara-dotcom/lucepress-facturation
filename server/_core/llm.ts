@@ -214,13 +214,13 @@ const normalizeToolChoice = (
 
 const resolveApiUrl = () =>
   ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/api/chat`
-    : "https://api.ollama.com/api/chat";
+    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/chat/completions`
+    : "https://integrate.api.nvidia.com/v1/chat/completions";
 
 const resolveModelsUrl = () =>
   ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/api/tags`
-    : "https://api.ollama.com/api/tags";
+    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/models`
+    : "https://integrate.api.nvidia.com/v1/models";
 
 const assertApiKey = () => {
   if (!ENV.forgeApiKey) {
@@ -453,16 +453,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   if (normalizedResponseFormat) {
-    // Ollama native /api/chat expects `format` (not `response_format`).
-    // Convert OpenAI-style response_format to Ollama format.
     const rf = normalizedResponseFormat;
     if (rf.type === "json_schema" && rf.json_schema?.schema) {
-      (payload as Record<string, unknown>).format = {
+      (payload as Record<string, unknown>).response_format = {
         type: "json_schema",
         json_schema: rf.json_schema,
-      };
-    } else if (rf.type === "json_object") {
-      (payload as Record<string, unknown>).format = "json";
+      } as Record<string, unknown>;
     } else {
       (payload as Record<string, unknown>).response_format = rf;
     }
@@ -485,36 +481,40 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   const data = await response.json() as {
+    id: string;
     model: string;
-    created_at: string;
-    message: { role: string; content: string; thinking?: string };
-    done: boolean;
-    done_reason: string;
-    total_duration?: number;
-    prompt_eval_count?: number;
-    eval_count?: number;
+    created: number;
+    choices: Array<{
+      index: number;
+      message: { role: string; content: string };
+      finish_reason: string | null;
+    }>;
+    usage?: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
   };
 
-  // Convert Ollama response format to OpenAI-compatible format
-  // Some models wrap JSON in Markdown or prose; extract the JSON value.
-  const parsed = extractJson(data.message.content ?? "");
-  const safeContent = parsed.ok ? JSON.stringify(parsed.value) : data.message.content ?? "";
+  const rawContent = data.choices?.[0]?.message?.content ?? "";
+  const parsed = extractJson(rawContent);
+  const safeContent = parsed.ok ? JSON.stringify(parsed.value) : rawContent;
   return {
-    id: `chatcmpl-${Date.now()}`,
-    created: Math.floor(Date.now() / 1000),
+    id: data.id ?? `chatcmpl-${Date.now()}`,
+    created: data.created ?? Math.floor(Date.now() / 1000),
     model: data.model,
     choices: [{
       index: 0,
       message: {
-        role: data.message.role as Role,
+        role: (data.choices?.[0]?.message?.role ?? "assistant") as Role,
         content: safeContent,
       },
-      finish_reason: data.done_reason === "stop" ? "stop" : data.done_reason,
+      finish_reason: data.choices?.[0]?.finish_reason ?? "stop",
     }],
     usage: {
-      prompt_tokens: data.prompt_eval_count ?? 0,
-      completion_tokens: data.eval_count ?? 0,
-      total_tokens: (data.prompt_eval_count ?? 0) + (data.eval_count ?? 0),
+      prompt_tokens: data.usage?.prompt_tokens ?? 0,
+      completion_tokens: data.usage?.completion_tokens ?? 0,
+      total_tokens: data.usage?.total_tokens ?? 0,
     },
   };
 }
@@ -547,14 +547,16 @@ export async function listLLMModels(): Promise<ModelsResponse> {
     );
   }
 
-  const data = await response.json() as { models: Array<{ name: string; model: string; size: number; digest: string; details?: Record<string, unknown> }> };
-  
-  // Convert Ollama format to our expected format
-  const models = data.models.map(m => ({
-    id: m.name,
-    object: "model",
-    created: Date.now(),
-    owned_by: "ollama",
+  const data = await response.json() as {
+    object?: string;
+    data: Array<{ id: string; object?: string; created?: number; owned_by?: string }>;
+  };
+
+  const models = (data.data ?? []).map(m => ({
+    id: m.id,
+    object: m.object ?? "model",
+    created: m.created ?? Date.now(),
+    owned_by: m.owned_by ?? "nvidia",
   }));
 
   return { object: "list", data: models };
