@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,16 +44,16 @@ export default function ChangePasswordPage() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-xl">
-        <header className="flex flex-col gap-4 border-b border-border pb-6">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Mon compte</p>
-            <h1 className="font-editorial mt-2 text-3xl font-semibold">Changer mon mot de passe</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        <PageHeader
+          kicker="Mon compte"
+          title="Changer mon mot de passe"
+          description={
+            <>
               {user?.email ? `Connecté en tant que ${user.email}. ` : ""}
               Saisissez votre mot de passe actuel, puis choisissez-en un nouveau.
-            </p>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         <Card className="mt-6">
           <CardHeader>

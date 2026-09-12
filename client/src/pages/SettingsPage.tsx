@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
@@ -115,27 +116,27 @@ export default function SettingsPage() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-5xl">
-        <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">{isAdmin ? "Administration" : "Entreprise"}</p>
-            <h1 className="font-editorial mt-2 text-3xl font-semibold">Paramètres entreprise</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {isAdmin
-                ? "Personnalisez les coordonnées affichées sur les documents Lucepres et validez les données nécessaires au règlement."
-                : "Consultation des coordonnées affichées sur les documents. La modification est réservée à l’administrateur."}
-            </p>
-          </div>
-          {isAdmin ? (
-            <Button form="company-settings" type="submit" disabled={save.isPending} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
-              <Save className="mr-2 h-4 w-4" />
-              {save.isPending ? "Enregistrement…" : "Enregistrer"}
-            </Button>
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-950">
-              Lecture seule · rôle {user?.role}
-            </div>
-          )}
-        </header>
+        <PageHeader
+          kicker={isAdmin ? "Administration" : "Entreprise"}
+          title="Paramètres entreprise"
+          description={
+            isAdmin
+              ? "Personnalisez les coordonnées affichées sur les documents Lucepres et validez les données nécessaires au règlement."
+              : "Consultation des coordonnées affichées sur les documents. La modification est réservée à l’administrateur."
+          }
+          actions={
+            isAdmin ? (
+              <Button form="company-settings" type="submit" disabled={save.isPending} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+                <Save className="mr-2 h-4 w-4" />
+                {save.isPending ? "Enregistrement…" : "Enregistrer"}
+              </Button>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-950">
+                Lecture seule · rôle {user?.role}
+              </div>
+            )
+          }
+        />
 
         {mailStatus && (
         <section className={`mt-6 flex items-start gap-3 rounded-2xl border p-4 ${mailStatus.smtpConfigured ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>

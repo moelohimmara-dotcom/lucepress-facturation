@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
 import { downloadPdfFromElement } from "@/lib/pdf";
@@ -57,18 +58,16 @@ export default function ClientPortalPage() {
   return (
     <PortalShell>
       <main className="mx-auto max-w-5xl pb-10">
-        <header className="mb-7 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Espace client sécurisé</p>
-            <h1 className="font-editorial mt-2 text-3xl font-semibold">Mes documents</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Acceptez ou refusez vos devis, consultez vos factures et annoncez une date de règlement si besoin.
-            </p>
-          </div>
-          <div className="rounded-xl border border-primary/15 bg-primary/[0.035] px-4 py-3 text-xs font-semibold text-primary">
-            Connecté : {user.email ?? "e-mail non renseigné"}
-          </div>
-        </header>
+        <PageHeader
+          kicker="Espace client sécurisé"
+          title="Mes documents"
+          description="Acceptez ou refusez vos devis, consultez vos factures et annoncez une date de règlement si besoin."
+          actions={
+            <div className="rounded-xl border border-primary/15 bg-primary/[0.035] px-4 py-3 text-xs font-semibold text-primary">
+              Connecté : {user.email ?? "e-mail non renseigné"}
+            </div>
+          }
+        />
         {isLoading ? (
           <CenteredLoader />
         ) : !overview?.client ? (

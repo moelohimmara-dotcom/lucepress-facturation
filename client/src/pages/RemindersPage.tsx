@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { formatGnf } from "@shared/billing";
 import { trpc } from "@/lib/trpc";
@@ -51,18 +52,16 @@ export default function RemindersPage() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-6xl">
-        <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Recouvrement assisté</p>
-            <h1 className="font-editorial mt-2 text-3xl font-semibold">Relances de factures</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Préparez un e-mail de relance, relisez-le, puis envoyez-le par SMTP. WhatsApp reste désactivé pour cette version.
-            </p>
-          </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <Mail className="h-5 w-5" />
-          </div>
-        </header>
+        <PageHeader
+          kicker="Recouvrement assisté"
+          title="Relances de factures"
+          description="Préparez un e-mail de relance, relisez-le, puis envoyez-le par SMTP. WhatsApp reste désactivé pour cette version."
+          actions={
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+              <Mail className="h-5 w-5" />
+            </div>
+          }
+        />
         {mailStatus?.smtpConfigured === false && (
           <section className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
