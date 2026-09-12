@@ -9,7 +9,7 @@ vi.mock("./db", () => ({ searchWorkspace: mocks.searchWorkspace }));
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-const createContext = (role: "admin" | "cadre") => ({
+const createContext = (role: "admin" | "cadre" | "client") => ({
   user: { id: 3, openId: `workspace-${role}`, name: "Responsable", email: "responsable@lucepress.example", loginMethod: "manus", role, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
   tenantId: 1,
   req: {} as TrpcContext["req"],
@@ -24,7 +24,8 @@ describe("billing.workspaceSearch", () => {
 
     expect(mocks.searchWorkspace).toHaveBeenCalledWith({ query: "bati", filters: undefined });
     expect(result).toMatchObject([{ id: 7, kind: "devis", href: "/documents/7" }]);
-    await expect(appRouter.createCaller(createContext("cadre")).billing.workspaceSearch({ query: "bati" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await appRouter.createCaller(createContext("cadre")).billing.workspaceSearch({ query: "bati" })).toMatchObject([{ id: 7, kind: "devis", href: "/documents/7" }]);
+    await expect(appRouter.createCaller(createContext("client")).billing.workspaceSearch({ query: "bati" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("refuse les requêtes dépassant 80 caractères avant tout accès aux données", async () => {
