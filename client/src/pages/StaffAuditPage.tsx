@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
@@ -73,14 +74,11 @@ export default function StaffAuditPage() {
   return (
     <DashboardLayout>
       <main className="mx-auto max-w-6xl pb-10">
-        <header className="border-b border-border pb-6">
-          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-primary">Pilotage · Conformité</p>
-          <h1 className="font-editorial mt-2 text-3xl font-semibold">Journal d’audit</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Qui a envoyé un e-mail, changé un statut document ou préparé une relance — sur tous les clients.
-            Les filtres sont locaux et ne modifient rien.
-          </p>
-        </header>
+        <PageHeader
+          kicker="Pilotage · Conformité"
+          title="Journal d’audit"
+          description="Qui a envoyé un e-mail, changé un statut document ou préparé une relance — sur tous les clients. Les filtres sont locaux et ne modifient rien."
+        />
 
         <section className="mt-6 grid gap-4 sm:grid-cols-3">
           <Metric icon={ScrollText} value={data.length} label="Événements chargés" />

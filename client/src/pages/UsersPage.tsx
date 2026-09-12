@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -156,25 +157,21 @@ export default function UsersPage() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-5xl">
-        <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Administration</p>
-            <h1 className="font-editorial mt-2 text-3xl font-semibold">Comptes collaborateurs</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Créez des comptes pour votre équipe, ajustez leurs droits, réinitialisez un mot de passe
-              bloqué ou révoquez un accès.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => { setInviteLink(null); setInviteEmailMeta(null); setOpenDialog("invite"); }} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
-              <Mail className="mr-2 h-4 w-4" /> Inviter par e-mail
-            </Button>
-            <Button variant="outline" onClick={() => setOpenDialog("create")} className="h-10 rounded-xl font-bold">
-              <UserPlus className="mr-2 h-4 w-4" /> Nouveau compte
-            </Button>
-          </div>
-        </header>
-
+        <PageHeader
+          kicker="Administration"
+          title="Comptes collaborateurs"
+          description="Créez des comptes pour votre équipe, ajustez leurs droits, réinitialisez un mot de passe bloqué ou révoquez un accès."
+          actions={
+            <>
+              <Button onClick={() => { setInviteLink(null); setInviteEmailMeta(null); setOpenDialog("invite"); }} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+                <Mail className="mr-2 h-4 w-4" /> Inviter par e-mail
+              </Button>
+              <Button variant="outline" onClick={() => setOpenDialog("create")} className="h-10 rounded-xl font-bold">
+                <UserPlus className="mr-2 h-4 w-4" /> Nouveau compte
+              </Button>
+            </>
+          }
+        />
         <Card className="mt-6">
           <CardHeader>
             <CardTitle className="text-lg">Membres</CardTitle>
