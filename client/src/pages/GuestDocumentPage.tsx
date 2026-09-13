@@ -1,11 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { downloadPdfFromElement } from "@/lib/pdf";
 import { trpc } from "@/lib/trpc";
 import { formatGnf } from "@shared/billing";
 import { formatCompanyBankLine, formatCompanyDocumentFooter, formatCompanyLegalLine, formatCompanyRegistrationLine, LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { calculateQuotePaymentSchedule } from "@shared/paymentSchedule";
 import { CheckCircle2, Download, FileText, Loader2, ShieldCheck, XCircle } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useParams, useSearch } from "wouter";
 
@@ -18,7 +17,6 @@ export default function GuestDocumentPage() {
   const search = useSearch();
   const token = params.token || "";
   const wantDownload = useMemo(() => new URLSearchParams(search).get("download") === "1", [search]);
-  const [downloadAttempted, setDownloadAttempted] = useState(false);
 
   const { data, isLoading, error, refetch } = trpc.guest.getDocument.useQuery(
     { token },
@@ -34,17 +32,9 @@ export default function GuestDocumentPage() {
   });
 
   useEffect(() => {
-    if (!wantDownload || downloadAttempted || !data?.document) return;
-    setDownloadAttempted(true);
-    void (async () => {
-      try {
-        await downloadPdfFromElement("lucepress-guest-document", data.document.number);
-        toast.success("Téléchargement du PDF lancé.");
-      } catch {
-        toast.error("Le PDF n’a pas pu être généré automatiquement. Utilisez le bouton Télécharger.");
-      }
-    })();
-  }, [wantDownload, downloadAttempted, data?.document]);
+    if (!wantDownload || token.length < 32) return;
+    window.location.href = `/api/d/${token}.pdf`;
+  }, [wantDownload, token]);
 
   if (isLoading) {
     return (
@@ -74,13 +64,8 @@ export default function GuestDocumentPage() {
   const bankLine = formatCompanyBankLine(company);
   const schedule = document.kind === "devis" ? calculateQuotePaymentSchedule(document.total, document.depositPercent) : null;
 
-  async function onDownload() {
-    try {
-      await downloadPdfFromElement("lucepress-guest-document", document.number);
-      toast.success("PDF téléchargé.");
-    } catch {
-      toast.error("Le PDF n’a pas pu être généré.");
-    }
+  function onDownload() {
+    window.location.href = `/api/d/${token}.pdf`;
   }
 
   return (

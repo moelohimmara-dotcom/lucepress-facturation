@@ -176,13 +176,13 @@ describe("Phase 10+ : CommandPalette", () => {
 });
 
 describe("Phase 10+ : Intégration Globale", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const clientRoot = path.resolve(__dirname, "..", "..");
+  const readSrc = (rel: string) => fs.readFileSync(path.resolve(clientRoot, rel), "utf-8");
+
   it("21. Doit importer tous les nouveaux composants dans App.tsx", () => {
-    // Vérifie que App.tsx contient les imports nécessaires
-    const fs = require("fs");
-    const appContent = fs.readFileSync(
-      "/workspace/github__moelohimmara-dotcom__lucepress-facturation/client/src/App.tsx",
-      "utf-8"
-    );
+    const appContent = readSrc("src/App.tsx");
 
     expect(appContent).toContain("EnhancedToaster");
     expect(appContent).toContain("CommandPalette");
@@ -190,11 +190,7 @@ describe("Phase 10+ : Intégration Globale", () => {
   });
 
   it("22. Doit avoir les data-testid nécessaires pour le tour guidé", () => {
-    const fs = require("fs");
-    const dashboardLayoutContent = fs.readFileSync(
-      "/workspace/github__moelohimmara-dotcom__lucepress-facturation/client/src/components/DashboardLayout.tsx",
-      "utf-8"
-    );
+    const dashboardLayoutContent = readSrc("src/components/DashboardLayout.tsx");
 
     // Vérifie que les data-testid sont présents
     expect(dashboardLayoutContent).toContain("data-testid=\"sidebar-shell\"");
@@ -203,31 +199,19 @@ describe("Phase 10+ : Intégration Globale", () => {
   });
 
   it("23. Doit avoir le data-testid pour le dashboard dans Home.tsx", () => {
-    const fs = require("fs");
-    const homeContent = fs.readFileSync(
-      "/workspace/github__moelohimmara-dotcom__lucepress-facturation/client/src/pages/Home.tsx",
-      "utf-8"
-    );
+    const homeContent = readSrc("src/pages/Home.tsx");
 
     expect(homeContent).toContain("data-testid=\"dashboard-main\"");
   });
 
   it("24. Doit avoir le data-testid pour le bouton de création de devis", () => {
-    const fs = require("fs");
-    const homeContent = fs.readFileSync(
-      "/workspace/github__moelohimmara-dotcom__lucepress-facturation/client/src/pages/Home.tsx",
-      "utf-8"
-    );
+    const homeContent = readSrc("src/pages/Home.tsx");
 
     expect(homeContent).toContain("data-testid=\"create-quote-button\"");
   });
 
   it("25. Doit avoir les exports de Skeleton dans ui/skeleton.tsx", () => {
-    const fs = require("fs");
-    const skeletonContent = fs.readFileSync(
-      "/workspace/github__moelohimmara-dotcom__lucepress-facturation/client/src/components/ui/skeleton.tsx",
-      "utf-8"
-    );
+    const skeletonContent = readSrc("src/components/ui/skeleton.tsx");
 
     expect(skeletonContent).toContain("CardSkeleton");
     expect(skeletonContent).toContain("ButtonSkeleton");

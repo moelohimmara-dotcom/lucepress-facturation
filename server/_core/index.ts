@@ -10,8 +10,9 @@ import { registerIntegrationExternalRoutes } from "../integrations/externalRoute
 import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRoutes";
 import { serveStatic } from "./serveStatic";
 import { createContext } from "./context";
-import { pingDatabase, getLastDbError } from "../db";
+import { pingDatabase, getLastDbError, getGuestDocumentByShareToken, getCompanySettings } from "../db";
 import { buildHealthPayload } from "./health";
+import { buildDocumentSharePdfBuffer } from "../documentSharePdf";
 
 export { serveStatic } from "./serveStatic";
 
@@ -53,6 +54,35 @@ export async function createApp() {
   app.get("/api/health", async (_req, res) => {
     const dbOk = await pingDatabase();
     res.status(200).json({ ...buildHealthPayload({ dbOk }), dbError: dbOk ? null : getLastDbError() });
+  });
+
+  app.get("/api/d/:token.pdf", async (req, res) => {
+    try {
+      const token = String(req.params.token ?? "").trim();
+      const payload = await getGuestDocumentByShareToken(token);
+      const document = payload.document;
+      const company = await getCompanySettings();
+      const pdf = buildDocumentSharePdfBuffer({
+        kind: document.kind,
+        number: document.number,
+        issueDate: document.issueDate,
+        validUntil: document.validUntil,
+        dueDate: document.dueDate,
+        clientName: document.clientName,
+        contactName: document.contactName,
+        clientAddress: document.clientAddress,
+        notes: document.notes,
+        subtotal: document.subtotal,
+        taxTotal: document.taxTotal,
+        total: document.total,
+        lines: document.lines,
+      }, company);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${document.number}.pdf"`);
+      res.status(200).send(pdf);
+    } catch (error) {
+      res.status(404).json({ error: error instanceof Error ? error.message : "Lien invalide ou expiré." });
+    }
   });
 
   // tRPC API
