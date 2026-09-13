@@ -138,6 +138,8 @@ Toutes les variables sont lues dans `server/_core/env.ts` et `server/db.ts`.
 | `SMTP_FROM` | E-mail | Expéditeur (`"Lucepres Sarl <...>"`) |
 | `BUILT_IN_FORGE_API_KEY` | IA | Clé API NVIDIA NIM (`nvapi-...`) |
 | `BUILT_IN_FORGE_API_URL` | IA | `https://integrate.api.nvidia.com/v1` |
+| `PDFSHIFT_API_KEY` | PDF | Clé API PDFShift (rendu Chromium haute fidélité). Sans clé, repli jsPDF automatique. |
+| `PDFSHIFT_SANDBOX` | PDF | `1` pour le mode sandbox PDFShift (tests non débités) |
 | `VITE_APP_ID` | Frontend | Identifiant app (ex: `lucepress-prod`) |
 | `OAUTH_SERVER_URL` | OAuth | URL serveur OAuth (si activé) |
 | `ALLOWED_ORIGINS` | CORS | Origines autorisées (séparées par `,`) |
@@ -360,8 +362,9 @@ const content = result.choices[0]?.message.content;
 
 ### Téléchargement PDF
 
-- **Route serveur** `GET /api/d/:token.pdf` (dans `server/_core/index.ts`) : génère un PDF serveur via `buildDocumentSharePdfBuffer` (`server/documentSharePdf.ts`) et le renvoie en `Content-Disposition: attachment`
-- Le PDF est un **PDF texte simple** (jsPDF), pas un rendu HTML complet
+- **Route serveur** `GET /api/d/:token.pdf` (dans `server/_core/index.ts`) : génère un PDF serveur et le renvoie en `Content-Disposition: attachment`
+- Le PDF passe par **`buildDocumentPdfBuffer`** (`server/pdfService.ts`) : si `PDFSHIFT_API_KEY` est défini → rendu **Chromium haute fidélité** via PDFShift (template HTML unique `shared/documentTemplate.ts`, identique à l’aperçu, pied de page ancré + pagination sur chaque page) ; sinon → **repli jsPDF** (`server/documentSharePdf.ts`) pour garder un PDF valide sans dépendance réseau
+- Le téléchargement PDF depuis l’app (`DocumentPreviewPage`) et le portail client (`ClientPortalPage`) appelle la mutation `exportFile` qui renvoie le même PDF serveur (plus de boîte d’impression navigateur)
 - Le lien dans l'e-mail (`pdfDownloadLink`) pointe vers cette route serveur
 
 > ⚠️ L'ancienne approche `html2canvas` côté client (fragile : CORS, polices cross-origin) a été remplacée par la génération serveur. Ne pas réintroduire `downloadPdfFromElement` pour le portail invité.
@@ -492,7 +495,8 @@ npx netlify-cli deploy --prod --no-build \
 npx netlify-cli env:set --site=<SITE_ID> --auth=<TOKEN> \
   --key SMTP_HOST --value smtp.gmail.com
 # (répéter pour SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM,
-#  DATABASE_URL, JWT_SECRET, BUILT_IN_FORGE_API_KEY, etc.)
+#  DATABASE_URL, JWT_SECRET, BUILT_IN_FORGE_API_KEY,
+#  PDFSHIFT_API_KEY, PDFSHIFT_SANDBOX, etc.)
 ```
 
 ### ⚠️ Pièges connus du déploiement
