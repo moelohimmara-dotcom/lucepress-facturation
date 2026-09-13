@@ -28,7 +28,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Tableau de bord",
       group: "Navigation",
       icon: <BarChart3 className="h-4 w-4" />,
-      shortcut: "⌘1",
+      shortcut: "Ctrl+1",
       href: "/",
     },
     {
@@ -36,7 +36,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Clients",
       group: "Navigation",
       icon: <Users className="h-4 w-4" />,
-      shortcut: "⌘2",
+      shortcut: "Ctrl+2",
       href: "/clients",
     },
     {
@@ -44,7 +44,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Devis",
       group: "Navigation",
       icon: <FileText className="h-4 w-4" />,
-      shortcut: "⌘3",
+      shortcut: "Ctrl+3",
       href: "/quotes",
     },
     {
@@ -52,7 +52,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Factures",
       group: "Navigation",
       icon: <ReceiptText className="h-4 w-4" />,
-      shortcut: "⌘4",
+      shortcut: "Ctrl+4",
       href: "/invoices",
     },
     {
@@ -60,7 +60,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Créances",
       group: "Navigation",
       icon: <TrendingUp className="h-4 w-4" />,
-      shortcut: "⌘5",
+      shortcut: "Ctrl+5",
       href: "/receivables",
     },
     {
@@ -68,7 +68,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Calendrier",
       group: "Navigation",
       icon: <Calendar className="h-4 w-4" />,
-      shortcut: "⌘6",
+      shortcut: "Ctrl+6",
       href: "/calendar",
     },
     {
@@ -76,7 +76,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Paramètres",
       group: "Navigation",
       icon: <Settings className="h-4 w-4" />,
-      shortcut: "⌘,",
+      shortcut: "Ctrl+,",
       href: "/settings",
     },
     {
@@ -84,7 +84,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Aide",
       group: "Navigation",
       icon: <HelpCircle className="h-4 w-4" />,
-      shortcut: "⌘?",
+      shortcut: "Ctrl+?",
       href: "/help",
     },
 
@@ -94,7 +94,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Nouveau devis",
       group: "Création rapide",
       icon: <Plus className="h-4 w-4" />,
-      shortcut: "⌘N",
+      shortcut: "Ctrl+N",
       href: "/quotes/new",
     },
     {
@@ -102,7 +102,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Nouveau devis avec IA",
       group: "Création rapide",
       icon: <Sparkles className="h-4 w-4" />,
-      shortcut: "⌘⇧N",
+      shortcut: "Ctrl+Shift+N",
       href: "/quotes/new?ai=true",
     },
     {
@@ -110,7 +110,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Nouvelle facture",
       group: "Création rapide",
       icon: <ReceiptText className="h-4 w-4" />,
-      shortcut: "⌘I",
+      shortcut: "Ctrl+I",
       href: "/invoices/new",
     },
     {
@@ -118,7 +118,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Nouveau client",
       group: "Création rapide",
       icon: <UserPlus className="h-4 w-4" />,
-      shortcut: "⌘C",
+      shortcut: "Ctrl+C",
       href: "/clients/new",
     },
 
@@ -128,7 +128,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Assistant IA",
       group: "Intelligence Artificielle",
       icon: <Sparkles className="h-4 w-4" />,
-      shortcut: "⌘A",
+      shortcut: "Ctrl+A",
       href: "/ai-assistant",
     },
     {
@@ -136,7 +136,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Générer devis IA",
       group: "Intelligence Artificielle",
       icon: <Sparkles className="h-4 w-4" />,
-      shortcut: "⌘⇧A",
+      shortcut: "Ctrl+Shift+A",
       action: () => {
         navigate("/quotes/new?ai=true");
       },
@@ -148,7 +148,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Recherche globale",
       group: "Recherche",
       icon: <Search className="h-4 w-4" />,
-      shortcut: "⌘K",
+      shortcut: "Ctrl+K",
       action: () => {
         // Trigger search modal
       },
@@ -158,7 +158,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Rechercher clients",
       group: "Recherche",
       icon: <Users className="h-4 w-4" />,
-      shortcut: "⌘⇧K",
+      shortcut: "Ctrl+Shift+K",
       href: "/clients?search=true",
     },
 
@@ -168,7 +168,7 @@ export function useCommandActions(): { allActions: CommandAction[] } {
       title: "Déconnexion",
       group: "Compte",
       icon: <LogOut className="h-4 w-4" />,
-      shortcut: "⌘⇧Q",
+      shortcut: "Ctrl+Shift+Q",
       href: "/logout",
     },
   ], [navigate]);
@@ -259,7 +259,7 @@ export function CommandPalette() {
               autoFocus
             />
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 bg-muted text-xs text-muted-foreground rounded">
-              ⌘K
+              Ctrl+K
             </kbd>
           </div>
         </div>
