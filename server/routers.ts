@@ -25,6 +25,7 @@ import {
 } from "../shared/batchReminders";
 import { assertGuestShareRateLimit } from "./_core/guestShareRateLimit";
 import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
+import { buildDocumentShareDocxBuffer } from "./documentShareDocx";
 import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
 
 /** Reconstruit l'origine publique (https://...) pour les liens e-mail. */
@@ -1453,7 +1454,19 @@ export const appRouter = router({
               clientName: document.clientName,
               contactName: document.contactName,
               clientAddress: document.clientAddress,
+              clientEmail: document.clientEmail,
+              clientIdentityKind: document.clientIdentityKind,
+              clientTaxId: document.clientTaxId,
+              clientRegistrationNumber: document.clientRegistrationNumber,
+              projectName: document.projectName,
               notes: document.notes,
+              discountPercent: document.discountPercent,
+              discountAmount: document.discountAmount,
+              depositPercent: document.depositPercent,
+              depositDueDate: document.depositDueDate,
+              balanceDueDate: document.balanceDueDate,
+              paidAmount: document.paidAmount,
+              balanceDue: document.balanceDue,
               subtotal: document.subtotal,
               taxTotal: document.taxTotal,
               total: document.total,
@@ -1498,6 +1511,48 @@ export const appRouter = router({
             attachPdf: Boolean(attachments?.length),
             status: "envoye" as const,
           };
+        }),
+      exportFile: staffProcedure
+        .input(z.object({ id: z.number().int().positive(), format: z.enum(["pdf", "docx"]) }))
+        .mutation(async ({ input }) => {
+          const document = await db.getDocumentById(input.id);
+          if (!document) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+          }
+          const company = await db.getCompanySettings();
+          const payload = {
+            kind: document.kind,
+            number: document.number,
+            issueDate: document.issueDate,
+            validUntil: document.validUntil,
+            dueDate: document.dueDate,
+            clientName: document.clientName,
+            contactName: document.contactName,
+            clientAddress: document.clientAddress,
+            clientEmail: document.clientEmail,
+            clientIdentityKind: document.clientIdentityKind,
+            clientTaxId: document.clientTaxId,
+            clientRegistrationNumber: document.clientRegistrationNumber,
+            projectName: document.projectName,
+            notes: document.notes,
+            discountPercent: document.discountPercent,
+            discountAmount: document.discountAmount,
+            depositPercent: document.depositPercent,
+            depositDueDate: document.depositDueDate,
+            balanceDueDate: document.balanceDueDate,
+            paidAmount: document.paidAmount,
+            balanceDue: document.balanceDue,
+            subtotal: document.subtotal,
+            taxTotal: document.taxTotal,
+            total: document.total,
+            lines: document.lines,
+          };
+          if (input.format === "docx") {
+            const buf = await buildDocumentShareDocxBuffer(payload, company);
+            return { filename: `${document.number}.docx`, mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", base64: buf.toString("base64") };
+          }
+          const buf = buildDocumentSharePdfBuffer(payload, company);
+          return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
         }),
     }),
     payments: router({

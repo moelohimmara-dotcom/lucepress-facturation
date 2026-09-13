@@ -83,6 +83,9 @@ export default function GuestDocumentPage() {
             <Button variant="outline" onClick={onDownload} className="h-10 rounded-xl border-border font-bold">
               <Download className="mr-2 h-4 w-4" />Télécharger PDF
             </Button>
+            <Button variant="outline" onClick={() => { window.location.href = `/api/d/${token}.docx`; }} className="h-10 rounded-xl border-border font-bold">
+              <Download className="mr-2 h-4 w-4" />Télécharger Word
+            </Button>
             {document.canRespond && (
               <>
                 <Button
