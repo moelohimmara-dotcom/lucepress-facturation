@@ -21,6 +21,7 @@ describe("guest document UI", () => {
     const preview = readFileSync(join(root, "pages", "DocumentPreviewPage.tsx"), "utf8");
     expect(preview).toContain("Joindre le PDF");
     expect(preview).toContain("attachPdf");
-    expect(preview).toContain("sendByEmail.mutate({ id: document.id, attachPdf })");
+    expect(preview).toContain("sendByEmail.mutate({ id: document.id, to:");
+    expect(preview).toContain("emailDialogAttachPdf");
   });
 });
