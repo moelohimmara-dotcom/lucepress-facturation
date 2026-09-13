@@ -10,7 +10,7 @@ import { registerIntegrationExternalRoutes } from "../integrations/externalRoute
 import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRoutes";
 import { serveStatic } from "./serveStatic";
 import { createContext } from "./context";
-import { pingDatabase, getLastDbError, getGuestDocumentByShareToken, getCompanySettings } from "../db";
+import { pingDatabase, getLastDbError, getGuestDocumentByShareToken } from "../db";
 import { buildHealthPayload } from "./health";
 import { buildDocumentSharePdfBuffer } from "../documentSharePdf";
 
@@ -61,7 +61,6 @@ export async function createApp() {
       const token = String(req.params.token ?? "").trim();
       const payload = await getGuestDocumentByShareToken(token);
       const document = payload.document;
-      const company = await getCompanySettings();
       const pdf = buildDocumentSharePdfBuffer({
         kind: document.kind,
         number: document.number,
@@ -76,7 +75,7 @@ export async function createApp() {
         taxTotal: document.taxTotal,
         total: document.total,
         lines: document.lines,
-      }, company);
+      }, payload.company);
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${document.number}.pdf"`);
       res.status(200).send(pdf);
