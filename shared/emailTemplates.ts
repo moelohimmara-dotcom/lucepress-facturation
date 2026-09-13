@@ -1,4 +1,4 @@
-export type EmailTemplateCategory = "invitation" | "password-reset" | "quote-sent" | "invoice-sent" | "payment-reminder" | "welcome";
+export type EmailTemplateCategory = "invitation" | "password-reset" | "quote-sent" | "invoice-sent" | "payment-reminder" | "welcome" | "payment-confirmation";
 
 export type EmailTemplate = {
   id: EmailTemplateCategory;
@@ -337,6 +337,38 @@ Se connecter : {{loginLink}}
 
 Pour toute question, répondez à cet e-mail ou écrivez-nous à {{companyEmail}}.`,
     variables: ["userName", "loginLink", "companyEmail"],
+  },
+  {
+    id: "payment-confirmation",
+    name: "Confirmation de paiement",
+    description: "Accusé de réception envoyé au client à la confirmation d'un paiement reçu.",
+    subject: "Paiement bien reçu — merci pour votre confiance",
+    html: emailShell({
+      eyebrow: "Accusé de réception",
+      heroTitle: "Votre paiement a bien été reçu",
+      bodyHtml: `
+        <p class="lede">Bonjour {{clientName}},</p>
+        <p>Nous confirmons avoir reçu votre règlement de <strong style="color:${BRAND};">{{amount}}</strong> pour la <strong>facture {{documentNumber}}</strong>.</p>
+        <p class="muted">Merci pour votre confiance et la rapidité de votre règlement. C'est un plaisir de collaborer avec vous.</p>
+        ${detailRow("Facture", "{{documentNumber}}", { mono: true })}
+        ${detailRow("Montant réglé", "{{amount}}", { big: true, mono: true })}
+        ${detailRow("Date", "{{paymentDate}}")}
+        <hr class="divider">
+        <p>Vous retrouverez l'historique de vos documents et paiements dans votre espace client. Pour toute question, répondez à cet e-mail ou écrivez-nous à {{companyEmail}} — nous trouverons une solution ensemble.</p>
+      `,
+    }),
+    text: `Bonjour {{clientName}},
+
+Nous confirmons avoir reçu votre règlement de {{amount}} pour la facture {{documentNumber}}.
+
+Merci pour votre confiance et la rapidité de votre règlement.
+
+Facture : {{documentNumber}}
+Montant réglé : {{amount}}
+Date : {{paymentDate}}
+
+Pour toute question, répondez à cet e-mail ou écrivez-nous à {{companyEmail}}.`,
+    variables: ["clientName", "documentNumber", "amount", "paymentDate", "companyEmail"],
   },
 ];
 
