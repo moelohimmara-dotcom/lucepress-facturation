@@ -9,7 +9,7 @@ const settings = readFileSync(resolve(process.cwd(), "client/src/pages/SettingsP
 describe("P0.3 — feedback SMTP", () => {
   it("désactive l’envoi document si SMTP down", () => {
     expect(preview).toContain("mailStatus");
-    expect(preview).toContain("canEmailDocument");
+    expect(preview).toContain("smtpReady");
     expect(preview).toContain("SMTP n’est pas configuré");
   });
 
