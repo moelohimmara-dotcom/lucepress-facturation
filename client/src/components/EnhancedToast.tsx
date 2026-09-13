@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
-import { toast as sonnerToast, Toaster as SonnerToaster, ToastPosition, ToastProps } from "sonner";
-import { CheckCircle, AlertCircle, Info, XCircle, Clock, Sparkles, TrendingUp, TrendingDown, UserPlus, FileText, ReceiptText } from "lucide-react";
+import type { ReactNode } from "react";
+import { toast as sonnerToast, Toaster as SonnerToaster } from "sonner";
+import type { ToasterProps } from "sonner";
+import { CheckCircle, AlertCircle, Info, XCircle, Clock, Sparkles, TrendingUp, UserPlus, FileText, ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
-// Types étendus pour les toasts
+type ToastPosition = NonNullable<ToasterProps["position"]>;
+
 export type EnhancedToastType = "success" | "error" | "info" | "warning" | "loading" | "ai" | "financial" | "client";
 
-export type EnhancedToastProps = ToastProps & {
+export type EnhancedToastProps = {
   type?: EnhancedToastType;
   title?: string;
   message: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   duration?: number;
   position?: ToastPosition;
   action?: {
@@ -22,8 +25,7 @@ export type EnhancedToastProps = ToastProps & {
   progress?: boolean;
 };
 
-// Icônes par défaut pour chaque type
-const toastIcons: Record<EnhancedToastType, React.ReactNode> = {
+const toastIcons: Record<EnhancedToastType, ReactNode> = {
   success: <CheckCircle className="h-5 w-5 text-success" />,
   error: <XCircle className="h-5 w-5 text-destructive" />,
   info: <Info className="h-5 w-5 text-info" />,
@@ -34,7 +36,6 @@ const toastIcons: Record<EnhancedToastType, React.ReactNode> = {
   client: <UserPlus className="h-5 w-5 text-blue-500" />,
 };
 
-// Couleurs par type
 const toastStyles: Record<EnhancedToastType, string> = {
   success: "bg-success/10 border-success/20 text-success",
   error: "bg-destructive/10 border-destructive/20 text-destructive",
@@ -46,7 +47,6 @@ const toastStyles: Record<EnhancedToastType, string> = {
   client: "bg-blue-500/10 border-blue-500/20 text-blue-500",
 };
 
-// Fonction principale pour afficher un toast amélioré
 export function enhancedToast({
   type = "info",
   title,
@@ -56,20 +56,18 @@ export function enhancedToast({
   position = "top-right",
   action,
   progress,
-  ...props
 }: EnhancedToastProps) {
   const finalIcon = icon || toastIcons[type];
   const styleClasses = toastStyles[type];
 
   sonnerToast.custom(
-    ({ id }) => (
+    (id) => (
       <div
         className={cn(
           "relative flex items-start gap-4 p-4 rounded-lg border",
           styleClasses,
           "w-full max-w-sm shadow-lg"
         )}
-        {...props}
       >
         <div className="flex-shrink-0">{finalIcon}</div>
         <div className="flex-1">
@@ -85,7 +83,7 @@ export function enhancedToast({
           <Button
             variant="ghost"
             size="sm"
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
               action.onClick();
             }}
@@ -103,41 +101,32 @@ export function enhancedToast({
       </div>
     ),
     {
-      id,
       duration,
       position,
     }
   );
 }
 
-// Composant Toaster à placer dans l'app
 export function EnhancedToaster() {
   return <SonnerToaster position="top-right" richColors closeButton />;
 }
 
-// Toasts prédéfinis pour des actions courantes
 export const toast = {
-  // Succès
   success: (message: string, title?: string, props?: Omit<EnhancedToastProps, "type" | "message">) =>
     enhancedToast({ type: "success", message, title, ...props }),
-  
-  // Erreur
+
   error: (message: string, title?: string, props?: Omit<EnhancedToastProps, "type" | "message">) =>
     enhancedToast({ type: "error", message, title, duration: 6000, ...props }),
-  
-  // Info
+
   info: (message: string, title?: string, props?: Omit<EnhancedToastProps, "type" | "message">) =>
     enhancedToast({ type: "info", message, title, ...props }),
-  
-  // Avertissement
+
   warning: (message: string, title?: string, props?: Omit<EnhancedToastProps, "type" | "message">) =>
     enhancedToast({ type: "warning", message, title, duration: 5000, ...props }),
-  
-  // Chargement
+
   loading: (message: string, title?: string, props?: Omit<EnhancedToastProps, "type" | "message">) =>
     enhancedToast({ type: "loading", message, title, duration: Infinity, progress: true, ...props }),
-  
-  // Toasts spécifiques pour les actions métiers
+
   quote: {
     created: (number?: string) =>
       enhancedToast({
@@ -161,7 +150,7 @@ export const toast = {
         icon: <FileText className="h-5 w-5 text-success" />,
       }),
   },
-  
+
   invoice: {
     created: (number?: string) =>
       enhancedToast({
@@ -185,7 +174,7 @@ export const toast = {
         icon: <TrendingUp className="h-5 w-5 text-emerald-500" />,
       }),
   },
-  
+
   client: {
     created: (name?: string) =>
       enhancedToast({
@@ -202,7 +191,7 @@ export const toast = {
         icon: <UserPlus className="h-5 w-5 text-blue-500" />,
       }),
   },
-  
+
   ai: {
     generating: () =>
       enhancedToast({
@@ -221,8 +210,7 @@ export const toast = {
         icon: <Sparkles className="h-5 w-5 text-purple-500" />,
       }),
   },
-  
-  // Toasts avec actions
+
   withAction: {
     undo: (message: string, onUndo: () => void) =>
       enhancedToast({
