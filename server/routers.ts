@@ -1376,7 +1376,7 @@ export const appRouter = router({
             dueDate: document.dueDate,
           });
           const documentLink = `${origin}/d/${share.token}`;
-          const pdfDownloadLink = `${documentLink}?download=1`;
+          const pdfDownloadLink = `${origin}/api/d/${share.token}.pdf`;
           const amount = new Intl.NumberFormat("fr-GN").format(document.total);
           const dueDate = document.dueDate
             ? new Date(document.dueDate).toLocaleDateString("fr-FR")

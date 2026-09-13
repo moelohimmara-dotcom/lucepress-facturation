@@ -95,7 +95,7 @@ describe("billing.documents.sendByEmail", () => {
       documentNumber: "DEV-2026-0012",
       clientName: "Mamadou",
       documentLink: expect.stringContaining("/d/"),
-      pdfDownloadLink: expect.stringContaining("download=1"),
+      pdfDownloadLink: expect.stringContaining("/api/d/"),
       linkExpiresAt: expect.any(String),
     }));
     expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({
