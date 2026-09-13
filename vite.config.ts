@@ -9,8 +9,70 @@ const plugins = [
   react(),
   tailwindcss(),
   jsxLocPlugin(),
-  // PWA désactivée pendant le développement pour éviter les problèmes de cache
-  // VitePWA({ ... }),
+  VitePWA({
+    registerType: "autoUpdate",
+    injectRegister: "auto",
+    includeAssets: ["favicon.ico", "icon.svg", "pwa-180.png"],
+    manifest: {
+      name: "Lucepress Sarl — Gestion commerciale",
+      short_name: "Lucepress",
+      description: "Devis, factures, clients et pilotage commercial pour Lucepress Sarl.",
+      lang: "fr",
+      dir: "ltr",
+      categories: ["business", "finance", "productivity"],
+      display: "standalone",
+      orientation: "any",
+      start_url: "/",
+      scope: "/",
+      background_color: "#113b35",
+      theme_color: "#113b35",
+      icons: [
+        { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
+        { src: "/pwa-256.png", sizes: "256x256", type: "image/png" },
+        { src: "/pwa-384.png", sizes: "384x384", type: "image/png" },
+        { src: "/pwa-512.png", sizes: "512x512", type: "image/png" },
+        { src: "/pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    },
+    workbox: {
+      globPatterns: ["**/*.{js,css,html,svg,png,ico,woff,woff2}"],
+      navigateFallback: "/index.html",
+      navigateFallbackDenylist: [/^\/api\//],
+      runtimeCaching: [
+        {
+          urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
+          handler: "NetworkFirst",
+          options: {
+            cacheName: "api-runtime",
+            networkTimeoutSeconds: 8,
+            expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
+          },
+        },
+        {
+          urlPattern: ({ request }) => request.destination === "font",
+          handler: "CacheFirst",
+          options: {
+            cacheName: "fonts-runtime",
+            expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+        {
+          urlPattern: ({ request }) =>
+            ["style", "script", "image", "worker"].includes(request.destination),
+          handler: "StaleWhileRevalidate",
+          options: {
+            cacheName: "assets-runtime",
+            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+      ],
+    },
+    devOptions: {
+      enabled: false,
+    },
+  }),
 ];
 
 export default defineConfig({
