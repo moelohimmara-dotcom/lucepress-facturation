@@ -12,6 +12,7 @@ import { AlertTriangle, ChevronLeft, Download, FilePenLine, FileText, Landmark, 
 import React, { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
+import { printDocumentToPdf } from "@/lib/printDocument";
 import { humanStatus } from "./DocumentsPage";
 
 const paymentMethods: Record<PaymentMethod, string> = { especes: "Espèces", virement: "Virement", cheque: "Chèque", mobile_money: "Mobile Money", autre: "Autre" };
@@ -107,7 +108,23 @@ export default function DocumentPreviewPage() {
   });
   const bankLine = formatCompanyBankLine(company ?? {});
   const paymentSchedule = document.kind === "devis" ? calculateQuotePaymentSchedule(document.total, document.depositPercent) : null;
-  async function downloadPdf() { setIsExporting(true); try { const res = await ((trpc.billing.documents as any).exportFile ? (trpc.billing.documents as any).exportFile.mutate({ id: document.id, format: "pdf" }) : Promise.reject()); triggerDownload(res.filename, res.base64, res.mime); toast.success("Le PDF a été téléchargé."); } catch { toast.error("Le PDF n’a pas pu être généré. Réessayez dans un instant."); } finally { setIsExporting(false); } }
+  async function downloadPdf() {
+    setIsExporting(true);
+    try {
+      await printDocumentToPdf("lucepress-print-document", {
+        filename: `${document.number}.pdf`,
+        footer: {
+          slogan: formatCompanyDocumentFooter(company?.documentFooter),
+          legalLine: [legalLine, registrationLine].filter(Boolean).join(" · ") || "Lucepress Sarl · Conakry, République de Guinée",
+        },
+      });
+      toast.success("La fenêtre d’enregistrement PDF s’est ouverte. Choisissez « Enregistrer au format PDF ».");
+    } catch {
+      toast.error("Le PDF n’a pas pu être généré. Réessayez dans un instant.");
+    } finally {
+      setIsExporting(false);
+    }
+  }
   async function downloadDocx() { setIsExporting(true); try { const res = await ((trpc.billing.documents as any).exportFile ? (trpc.billing.documents as any).exportFile.mutate({ id: document.id, format: "docx" }) : Promise.reject()); triggerDownload(res.filename, res.base64, res.mime); toast.success("Le document Word a été téléchargé."); } catch { toast.error("Le document Word n’a pas pu être généré."); } finally { setIsExporting(false); } }
   function triggerDownload(filename: string, base64: string, mime: string) { const link = document.createElement("a"); link.href = `data:${mime};base64,${base64}`; link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
   function submitPayment(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const amount = Number(paymentAmount); if (!Number.isInteger(amount) || amount <= 0) return toast.error("Saisissez un montant entier positif en GNF."); if (!document) return; addPayment.mutate({ documentId: document.id, amount, paidAt: paymentDate, method, reference: reference || undefined, notes: paymentNotes || undefined }); }
