@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "wouter";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ interface CommandAction {
 }
 
 export function useCommandActions(): { allActions: CommandAction[] } {
-  const [, navigate] = useRouter();
+  const [, navigate] = useLocation();
 
   const allActions = useMemo<CommandAction[]>(() => [
     // Navigation rapide
@@ -180,7 +180,7 @@ export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { allActions } = useCommandActions();
-  const [, navigate] = useRouter();
+  const [, navigate] = useLocation();
 
   // Handle keyboard shortcut
   useEffect(() => {
