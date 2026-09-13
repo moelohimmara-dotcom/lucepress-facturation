@@ -119,3 +119,4 @@ test-results/
 
 # Local Netlify folder
 .netlify
+netlify/functions/api.js
