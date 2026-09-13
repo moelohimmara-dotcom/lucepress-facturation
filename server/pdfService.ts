@@ -103,6 +103,64 @@ export async function buildDocumentPdfBuffer(options: BuildPdfOptions): Promise<
   throw new Error("Réponse PDFShift inattendue : ni PDF binaire, ni base64, ni URL.");
 }
 
+export type RenderHtmlFooter = {
+  slogan: string;
+  legalLine: string;
+};
+
+/**
+ * Rend un PDF haute-fidélité à partir d'un HTML capturé côté client (le vrai
+ * DOM rendu par l'app). Nécessite PDFSHIFT_API_KEY : il n'existe pas de repli
+ * jsPDF car le HTML contient des classes Tailwind non interprétables par jsPDF.
+ */
+export async function renderHtmlToPdfBuffer(html: string, footer: RenderHtmlFooter): Promise<Buffer> {
+  const apiKey = process.env.PDFSHIFT_API_KEY;
+  if (!apiKey) {
+    throw new Error("Le rendu PDF haute-fidélité nécessite PDFSHIFT_API_KEY. Ajoutez la clé dans Netlify.");
+  }
+
+  const footerHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;"><tr><td style="text-align:center;padding:0 0 6px 0;"><div style="width:48px;height:3px;background:#d4a24e;border-radius:2px;margin:0 auto;"></div></td></tr><tr><td style="text-align:center;font-family:'Fraunces',Georgia,'Times New Roman',serif;font-style:italic;font-weight:500;font-size:13px;color:#153f38;padding:0 0 4px 0;">${escapeForFooter(footer.slogan)}</td></tr><tr><td style="text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:10px;color:#4a5752;line-height:1.6;padding:0;">${escapeForFooter(footer.legalLine)}</td></tr><tr><td style="text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:9px;color:#94a3b8;padding-top:4px;">Page {{page}} / {{total}}</td></tr></table>`;
+
+  const body = {
+    source: html,
+    format: "A4",
+    landscape: false,
+    margin: { top: "14mm", right: "12mm", bottom: "22mm", left: "12mm" },
+    footer: { source: footerHtml, height: "18mm", start_at: 1 },
+    sandbox: process.env.PDFSHIFT_SANDBOX === "1",
+  };
+
+  const res = await fetch(PDFSHIFT_ENDPOINT, {
+    method: "POST",
+    headers: { "X-API-Key": apiKey, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`PDFShift a renvoyé une erreur (${res.status}). ${detail}`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/pdf")) {
+    return Buffer.from(await res.arrayBuffer());
+  }
+
+  const payload = (await res.json().catch(() => null)) as { data?: string; url?: string } | null;
+  if (payload?.data) return Buffer.from(payload.data, "base64");
+  if (payload?.url) {
+    const pdfRes = await fetch(payload.url);
+    if (!pdfRes.ok) throw new Error(`Récupération du PDF PDFShift échouée (${pdfRes.status}).`);
+    return Buffer.from(await pdfRes.arrayBuffer());
+  }
+
+  throw new Error("Réponse PDFShift inattendue : ni PDF binaire, ni base64, ni URL.");
+}
+
+function escapeForFooter(s: string): string {
+  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+}
+
 async function safeErrorDetail(res: Response): Promise<string> {
   try {
     const text = await res.text();

@@ -12,6 +12,7 @@ import { AlertTriangle, ChevronLeft, Download, FilePenLine, FileText, Landmark, 
 import React, { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
+import { captureDocumentHtml } from "@/lib/printDocument";
 import { humanStatus } from "./DocumentsPage";
 
 const paymentMethods: Record<PaymentMethod, string> = { especes: "Espèces", virement: "Virement", cheque: "Chèque", mobile_money: "Mobile Money", autre: "Autre" };
@@ -110,7 +111,16 @@ export default function DocumentPreviewPage() {
   async function downloadPdf() {
     setIsExporting(true);
     try {
-      const res = await ((trpc.billing.documents as any).exportFile ? (trpc.billing.documents as any).exportFile.mutate({ id: document.id, format: "pdf" }) : Promise.reject());
+      const html = await captureDocumentHtml("lucepress-print-document", {
+        filename: `${document.number}.pdf`,
+        footer: {
+          slogan: formatCompanyDocumentFooter(company?.documentFooter),
+          legalLine: [legalLine, registrationLine].filter(Boolean).join(" · ") || "Lucepress Sarl · Conakry, République de Guinée",
+        },
+      });
+      const res = await ((trpc.billing.documents as any).exportFileFromHtml
+        ? (trpc.billing.documents as any).exportFileFromHtml.mutate({ id: document.id, html, slogan: formatCompanyDocumentFooter(company?.documentFooter), legalLine: [legalLine, registrationLine].filter(Boolean).join(" · ") || "Lucepress Sarl · Conakry, République de Guinée" })
+        : Promise.reject());
       triggerDownload(res.filename, res.base64, res.mime);
       toast.success("Le PDF a été téléchargé.");
     } catch {

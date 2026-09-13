@@ -26,7 +26,7 @@ import {
 import { assertGuestShareRateLimit } from "./_core/guestShareRateLimit";
 import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
 import { buildDocumentShareDocxBuffer } from "./documentShareDocx";
-import { buildDocumentPdfBuffer } from "./pdfService";
+import { buildDocumentPdfBuffer, renderHtmlToPdfBuffer } from "./pdfService";
 import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
 
 /** Reconstruit l'origine publique (https://...) pour les liens e-mail. */
@@ -1196,6 +1196,16 @@ export const appRouter = router({
           const buf = await buildDocumentPdfBuffer({ document: payload, company });
           return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
         }),
+      exportFileFromHtml: protectedProcedure
+        .input(z.object({ id: z.number().int().positive(), kind: z.enum(["facture", "devis"]), html: z.string().min(1).max(2_000_000), slogan: z.string().max(300), legalLine: z.string().max(500) }))
+        .mutation(async ({ ctx, input }) => {
+          const document = input.kind === "facture"
+            ? await db.getClientPortalInvoice(ctx.user.email, input.id)
+            : await db.getClientPortalQuote(ctx.user.email, input.id);
+          if (!document) throw new TRPCError({ code: "NOT_FOUND", message: "Ce document n’est pas accessible depuis votre compte." });
+          const buf = await renderHtmlToPdfBuffer(input.html, { slogan: input.slogan, legalLine: input.legalLine });
+          return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
+        }),
     }),
     agent: router({
       center: agentOperatorProcedure.query(() => db.listAgentDelegationCenter()),
@@ -1598,6 +1608,14 @@ export const appRouter = router({
             return { filename: `${document.number}.docx`, mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", base64: buf.toString("base64") };
           }
           const buf = await buildDocumentPdfBuffer({ document: payload, company });
+          return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
+        }),
+      exportFileFromHtml: staffProcedure
+        .input(z.object({ id: z.number().int().positive(), html: z.string().min(1).max(2_000_000), slogan: z.string().max(300), legalLine: z.string().max(500) }))
+        .mutation(async ({ input }) => {
+          const document = await db.getDocumentById(input.id);
+          if (!document) throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+          const buf = await renderHtmlToPdfBuffer(input.html, { slogan: input.slogan, legalLine: input.legalLine });
           return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
         }),
     }),

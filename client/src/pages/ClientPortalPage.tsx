@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { captureDocumentHtml } from "@/lib/printDocument";
 import { formatGnf } from "@shared/billing";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { isStaffRole } from "@shared/roles";
@@ -196,6 +197,7 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
   const { data: quote, isLoading } = trpc.billing.clientPortal.quote.useQuery({ id: quoteId });
   const [isExporting, setIsExporting] = useState(false);
   const exportQuoteFile = trpc.billing.clientPortal.exportFile.useMutation();
+  const exportQuoteFileFromHtml = trpc.billing.clientPortal.exportFileFromHtml.useMutation();
   const respond = trpc.billing.clientPortal.respondToQuote.useMutation({
     onSuccess: result => {
       utils.billing.clientPortal.quote.invalidate({ id: quoteId });
@@ -208,7 +210,11 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
   async function downloadPdf() {
     setIsExporting(true);
     try {
-      const res = await exportQuoteFile.mutateAsync({ id: quoteId, kind: "devis", format: "pdf" });
+      const html = await captureDocumentHtml("client-portal-quote", {
+        filename: `${quote?.number ?? "devis"}.pdf`,
+        footer: { slogan: LUCEPRES_PUBLIC_PROFILE.documentFooter, legalLine: `${LUCEPRES_PUBLIC_PROFILE.legalName} · ${LUCEPRES_PUBLIC_PROFILE.location}` },
+      });
+      const res = await exportQuoteFileFromHtml.mutateAsync({ id: quoteId, kind: "devis", html, slogan: LUCEPRES_PUBLIC_PROFILE.documentFooter, legalLine: `${LUCEPRES_PUBLIC_PROFILE.legalName} · ${LUCEPRES_PUBLIC_PROFILE.location}` });
       triggerDownload(res.filename, res.base64, res.mime);
       toast.success("Votre devis PDF a \u00e9t\u00e9 t\u00e9l\u00e9charg\u00e9.");
     } catch {
@@ -330,6 +336,7 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
   const [promiseDate, setPromiseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [promiseNote, setPromiseNote] = useState("");
   const exportInvoiceFile = trpc.billing.clientPortal.exportFile.useMutation();
+  const exportInvoiceFileFromHtml = trpc.billing.clientPortal.exportFileFromHtml.useMutation();
   const paymentPromise = trpc.billing.clientPortal.createPaymentPromise.useMutation({
     onSuccess: () => {
       utils.billing.clientPortal.invoice.invalidate({ id: invoiceId });
@@ -341,7 +348,11 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
   async function downloadPdf() {
     setIsExporting(true);
     try {
-      const res = await exportInvoiceFile.mutateAsync({ id: invoiceId, kind: "facture", format: "pdf" });
+      const html = await captureDocumentHtml("client-portal-invoice", {
+        filename: `${invoice?.number ?? "facture"}.pdf`,
+        footer: { slogan: LUCEPRES_PUBLIC_PROFILE.documentFooter, legalLine: `${LUCEPRES_PUBLIC_PROFILE.legalName} · ${LUCEPRES_PUBLIC_PROFILE.location}` },
+      });
+      const res = await exportInvoiceFileFromHtml.mutateAsync({ id: invoiceId, kind: "facture", html, slogan: LUCEPRES_PUBLIC_PROFILE.documentFooter, legalLine: `${LUCEPRES_PUBLIC_PROFILE.legalName} · ${LUCEPRES_PUBLIC_PROFILE.location}` });
       triggerDownload(res.filename, res.base64, res.mime);
       toast.success("Votre facture PDF a \u00e9t\u00e9 t\u00e9l\u00e9charg\u00e9e.");
     } catch {

@@ -14,15 +14,28 @@ export async function printDocumentToPdf(sourceElementId: string, options: Print
   const source = document.getElementById(sourceElementId);
   if (!source) throw new Error("Le document à imprimer est introuvable.");
 
+  const html = await captureDocumentHtml(sourceElementId, options);
+
+  await printHtml(html, options.filename);
+}
+
+/**
+ * Capture le DOM rendu par l'app (composant React résolu : classes Tailwind +
+ * styles inline) et renvoie un document HTML complet, autonome et imprimable.
+ * Utilisé pour envoyer le vrai rendu de l'app au moteur PDF serveur (PDFShift),
+ * garantissant un PDF identique à l'aperçu.
+ */
+export async function captureDocumentHtml(sourceElementId: string, options: PrintDocumentOptions): Promise<string> {
+  const source = document.getElementById(sourceElementId);
+  if (!source) throw new Error("Le document à capturer est introuvable.");
+
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute("id");
- clone.classList.add("print-document-root");
+  clone.classList.add("print-document-root");
 
   const css = await collectPrintableStylesheets();
 
-  const html = buildPrintDocument(clone.outerHTML, css, options);
-
-  await printHtml(html, options.filename);
+  return buildPrintDocument(clone.outerHTML, css, options);
 }
 
 async function collectPrintableStylesheets(): Promise<string> {
