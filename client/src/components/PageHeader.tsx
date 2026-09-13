@@ -15,7 +15,7 @@ type PageHeaderProps = {
 
 /**
  * En-tête de page standard de Lucepres — le patron « Atelier lumineux » :
- * kicker en capitales espacées, titre serif Playfair, description discrète,
+ * kicker en capitales espacées, titre serif Fraunces, description discrète,
  * actions alignées à droite. Bordure inférieure douce par défaut.
  *
  * Usage : <PageHeader kicker="Gestion commerciale" title="Devis"

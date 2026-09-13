@@ -6,6 +6,12 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import "./index.css";
+import "@fontsource-variable/outfit";
+import "@fontsource-variable/fraunces/soft.css";
+import "@fontsource-variable/fraunces/soft-italic.css";
+import "@fontsource-variable/jetbrains-mono";
+import "@fontsource/caveat/latin-400.css";
+import "@fontsource/caveat/latin-600.css";
 import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
 
 function reportWebVitals(metric: { name: string; value: number; id: string }) {
