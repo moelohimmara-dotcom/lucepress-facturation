@@ -82,7 +82,11 @@ function fmtDate(value: Date | string | null | undefined) {
 }
 
 function fmtNumber(value: number) {
-  return new Intl.NumberFormat("fr-GN").format(value);
+  return new Intl.NumberFormat("fr-GN").format(value).replace(/[\u202f\u00a0]/g, " ");
+}
+
+function fmtGnf(value: number) {
+  return formatGnf(value).replace(/[\u202f\u00a0]/g, " ");
 }
 
 function setPageBackground(pdf: jsPDF) {
@@ -191,6 +195,8 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   const descColW = CONTENT_W * 0.50;
   const qtyColW = CONTENT_W * 0.12;
   const puColW = CONTENT_W * 0.18;
+  const colStartX = [MARGIN, MARGIN + descColW, MARGIN + descColW + qtyColW, MARGIN + descColW + qtyColW + puColW];
+  const colEndX = [colStartX[1], colStartX[2], colStartX[3], PAGE_W - MARGIN];
   const tableTop = state.y;
   const rowH = 7;
   const headerH = 8;
@@ -202,35 +208,38 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   pdf.setTextColor(...COLOR.tableHeaderText);
   pdf.setFont(FONT.sans, "bold");
   pdf.setFontSize(8);
-  pdf.text("DÉSIGNATION", MARGIN + 3, tableTop + 5.3);
-  pdf.text("QTÉ", MARGIN + descColW + qtyColW, tableTop + 5.3, { align: "right" });
-  pdf.text("PU (GNF)", MARGIN + descColW + qtyColW + puColW, tableTop + 5.3, { align: "right" });
-  pdf.text("TOTAL (GNF)", PAGE_W - MARGIN - 3, tableTop + 5.3, { align: "right" });
+  pdf.text("DÉSIGNATION", colStartX[0] + 3, tableTop + 5.3);
+  pdf.text("QTÉ", colEndX[1] - 2, tableTop + 5.3, { align: "right" });
+  pdf.text("PU (GNF)", colEndX[2] - 2, tableTop + 5.3, { align: "right" });
+  pdf.text("TOTAL (GNF)", colEndX[3] - 2, tableTop + 5.3, { align: "right" });
 
   let rowY = tableTop + headerH;
   pdf.setFont(FONT.sans, "normal");
   pdf.setFontSize(8.5);
   for (const line of document.lines) {
-    ensureSpace(rowH);
+    const descText = `${line.description} (${line.unit})`;
+    const descRows = pdf.splitTextToSize(descText, descColW - 6) as string[];
+    const cellH = Math.max(rowH, descRows.length * 4.2 + 2);
+    ensureSpace(cellH);
     pdf.setDrawColor(...COLOR.cardBorder);
     pdf.setLineWidth(0.1);
     pdf.line(MARGIN, rowY, PAGE_W - MARGIN, rowY);
 
     pdf.setTextColor(...COLOR.body);
-    const descText = `${line.description} (${line.unit})`;
-    const descRows = pdf.splitTextToSize(descText, descColW - 6) as string[];
-    const cellH = Math.max(rowH, descRows.length * 4.2);
-    let textY = rowY + 4.5;
+    pdf.setFont(FONT.sans, "normal");
+    const descBlockH = descRows.length * 4.2;
+    let textY = rowY + (cellH - descBlockH) / 2 + 3.5;
     for (const row of descRows) {
-      pdf.text(row, MARGIN + 3, textY);
+      pdf.text(row, colStartX[0] + 3, textY);
       textY += 4.2;
     }
 
+    const midY = rowY + cellH / 2 + 1.5;
     pdf.setFont(FONT.mono, "normal");
-    pdf.text(String(Number(line.quantity)), MARGIN + descColW + qtyColW, rowY + 4.5, { align: "right" });
-    pdf.text(fmtNumber(line.unitPrice), MARGIN + descColW + qtyColW + puColW, rowY + 4.5, { align: "right" });
+    pdf.text(String(Number(line.quantity)), colEndX[1] - 2, midY, { align: "right" });
+    pdf.text(fmtNumber(line.unitPrice), colEndX[2] - 2, midY, { align: "right" });
     pdf.setFont(FONT.mono, "bold");
-    pdf.text(fmtNumber(line.lineTotal), PAGE_W - MARGIN - 3, rowY + 4.5, { align: "right" });
+    pdf.text(fmtNumber(line.lineTotal), colEndX[3] - 2, midY, { align: "right" });
     pdf.setFont(FONT.sans, "normal");
 
     rowY += cellH;
@@ -238,6 +247,11 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   pdf.setLineWidth(0.2);
   pdf.setDrawColor(...COLOR.brand);
   pdf.line(MARGIN, rowY, PAGE_W - MARGIN, rowY);
+  pdf.setDrawColor(...COLOR.cardBorder);
+  pdf.setLineWidth(0.05);
+  pdf.line(colStartX[1], tableTop, colStartX[1], rowY);
+  pdf.line(colStartX[2], tableTop, colStartX[2], rowY);
+  pdf.line(colStartX[3], tableTop, colStartX[3], rowY);
   state.y = rowY + 8;
 
   const totalsBoxW = 78;
@@ -254,18 +268,18 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
     state.y += opts.big ? 7 : 5.5;
   };
 
-  drawTotalsRow("Sous-total", formatGnf(document.subtotal));
-  drawTotalsRow("Taxes", formatGnf(document.taxTotal));
+  drawTotalsRow("Sous-total", fmtGnf(document.subtotal));
+  drawTotalsRow("Taxes", fmtGnf(document.taxTotal));
   if (document.discountAmount && document.discountAmount > 0) {
-    drawTotalsRow(`Remise · ${document.discountPercent ?? 0}%`, `− ${formatGnf(document.discountAmount)}`);
+    drawTotalsRow(`Remise · ${document.discountPercent ?? 0}%`, `− ${fmtGnf(document.discountAmount)}`);
   }
   pdf.setDrawColor(...COLOR.brand);
   pdf.setLineWidth(0.2);
   pdf.line(totalsX, state.y - 2, PAGE_W - MARGIN, state.y - 2);
-  drawTotalsRow("Total TTC", formatGnf(document.total), { bold: true, accent: true, big: true });
+  drawTotalsRow("Total TTC", fmtGnf(document.total), { bold: true, accent: true, big: true });
   if (isInvoice) {
-    drawTotalsRow("Déjà encaissé", formatGnf(document.paidAmount ?? 0));
-    drawTotalsRow("Solde dû", formatGnf(document.balanceDue ?? 0), { bold: true, accent: true });
+    drawTotalsRow("Déjà encaissé", fmtGnf(document.paidAmount ?? 0));
+    drawTotalsRow("Solde dû", fmtGnf(document.balanceDue ?? 0), { bold: true, accent: true });
   }
   state.y += 6;
 
@@ -286,7 +300,7 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
         pdf.setFont(FONT.mono, "bold");
         pdf.setTextColor(...COLOR.accent);
         pdf.setFontSize(11);
-        pdf.text(formatGnf(schedule.depositAmount), cx, cy + 16);
+        pdf.text(fmtGnf(schedule.depositAmount), cx, cy + 16);
         if (document.depositDueDate) {
           pdf.setFont(FONT.sans, "normal");
           pdf.setFontSize(8);
@@ -301,7 +315,7 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
         pdf.setFont(FONT.mono, "bold");
         pdf.setTextColor(...COLOR.accent);
         pdf.setFontSize(11);
-        pdf.text(formatGnf(schedule.balanceAmount), cx2, cy + 16);
+        pdf.text(fmtGnf(schedule.balanceAmount), cx2, cy + 16);
         if (document.balanceDueDate) {
           pdf.setFont(FONT.sans, "normal");
           pdf.setFontSize(8);
@@ -316,6 +330,8 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   const bankLine = formatCompanyBankLine(company);
   if (bankLine) {
     ensureSpace(20);
+    pdf.setFont(FONT.sans, "normal");
+    pdf.setFontSize(8.5);
     const bankRows = pdf.splitTextToSize(bankLine, CONTENT_W - 12) as string[];
     const instrRows = company.paymentInstructions ? pdf.splitTextToSize(company.paymentInstructions, CONTENT_W - 12) as string[] : [];
     const cardH = 8 + bankRows.length * 4.5 + (instrRows.length ? 4 + instrRows.length * 4.5 : 0) + 4;
@@ -339,6 +355,8 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
 
   if (document.notes) {
     ensureSpace(20);
+    pdf.setFont(FONT.sans, "normal");
+    pdf.setFontSize(9);
     const noteRows = pdf.splitTextToSize(document.notes, CONTENT_W - 12) as string[];
     const cardH = 8 + noteRows.length * 4.8 + 4;
     drawCard(pdf, state.y, cardH, (cx, cy) => {
@@ -355,19 +373,31 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
     state.y += cardH + 6;
   }
 
-  ensureSpace(16);
-  const footerY = PAGE_H - MARGIN - 6;
-  pdf.setDrawColor(...COLOR.cardBorder);
-  pdf.setLineWidth(0.2);
-  pdf.line(MARGIN, footerY - 6, PAGE_W - MARGIN, footerY - 6);
-  pdf.setFont(FONT.sans, "normal");
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(...COLOR.slateLight);
-  pdf.text(formatCompanyDocumentFooter(company.documentFooter), PAGE_W / 2, footerY, { align: "center" });
+  const footerText = formatCompanyDocumentFooter(company.documentFooter);
   const legalLine = formatCompanyLegalLine(company);
-  if (legalLine) pdf.text(legalLine, PAGE_W / 2, footerY + 4, { align: "center" });
   const regLine = formatCompanyRegistrationLine(company);
-  if (regLine) pdf.text(regLine, PAGE_W / 2, footerY + 8, { align: "center" });
+  const footerH = 4 + (legalLine || regLine ? 7 : 0) + 2;
+  ensureSpace(footerH);
+  pdf.setDrawColor(...COLOR.accent);
+  pdf.setLineWidth(0.6);
+  pdf.line(MARGIN, state.y, MARGIN + 22, state.y);
+  state.y += 4.5;
+  pdf.setFont(FONT.serif, "italic");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(...COLOR.brand);
+  pdf.text(footerText, PAGE_W / 2, state.y, { align: "center" });
+  if (legalLine || regLine) {
+    state.y += 5.5;
+    ensureSpace(5);
+    pdf.setDrawColor(...COLOR.cardBorder);
+    pdf.setLineWidth(0.1);
+    pdf.line(MARGIN, state.y - 2, PAGE_W - MARGIN, state.y - 2);
+    pdf.setFont(FONT.sans, "normal");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(...COLOR.slateLight);
+    pdf.text(legalLine || "", MARGIN, state.y);
+    if (regLine) pdf.text(regLine, PAGE_W - MARGIN, state.y, { align: "right" });
+  }
 
   const arrayBuffer = pdf.output("arraybuffer");
   return Buffer.from(arrayBuffer);
