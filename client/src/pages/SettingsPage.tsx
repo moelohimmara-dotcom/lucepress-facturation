@@ -115,7 +115,7 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-5xl pb-10">
+      <div className="mx-auto max-w-5xl pb-10 stagger-rise">
         <PageHeader
           kicker={isAdmin ? "Administration" : "Entreprise"}
           title="Paramètres entreprise"
@@ -131,7 +131,7 @@ export default function SettingsPage() {
                 {save.isPending ? "Enregistrement…" : "Enregistrer"}
               </Button>
             ) : (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-950">
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 px-4 py-2 text-xs font-semibold text-amber-950 dark:text-amber-200">
                 Lecture seule · rôle {user?.role}
               </div>
             )
@@ -139,7 +139,7 @@ export default function SettingsPage() {
         />
 
         {mailStatus && (
-        <section className={`mt-6 flex items-start gap-3 rounded-2xl border p-4 ${mailStatus.smtpConfigured ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
+        <section className={`mt-6 flex items-start gap-3 rounded-2xl border p-4 ${mailStatus.smtpConfigured ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-950 dark:text-emerald-200" : "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200"}`}>
           <Mail className="mt-0.5 h-5 w-5 shrink-0" />
           <p className="text-sm leading-6">
             {mailStatus.smtpConfigured
@@ -150,7 +150,7 @@ export default function SettingsPage() {
         )}
 
         {!isAdmin && (
-          <section className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-950">
+          <section className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 p-4 text-amber-950 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
             <p className="text-xs leading-5">
               Les comptes, modèles d’e-mail et modèles de devis sont gérés uniquement par l’administrateur.
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                 </p>
               </div>
               {validationEntries.length > 0 && isAdmin && (
-                <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+                <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/70 p-4 text-amber-950 dark:text-amber-200">
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
                   <div>
                     <p className="text-sm font-extrabold">Validation requise</p>

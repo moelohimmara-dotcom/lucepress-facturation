@@ -156,7 +156,7 @@ export default function UsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-5xl pb-10">
+      <div className="mx-auto max-w-5xl pb-10 stagger-rise">
         <PageHeader
           kicker="Administration"
           title="Comptes collaborateurs"
@@ -190,7 +190,7 @@ export default function UsersPage() {
                         {u.role === "admin" ? (
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">Admin</span>
                         ) : u.role === "directeur" ? (
-                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-900">Directeur</span>
+                          <span className="rounded-full bg-sky-100 dark:bg-sky-950/70 px-2 py-0.5 text-[11px] font-bold text-sky-900 dark:text-sky-200">Directeur</span>
                         ) : (
                           <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">{APP_ROLE_LABELS[u.role]}</span>
                         )}
@@ -312,12 +312,12 @@ export default function UsersPage() {
           {inviteLink ? (
             <div className="space-y-3">
               {inviteEmailMeta?.emailed ? (
-                <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900">
+                <p className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/70 px-3 py-2 text-xs leading-5 text-emerald-900 dark:text-emerald-200">
                   SMTP a accepté l’envoi vers <strong>{inviteEmailMeta.email}</strong>. Une copie part aussi en BCC sur le compte SMTP (dossier Envoyés / BCC).
                   Les filtres Gmail mettent souvent ces liens en spam — <strong>copiez le lien ci-dessous</strong> et envoyez-le directement (WhatsApp / SMS) pour être sûr.
                 </p>
               ) : (
-                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
+                <p className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 px-3 py-2 text-xs leading-5 text-amber-950 dark:text-amber-200">
                   {inviteEmailMeta?.emailError
                     ? `E-mail non parti (${inviteEmailMeta.emailError}). Copiez le lien et envoyez-le manuellement.`
                     : "E-mail non parti. Copiez le lien et transmettez-le manuellement."}

@@ -24,9 +24,9 @@ function quoteStatusLabel(status: string) {
 }
 
 function quoteStatusClass(status: string) {
-  if (status === "accepte") return "bg-emerald-100 text-emerald-800";
-  if (status === "refuse") return "bg-rose-100 text-rose-800";
-  return "bg-amber-100 text-amber-800";
+  if (status === "accepte") return "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200";
+  if (status === "refuse") return "bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-200";
+  return "bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200";
 }
 
 export default function ClientPortalPage() {
@@ -58,7 +58,7 @@ export default function ClientPortalPage() {
 
   return (
     <PortalShell>
-      <main className="mx-auto max-w-5xl pb-10">
+      <main className="mx-auto max-w-5xl pb-10 stagger-rise">
         <PageHeader
           kicker="Espace client sécurisé"
           title="Mes documents"
@@ -145,7 +145,7 @@ export default function ClientPortalPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-mono text-sm font-extrabold text-primary">{invoice.number}</p>
-                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${invoice.balanceDue > 0 ? invoice.isOverdue ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${invoice.balanceDue > 0 ? invoice.isOverdue ? "bg-red-100 dark:bg-red-950/70 text-red-800 dark:text-red-200" : "bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200" : "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200"}`}>
                             {invoice.balanceDue > 0 ? invoice.isOverdue ? "En retard" : "Solde à régler" : "Réglée"}
                           </span>
                         </div>
@@ -212,7 +212,7 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
 
   return (
     <PortalShell>
-      <main className="mx-auto max-w-5xl pb-10">
+      <main className="mx-auto max-w-5xl pb-10 stagger-rise">
         <header className="mb-6 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="ghost" onClick={onBack} className="w-fit px-0 text-primary"><ArrowLeft className="mr-2 h-4 w-4" />Retour à mes documents</Button>
           {quote && <Button onClick={downloadPdf} disabled={isExporting} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground"><Download className="mr-2 h-4 w-4" />{isExporting ? "Génération…" : "Télécharger PDF"}</Button>}
@@ -227,14 +227,14 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
         ) : (
           <>
             {awaitingDecision && (
-              <section className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+              <section className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 p-4 text-amber-950 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm leading-6">Ce devis attend votre décision. Lucepres en sera informé via le suivi client.</p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     disabled={respond.isPending}
                     onClick={() => respond.mutate({ documentId: quote.id, decision: "refuse" })}
-                    className="h-10 rounded-xl border-rose-200 text-rose-800"
+                    className="h-10 rounded-xl border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200"
                   >
                     <XCircle className="mr-2 h-4 w-4" />Refuser
                   </Button>
@@ -277,14 +277,14 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
                 </section>
               </div>
               <div className="px-6 pb-6 sm:px-10 sm:pb-10">
-                <div className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#eef5f1] text-[#28534b]">
                       <tr><th className="px-3 py-3">Désignation</th><th className="px-3 py-3 text-right">Qté</th><th className="px-3 py-3 text-right">Total</th></tr>
                     </thead>
                     <tbody>
                       {quote.lines.map(line => (
-                        <tr key={line.id} className="border-t border-slate-200">
+                        <tr key={line.id} className="border-t border-slate-200 dark:border-slate-800">
                           <td className="px-3 py-3">{line.description}</td>
                           <td className="px-3 py-3 text-right">{Number(line.quantity)}</td>
                           <td className="px-3 py-3 text-right font-mono font-bold">{formatGnf(line.lineTotal)}</td>
@@ -296,7 +296,7 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
                 <div className="ml-auto mt-5 max-w-xs space-y-2 border-b border-[#153f38] pb-4 text-sm">
                   <TotalLine label="Total TTC" value={formatGnf(quote.total)} strong />
                 </div>
-                <footer className="mt-10 flex items-center justify-center gap-2 border-t border-slate-200 pt-5 text-center text-[10px] text-slate-400">
+                <footer className="mt-10 flex items-center justify-center gap-2 border-t border-slate-200 dark:border-slate-800 pt-5 text-center text-[10px] text-slate-400">
                   <CheckCircle2 className="h-3.5 w-3.5" />Document consulté dans votre espace client sécurisé.
                 </footer>
               </div>
@@ -341,7 +341,7 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
 
   return (
     <PortalShell>
-      <main className="mx-auto max-w-5xl pb-10">
+      <main className="mx-auto max-w-5xl pb-10 stagger-rise">
         <header className="mb-6 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="ghost" onClick={onBack} className="w-fit px-0 text-primary"><ArrowLeft className="mr-2 h-4 w-4" />Retour à mes documents</Button>
           {invoice && <Button onClick={downloadPdf} disabled={isExporting} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground"><Download className="mr-2 h-4 w-4" />{isExporting ? "Génération…" : "Télécharger PDF"}</Button>}
@@ -383,12 +383,12 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
               </section>
             </div>
             <div className="px-6 pb-6 sm:px-10 sm:pb-10">
-              <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#eef5f1] text-[#28534b]"><tr><th className="px-3 py-3">Désignation</th><th className="px-3 py-3 text-right">Qté</th><th className="px-3 py-3 text-right">Total</th></tr></thead>
                   <tbody>
                     {invoice.lines.map(line => (
-                      <tr key={line.id} className="border-t border-slate-200">
+                      <tr key={line.id} className="border-t border-slate-200 dark:border-slate-800">
                         <td className="px-3 py-3">{line.description}</td>
                         <td className="px-3 py-3 text-right">{Number(line.quantity)}</td>
                         <td className="px-3 py-3 text-right font-mono font-bold">{formatGnf(line.lineTotal)}</td>
@@ -422,17 +422,17 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
               {invoice.payments.length > 0 && (
                 <section className="mt-7">
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4b746d]">Paiements enregistrés</p>
-                  <div className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200">
+                  <div className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200 dark:border-slate-800">
                     {invoice.payments.map(payment => (
                       <div key={payment.id} className="flex justify-between gap-3 p-3 text-xs">
                         <span>{formatDate(payment.paidAt)}</span>
-                        <strong className="font-mono text-emerald-700">+ {formatGnf(payment.amount)}</strong>
+                        <strong className="font-mono text-emerald-700 dark:text-emerald-200">+ {formatGnf(payment.amount)}</strong>
                       </div>
                     ))}
                   </div>
                 </section>
               )}
-              <footer className="mt-10 flex items-center justify-center gap-2 border-t border-slate-200 pt-5 text-center text-[10px] text-slate-400">
+              <footer className="mt-10 flex items-center justify-center gap-2 border-t border-slate-200 dark:border-slate-800 pt-5 text-center text-[10px] text-slate-400">
                 <CheckCircle2 className="h-3.5 w-3.5" />Document consulté dans votre espace client sécurisé.
               </footer>
             </div>

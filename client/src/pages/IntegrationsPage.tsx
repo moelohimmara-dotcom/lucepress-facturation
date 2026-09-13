@@ -17,13 +17,13 @@ import { GOOGLE_WORKSPACE_SCOPE_OPTIONS } from "@shared/googleWorkspaceOAuth";
 
 const categoryLabel = { communication: "Communication", collaboration: "Collaboration", chantier: "Gestion de chantier", comptabilite: "Comptabilité" } as const;
 const statusMeta = {
-  eligible: { label: "Éligible", className: "border-slate-200 bg-slate-50 text-slate-700" },
-  credentials_pending: { label: "Accès à renseigner", className: "border-amber-200 bg-amber-50 text-amber-800" },
-  testing: { label: "Vérification en cours", className: "border-blue-200 bg-blue-50 text-blue-800" },
-  active: { label: "Active", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
-  degraded: { label: "À vérifier", className: "border-orange-200 bg-orange-50 text-orange-800" },
-  revoked: { label: "Accès révoqué", className: "border-red-200 bg-red-50 text-red-800" },
-  disabled: { label: "Désactivée", className: "border-slate-200 bg-slate-100 text-slate-600" },
+  eligible: { label: "Éligible", className: "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/70 text-slate-700 dark:text-slate-200" },
+  credentials_pending: { label: "Accès à renseigner", className: "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200" },
+  testing: { label: "Vérification en cours", className: "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/70 text-blue-800 dark:text-blue-200" },
+  active: { label: "Active", className: "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200" },
+  degraded: { label: "À vérifier", className: "border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/70 text-orange-800 dark:text-orange-200" },
+  revoked: { label: "Accès révoqué", className: "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/70 text-red-800 dark:text-red-200" },
+  disabled: { label: "Désactivée", className: "border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/70 text-slate-600" },
 } as const;
 
 type DemoApproval = { id: string; providerName: string; operation: string; payloadHash: string; createdAt: Date };
@@ -136,7 +136,7 @@ export default function IntegrationsPage() {
 
   if (isLoading) return <DashboardLayout><div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div></DashboardLayout>;
 
-  return <DashboardLayout><div className="mx-auto max-w-6xl pb-10"><PageHeader kicker="Administration · Connexions" title="Centre d’intégrations" description="Configurez les accès autorisés, validez les écritures externes et surveillez les événements reçus. Les jetons OAuth et les secrets de signature restent exclusivement dans le coffre serveur." actions={<div className="flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/[0.035] px-4 py-3 text-xs font-semibold text-primary"><ShieldCheck className="h-4 w-4" />Aucun secret n’est affiché dans cette page.</div>} />
+  return <DashboardLayout><div className="mx-auto max-w-6xl pb-10 stagger-rise"><PageHeader kicker="Administration · Connexions" title="Centre d’intégrations" description="Configurez les accès autorisés, validez les écritures externes et surveillez les événements reçus. Les jetons OAuth et les secrets de signature restent exclusivement dans le coffre serveur." actions={<div className="flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/[0.035] px-4 py-3 text-xs font-semibold text-primary"><ShieldCheck className="h-4 w-4" />Aucun secret n’est affiché dans cette page.</div>} />
   <section className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 sm:p-5"><div className="flex gap-3"><Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-800" /><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-extrabold text-amber-950">Canaux premium en sourdine</h2><Badge variant="outline" className="border-amber-300 bg-white text-amber-900">Bientôt</Badge></div><p className="mt-1 text-xs leading-5 text-amber-950/80">WhatsApp Business et les paiements intégrés Orange Money / MTN MoMo / Wave ne sont pas activés pour cette version. Canal opérationnel : <strong>e-mail SMTP</strong> ; encaissement : <strong>saisie manuelle</strong> (référence Mobile Money libre).</p></div></div></section>
   <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric icon={PlugZap} value={integrations?.length ?? 0} label="Fournisseurs contrôlés" /><Metric icon={CheckCircle2} value={dashboard?.summary.activeConnections ?? 0} label="Connexions actives" /><Metric icon={ClipboardCheck} value={actionCount} label="Écritures à valider · démo incluse" /><Metric icon={Radio} value={dashboard?.summary.acceptedWebhooks ?? 0} label="Webhooks acceptés" /></section>
   <section className="mt-6 rounded-2xl border border-primary/15 bg-primary/[0.035] p-4 sm:p-5"><div className="flex gap-3"><Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><div><h2 className="text-sm font-extrabold">Mode préparatoire sécurisé</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">Le parcours Google vérifie l’URI HTTPS et prépare un état anti-CSRF, mais toute redirection OAuth reste désactivée tant que le secret client n’est pas configuré. Chaque écriture externe reste en attente d’une décision humaine ; le tableau WhatsApp n’expose que les métadonnées de livraison et de signature, jamais le contenu des messages.</p></div></div></section>

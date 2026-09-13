@@ -17,10 +17,10 @@ const formatDate = (value: Date | string) =>
   new Date(value).toLocaleString("fr-GN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function typeTone(type: string) {
-  if (type === "email_envoye") return "border-sky-200 bg-sky-50 text-sky-900";
-  if (type === "statut_document") return "border-emerald-200 bg-emerald-50 text-emerald-900";
-  if (type === "relance_preparee") return "border-amber-200 bg-amber-50 text-amber-950";
-  return "border-slate-200 bg-slate-50 text-slate-700";
+  if (type === "email_envoye") return "border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/70 text-sky-900 dark:text-sky-200";
+  if (type === "statut_document") return "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200";
+  if (type === "relance_preparee") return "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200";
+  return "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/70 text-slate-700 dark:text-slate-200";
 }
 
 export default function StaffAuditPage() {
@@ -60,7 +60,7 @@ export default function StaffAuditPage() {
     return (
       <DashboardLayout>
         <div className="mx-auto max-w-3xl py-10">
-          <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-950">
+          <div className="flex items-start gap-3 rounded-2xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/70 p-4 text-rose-950 dark:text-rose-200">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
               <p className="text-sm font-extrabold">Accès réservé à la direction</p>
@@ -74,7 +74,7 @@ export default function StaffAuditPage() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl pb-10">
+      <div className="mx-auto max-w-6xl pb-10 stagger-rise">
         <PageHeader
           kicker="Pilotage · Conformité"
           title="Journal d’audit"
