@@ -19,7 +19,7 @@ const glyphMap = {
 } as const;
 
 /**
- * Emblème de marque Lucepres : le « L » éditorial (Playfair italique) dans un
+ * Emblème de marque Lucepres : le « L » éditorial (Fraunces italique) dans un
  * carré arrondi. Repris de l'en-tête de la sidebar et des écrans d'auth.
  */
 export function LucepresMark({ size = "md", className, tone = "solid" }: LucepresMarkProps) {
