@@ -92,7 +92,7 @@ export default function EmailTemplatesGalleryPage() {
 
               <div>
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Aperçu HTML</h4>
-                <div className="border rounded-lg bg-white overflow-hidden" dangerouslySetInnerHTML={{ __html: selected.html }} />
+                <div className="email-preview border rounded-lg bg-white overflow-hidden" dangerouslySetInnerHTML={{ __html: selected.html.replace(/href=("|')https?:\/\//gi, 'href=$1#') }} />
               </div>
 
               <div>

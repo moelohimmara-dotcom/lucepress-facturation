@@ -91,6 +91,7 @@ export default function EmailTemplatesPage() {
     for (const [key, value] of Object.entries(sampleVars)) {
       result = result.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value);
     }
+    result = result.replace(/href=("|')https?:\/\//gi, 'href=$1#');
     return result;
   }
 
@@ -245,7 +246,7 @@ export default function EmailTemplatesPage() {
               <h3 className="font-bold">Prévisualisation</h3>
               <button onClick={() => setPreviewHtml(null)}><X className="h-4 w-4" /></button>
             </div>
-            <div className="border rounded-lg bg-white overflow-hidden" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            <div className="email-preview border rounded-lg bg-white overflow-hidden" dangerouslySetInnerHTML={{ __html: previewHtml }} />
           </div>
         )}
       </div>
