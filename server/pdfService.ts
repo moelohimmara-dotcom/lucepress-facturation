@@ -126,8 +126,8 @@ export async function renderHtmlToPdfBuffer(html: string, footer: RenderHtmlFoot
     source: html,
     format: "A4",
     landscape: false,
-    margin: { top: "14mm", right: "12mm", bottom: "28mm", left: "12mm" },
-    footer: { source: footerHtml, height: "24mm", start_at: 1 },
+    margin: { top: "14mm", right: "12mm", bottom: "22mm", left: "12mm" },
+    footer: { source: footerHtml, height: "16mm", start_at: 1 },
     sandbox: false,
   };
 

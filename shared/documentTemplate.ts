@@ -104,8 +104,6 @@ function fmtNumberEscaped(value: number): string {
 }
 
 const FOOT_LEGAL_DARK = "#3d4f49";
-const FOOT_PAGINATION_BG = "#153f38";
-const FOOT_PAGINATION_ACCENT = "#d4a24e";
 
 function buildFooterHtml(footer: DocumentTemplateFooter): string {
   return `<!-- Pied de page -->
@@ -114,22 +112,10 @@ function buildFooterHtml(footer: DocumentTemplateFooter): string {
     <td style="height:4px;background:linear-gradient(90deg,${BRAND} 0%,${BRAND_DARK} 50%,${ACCENT} 100%);border-radius:2px;padding:0;font-size:0;line-height:0;">&nbsp;</td>
   </tr>
   <tr>
-    <td style="padding:10px 0 4px 0;text-align:center;font-family:'Fraunces',Georgia,'Times New Roman',serif;font-style:italic;font-weight:500;font-size:13px;color:${BRAND};letter-spacing:0.01em;">${escapeHtml(footer.slogan)}</td>
+    <td style="padding:12px 0 4px 0;text-align:center;font-family:'Fraunces',Georgia,'Times New Roman',serif;font-style:italic;font-weight:500;font-size:13px;color:${BRAND};letter-spacing:0.01em;">${escapeHtml(footer.slogan)}</td>
   </tr>
   <tr>
-    <td style="padding:0 0 8px 0;text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:9.5px;color:${FOOT_LEGAL_DARK};line-height:1.6;">${escapeHtml(footer.legalLine)}</td>
-  </tr>
-  <tr>
-    <td style="padding:0;text-align:center;">
-      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="border-collapse:separate;margin:0 auto;">
-        <tr>
-          <td style="background:${FOOT_PAGINATION_BG};color:${WHITE};font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:8.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 12px;border-radius:6px 0 0 6px;border:1px solid ${BRAND_DARK};">Page</td>
-          <td style="background:${ACCENT_SOFT};color:${BRAND};font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:9px;font-weight:700;padding:4px 8px;border-top:1px solid ${ACCENT_LINE};border-bottom:1px solid ${ACCENT_LINE};">{{page}}</td>
-          <td style="background:${ACCENT_SOFT};color:${FOOT_LEGAL_DARK};font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:9px;font-weight:600;padding:4px 8px;border-top:1px solid ${ACCENT_LINE};border-bottom:1px solid ${ACCENT_LINE};border-right:1px solid ${ACCENT_LINE};">/</td>
-          <td style="background:${ACCENT_SOFT};color:${BRAND};font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:9px;font-weight:700;padding:4px 8px;border-radius:0 6px 6px 0;border:1px solid ${ACCENT_LINE};">{{total}}</td>
-        </tr>
-      </table>
-    </td>
+    <td style="padding:0 0 6px 0;text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:9.5px;color:${FOOT_LEGAL_DARK};line-height:1.6;">${escapeHtml(footer.legalLine)}</td>
   </tr>
 </table>`;
 }
