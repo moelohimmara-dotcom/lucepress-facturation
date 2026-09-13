@@ -1,4 +1,5 @@
 import net from "net";
+import { fileURLToPath } from "node:url";
 import { createApp } from "./index";
 import { serveStatic } from "./serveStatic";
 import { seedDefaultEmailTemplates } from "../db";
@@ -48,5 +49,13 @@ export async function startServer() {
   }
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+  });
+}
+
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(new URL(process.argv[1], import.meta.url));
+if (isMain) {
+  startServer().catch(err => {
+    console.error("[serve] Erreur au demarrage:", err);
+    process.exit(1);
   });
 }
