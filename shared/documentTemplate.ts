@@ -103,29 +103,44 @@ function fmtNumberEscaped(value: number): string {
   return escapeHtml(fmtNumber(value));
 }
 
+const FOOT_LEGAL_DARK = "#3d4f49";
+const FOOT_PAGINATION_BG = "#153f38";
+const FOOT_PAGINATION_ACCENT = "#d4a24e";
+
+function buildFooterHtml(footer: DocumentTemplateFooter): string {
+  return `<!-- Pied de page -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+  <tr>
+    <td style="height:4px;background:linear-gradient(90deg,${BRAND} 0%,${BRAND_DARK} 50%,${ACCENT} 100%);border-radius:2px;padding:0;font-size:0;line-height:0;">&nbsp;</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 0 4px 0;text-align:center;font-family:'Fraunces',Georgia,'Times New Roman',serif;font-style:italic;font-weight:500;font-size:13px;color:${BRAND};letter-spacing:0.01em;">${escapeHtml(footer.slogan)}</td>
+  </tr>
+  <tr>
+    <td style="padding:0 0 8px 0;text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:9.5px;color:${FOOT_LEGAL_DARK};line-height:1.6;">${escapeHtml(footer.legalLine)}</td>
+  </tr>
+  <tr>
+    <td style="padding:0;text-align:center;">
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="border-collapse:separate;margin:0 auto;">
+        <tr>
+          <td style="background:${FOOT_PAGINATION_BG};color:${WHITE};font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:8.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 12px;border-radius:6px 0 0 6px;border:1px solid ${BRAND_DARK};">Page</td>
+          <td style="background:${ACCENT_SOFT};color:${BRAND};font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:9px;font-weight:700;padding:4px 8px;border-top:1px solid ${ACCENT_LINE};border-bottom:1px solid ${ACCENT_LINE};">{{page}}</td>
+          <td style="background:${ACCENT_SOFT};color:${FOOT_LEGAL_DARK};font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:9px;font-weight:600;padding:4px 8px;border-top:1px solid ${ACCENT_LINE};border-bottom:1px solid ${ACCENT_LINE};border-right:1px solid ${ACCENT_LINE};">/</td>
+          <td style="background:${ACCENT_SOFT};color:${BRAND};font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:9px;font-weight:700;padding:4px 8px;border-radius:0 6px 6px 0;border:1px solid ${ACCENT_LINE};">{{total}}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`;
+}
+
 /**
  * Pied de page ancré (reproduit sur chaque page par le moteur PDF).
  * Variables {{page}} / {{total}} sont substituées par PDFShift (et ignorées
  * par jsPDF qui ne les supporte pas — le pied de page jsPDF reste géré séparément).
  */
 export function buildDocumentFooterHtml(footer: DocumentTemplateFooter): string {
-  return `<!-- Pied de page -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
-  <tr>
-    <td style="text-align:center;padding:0 0 6px 0;">
-      <div style="width:48px;height:3px;background:${ACCENT};border-radius:2px;margin:0 auto;"></div>
-    </td>
-  </tr>
-  <tr>
-    <td style="text-align:center;font-family:'Fraunces',Georgia,'Times New Roman',serif;font-style:italic;font-weight:500;font-size:13px;color:${BRAND};padding:0 0 4px 0;">${escapeHtml(footer.slogan)}</td>
-  </tr>
-  <tr>
-    <td style="text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:10px;color:${FOOT_LEGAL};line-height:1.6;padding:0;">${escapeHtml(footer.legalLine)}</td>
-  </tr>
-  <tr>
-    <td style="text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:9px;color:${SLATE_400};padding-top:4px;">Page {{page}} / {{total}}</td>
-  </tr>
-</table>`;
+  return buildFooterHtml(footer);
 }
 
 /**

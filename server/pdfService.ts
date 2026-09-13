@@ -5,6 +5,7 @@ import {
   type DocumentTemplateData,
   type DocumentTemplateFooter,
 } from "../shared/documentTemplate";
+
 import {
   formatCompanyDocumentFooter,
   formatCompanyLegalLine,
@@ -119,14 +120,14 @@ export async function renderHtmlToPdfBuffer(html: string, footer: RenderHtmlFoot
     throw new Error("Le rendu PDF haute-fidélité nécessite PDFSHIFT_API_KEY. Ajoutez la clé dans Netlify.");
   }
 
-  const footerHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;"><tr><td style="text-align:center;padding:0 0 6px 0;"><div style="width:48px;height:3px;background:#d4a24e;border-radius:2px;margin:0 auto;"></div></td></tr><tr><td style="text-align:center;font-family:'Fraunces',Georgia,'Times New Roman',serif;font-style:italic;font-weight:500;font-size:13px;color:#153f38;padding:0 0 4px 0;">${escapeForFooter(footer.slogan)}</td></tr><tr><td style="text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:10px;color:#4a5752;line-height:1.6;padding:0;">${escapeForFooter(footer.legalLine)}</td></tr><tr><td style="text-align:center;font-family:'Outfit',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:9px;color:#94a3b8;padding-top:4px;">Page {{page}} / {{total}}</td></tr></table>`;
+  const footerHtml = buildDocumentFooterHtml({ slogan: footer.slogan, legalLine: footer.legalLine });
 
   const body = {
     source: html,
     format: "A4",
     landscape: false,
-    margin: { top: "14mm", right: "12mm", bottom: "22mm", left: "12mm" },
-    footer: { source: footerHtml, height: "18mm", start_at: 1 },
+    margin: { top: "14mm", right: "12mm", bottom: "28mm", left: "12mm" },
+    footer: { source: footerHtml, height: "24mm", start_at: 1 },
     sandbox: false,
   };
 
@@ -157,9 +158,7 @@ export async function renderHtmlToPdfBuffer(html: string, footer: RenderHtmlFoot
   throw new Error("Réponse PDFShift inattendue : ni PDF binaire, ni base64, ni URL.");
 }
 
-function escapeForFooter(s: string): string {
-  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
-}
+
 
 async function safeErrorDetail(res: Response): Promise<string> {
   try {
