@@ -152,4 +152,5 @@
   @media print { body { background: #fff !important; } body > *:not(#root) { display: none !important; } #root > * > *:not(#lucepress-print-document) { display: none !important; } #lucepress-print-document { display: block !important; box-shadow: none !important; } }
   @media (min-width: 640px) { .container { padding-inline: 1.5rem; } }
   @media (min-width: 1024px) { .container { padding-inline: 2rem; max-width: 1280px; } }
+  .email-preview a, .email-preview .button { pointer-events: none; cursor: default; text-decoration: none; }
 }
