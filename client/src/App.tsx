@@ -1,5 +1,4 @@
 import { lazy, Suspense, type ComponentType } from "react";
-import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
@@ -8,6 +7,9 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { DashboardLayoutSkeleton } from "./components/DashboardLayoutSkeleton";
 import { AdminGate } from "./components/AdminGate";
 import { DirectionGate } from "./components/DirectionGate";
+import { EnhancedToaster } from "@/components/EnhancedToast";
+import { CommandPalette } from "@/components/CommandPalette";
+import { TourGuide, appTourSteps } from "@/components/TourGuide";
 
 const Home = lazy(() => import("./pages/Home"));
 const DocumentsPage = lazy(() => import("./pages/DocumentsPage"));
@@ -142,7 +144,9 @@ function App() {
         switchable
       >
         <TooltipProvider>
-          <Toaster />
+          <EnhancedToaster />
+          <CommandPalette />
+          <TourGuide steps={appTourSteps} tourKey="main-app" />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

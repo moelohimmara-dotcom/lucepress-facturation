@@ -50,14 +50,14 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-3xl pb-10 stagger-rise">
+      <div className="mx-auto max-w-3xl pb-10 stagger-rise" data-testid="dashboard-main">
         <PageHeader
           kicker="Aujourd’hui"
           title={summary.total ? "Votre file à traiter." : "Rien d’urgent pour l’instant."}
           description="Une carte = une décision. Validez, envoyez ou suivez — le reste de Lucepres reste accessible dans le menu."
           actions={
             <>
-              <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="h-10 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-lg shadow-primary/15">
+              <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="h-10 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-lg shadow-primary/15" data-testid="create-quote-button">
                 <FilePlus2 className="mr-2 h-4 w-4" />Nouveau devis
               </Button>
               <Button variant="outline" onClick={() => setLocation("/creances")} className="h-10 rounded-xl border-border bg-card font-bold">

@@ -32,7 +32,7 @@ export default defineConfig({
       jsdom: { url: "http://localhost/" },
     },
     setupFiles: ["./vitest.setup.ts"],
-    include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
+    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/**/*.test.tsx"],
     exclude: [
       "server/*.example.test.ts",
       "server/**/*.example.test.ts",

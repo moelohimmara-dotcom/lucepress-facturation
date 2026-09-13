@@ -304,17 +304,20 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
             {visibleGroups.map((group, groupIndex) => <div key={group.label} className={groupIndex ? `${isCompact ? "mt-1" : "mt-4 border-t border-white/[0.08] pt-3"}` : ""}>
               {!isCollapsed && !isCompact && <p className="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.19em] text-sidebar-foreground/42">{group.label}</p>}
               <SidebarMenu className="gap-1">
-                {group.items.map(item => <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    isActive={item.path === "/" ? location === "/" || location === "/tableau-de-bord" : location === item.path}
-                    aria-current={(item.path === "/" ? location === "/" || location === "/tableau-de-bord" : location === item.path) ? "page" : undefined}
-                    onClick={() => setLocation(item.path)}
-                    tooltip={item.label}
-                    className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-10 rounded-xl px-3 text-[13px]"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_9px_22px_-14px_oklch(0.07_0.03_164/80%)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}
-                  >
-                    <item.icon className="h-[17px] w-[17px]" /><span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>)}
+                {group.items.map(item => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={item.path === "/" ? location === "/" || location === "/tableau-de-bord" : location === item.path}
+                      aria-current={(item.path === "/" ? location === "/" || location === "/tableau-de-bord" : location === item.path) ? "page" : undefined}
+                      onClick={() => setLocation(item.path)}
+                      tooltip={item.label}
+                      data-testid={`sidebar-${item.label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+                      className={`${isCompact ? "h-9 rounded-lg px-2 text-[13px]" : "h-10 rounded-xl px-3 text-[13px]"} font-semibold transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_9px_22px_-14px_oklch(0.07_0.03_164/80%)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}
+                    >
+                      <item.icon className="h-[17px] w-[17px]" /><span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </div>)}
             {hasMoreNavigation && !isCollapsed && <div aria-hidden="true" data-testid="sidebar-scroll-indicator" className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-end px-3 text-sidebar-foreground/80"><span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-sidebar/90 shadow-sm"><ChevronDown className="h-3.5 w-3.5 animate-pulse" /></span></div>}
