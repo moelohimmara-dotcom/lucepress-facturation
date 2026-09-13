@@ -64,7 +64,7 @@ export async function buildDocumentPdfBuffer(options: BuildPdfOptions): Promise<
       height: "22mm",
       start_at: 1,
     },
-    sandbox: process.env.PDFSHIFT_SANDBOX === "1",
+    sandbox: false,
   };
 
   const res = await fetch(PDFSHIFT_ENDPOINT, {
@@ -127,7 +127,7 @@ export async function renderHtmlToPdfBuffer(html: string, footer: RenderHtmlFoot
     landscape: false,
     margin: { top: "14mm", right: "12mm", bottom: "22mm", left: "12mm" },
     footer: { source: footerHtml, height: "18mm", start_at: 1 },
-    sandbox: process.env.PDFSHIFT_SANDBOX === "1",
+    sandbox: false,
   };
 
   const res = await fetch(PDFSHIFT_ENDPOINT, {
