@@ -12,7 +12,7 @@ import { serveStatic } from "./serveStatic";
 import { createContext } from "./context";
 import { pingDatabase, getLastDbError, getGuestDocumentByShareToken, seedDefaultEmailTemplates } from "../db";
 import { buildHealthPayload } from "./health";
-import { buildDocumentSharePdfBuffer } from "../documentSharePdf";
+import { buildDocumentPdfBuffer } from "../pdfService";
 import { buildDocumentShareDocxBuffer } from "../documentShareDocx";
 
 export { serveStatic } from "./serveStatic";
@@ -66,29 +66,32 @@ export async function createApp() {
       const token = String(req.params.token ?? "").trim();
       const payload = await getGuestDocumentByShareToken(token);
       const document = payload.document;
-      const pdf = buildDocumentSharePdfBuffer({
-        kind: document.kind,
-        number: document.number,
-        issueDate: document.issueDate,
-        validUntil: document.validUntil,
-        dueDate: document.dueDate,
-        clientName: document.clientName,
-        contactName: document.contactName,
-        clientAddress: document.clientAddress,
-        notes: document.notes,
-        projectName: document.projectName,
-        discountPercent: document.discountPercent,
-        discountAmount: document.discountAmount,
-        depositPercent: document.depositPercent,
-        depositDueDate: document.depositDueDate,
-        balanceDueDate: document.balanceDueDate,
-        paidAmount: document.paidAmount,
-        balanceDue: document.balanceDue,
-        subtotal: document.subtotal,
-        taxTotal: document.taxTotal,
-        total: document.total,
-        lines: document.lines,
-      }, payload.company);
+      const pdf = await buildDocumentPdfBuffer({
+        document: {
+          kind: document.kind,
+          number: document.number,
+          issueDate: document.issueDate,
+          validUntil: document.validUntil,
+          dueDate: document.dueDate,
+          clientName: document.clientName,
+          contactName: document.contactName,
+          clientAddress: document.clientAddress,
+          notes: document.notes,
+          projectName: document.projectName,
+          discountPercent: document.discountPercent,
+          discountAmount: document.discountAmount,
+          depositPercent: document.depositPercent,
+          depositDueDate: document.depositDueDate,
+          balanceDueDate: document.balanceDueDate,
+          paidAmount: document.paidAmount,
+          balanceDue: document.balanceDue,
+          subtotal: document.subtotal,
+          taxTotal: document.taxTotal,
+          total: document.total,
+          lines: document.lines,
+        },
+        company: payload.company,
+      });
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${document.number}.pdf"`);
       res.status(200).send(pdf);
