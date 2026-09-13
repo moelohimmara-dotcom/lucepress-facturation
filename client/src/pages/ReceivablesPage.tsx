@@ -229,7 +229,7 @@ export default function ReceivablesPage() {
     } catch (error) { toast.error(error instanceof Error ? error.message : "Le rapport PDF n’a pas pu être généré."); }
   }
 
-  return <DashboardLayout><div className="mx-auto max-w-7xl pb-10">
+  return <DashboardLayout><div className="mx-auto max-w-7xl pb-10 stagger-rise">
     <header className="relative overflow-hidden rounded-[1.45rem] border border-primary/15 bg-primary/[0.035] px-5 py-6 sm:px-7 sm:py-7">
       <div className="absolute -right-16 -top-24 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -381,7 +381,7 @@ function BatchRemindersDialog({
               </span>
             </div>
             {!smtpReady && (
-              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 p-3 text-xs leading-5 text-amber-950 dark:text-amber-200">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>SMTP non configuré : vous pouvez copier les brouillons, mais l’envoi e-mail est indisponible.</span>
               </div>

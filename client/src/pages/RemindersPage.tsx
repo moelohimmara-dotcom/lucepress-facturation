@@ -51,7 +51,7 @@ export default function RemindersPage() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl pb-10">
+      <div className="mx-auto max-w-6xl pb-10 stagger-rise">
         <PageHeader
           kicker="Recouvrement assisté"
           title="Relances de factures"
@@ -63,7 +63,7 @@ export default function RemindersPage() {
           }
         />
         {mailStatus?.smtpConfigured === false && (
-          <section className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <section className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 p-4 text-amber-950 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
             <p className="text-sm leading-6">SMTP non configuré : vous pouvez préparer et copier la relance, mais l’envoi e-mail est indisponible.</p>
           </section>
@@ -72,7 +72,7 @@ export default function RemindersPage() {
           <section className="card-shadow overflow-hidden rounded-2xl border border-border bg-card">
             <div className="border-b border-border p-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-700"><AlertTriangle className="h-4 w-4" /></div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/70 text-red-700 dark:text-red-200"><AlertTriangle className="h-4 w-4" /></div>
                 <div>
                   <h2 className="text-sm font-extrabold">Factures à relancer</h2>
                   <p className="mt-1 text-xs text-muted-foreground">Sélectionnez une échéance dépassée.</p>
@@ -87,15 +87,15 @@ export default function RemindersPage() {
                   <button
                     key={invoice.id}
                     onClick={() => { setSelectedId(invoice.id); setCopied(false); generate.reset(); }}
-                    className={`w-full p-5 text-left transition-colors ${selectedId === invoice.id ? "bg-red-50 ring-1 ring-inset ring-red-200" : "hover:bg-muted/40"}`}
+                    className={`w-full p-5 text-left transition-colors ${selectedId === invoice.id ? "bg-red-50 dark:bg-red-950/70 ring-1 ring-inset ring-red-200" : "hover:bg-muted/40"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-mono text-xs font-bold text-primary">{invoice.number}</p>
                         <p className="mt-1 text-sm font-extrabold">{invoice.clientName}</p>
-                        <p className="mt-1 text-xs text-red-700">Échéance dépassée{invoice.dueDate ? ` · ${new Date(invoice.dueDate).toLocaleDateString("fr-GN")}` : ""}</p>
+                        <p className="mt-1 text-xs text-red-700 dark:text-red-200">Échéance dépassée{invoice.dueDate ? ` · ${new Date(invoice.dueDate).toLocaleDateString("fr-GN")}` : ""}</p>
                       </div>
-                      <p className="font-mono text-sm font-extrabold text-red-700">{formatGnf(invoice.balanceDue)}</p>
+                      <p className="font-mono text-sm font-extrabold text-red-700 dark:text-red-200">{formatGnf(invoice.balanceDue)}</p>
                     </div>
                   </button>
                 ))}

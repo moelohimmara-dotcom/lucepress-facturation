@@ -27,7 +27,7 @@ export function AdminGate({ children, title = "Accès réservé" }: { children: 
     return (
       <DashboardLayout>
         <div className="mx-auto flex max-w-lg flex-col items-center px-4 py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-800">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200">
             <ShieldAlert className="h-6 w-6" />
           </div>
           <h1 className="font-editorial mt-5 text-2xl font-semibold">{title}</h1>

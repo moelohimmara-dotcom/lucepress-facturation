@@ -58,7 +58,7 @@ export default function GuestDocumentPage() {
     return (
       <GuestShell>
         <section className="mx-auto max-w-md py-16 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-800"><ShieldCheck className="h-7 w-7" /></div>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200"><ShieldCheck className="h-7 w-7" /></div>
           <h1 className="font-editorial mt-5 text-2xl font-semibold">Lien indisponible</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">{error?.message || "Ce lien est invalide ou a expiré."}</p>
         </section>
@@ -104,7 +104,7 @@ export default function GuestDocumentPage() {
                   variant="outline"
                   disabled={respond.isPending}
                   onClick={() => respond.mutate({ token, decision: "refuse" })}
-                  className="h-10 rounded-xl border-rose-200 text-rose-800 font-bold"
+                  className="h-10 rounded-xl border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 font-bold"
                 >
                   <XCircle className="mr-2 h-4 w-4" />Refuser
                 </Button>
@@ -121,7 +121,7 @@ export default function GuestDocumentPage() {
         </header>
 
         {!document.canRespond && document.kind === "devis" && (
-          <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${document.status === "accepte" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : document.status === "refuse" ? "border-rose-200 bg-rose-50 text-rose-900" : "border-border bg-muted/40 text-muted-foreground"}`}>
+          <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${document.status === "accepte" ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200" : document.status === "refuse" ? "border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/70 text-rose-900 dark:text-rose-200" : "border-border bg-muted/40 text-muted-foreground"}`}>
             Statut actuel : {document.status === "accepte" ? "Accepté" : document.status === "refuse" ? "Refusé" : document.status.replaceAll("_", " ")}
           </div>
         )}
@@ -157,7 +157,7 @@ export default function GuestDocumentPage() {
             </section>
           </div>
           <div className="px-8 pb-8 sm:px-12">
-            <div className="overflow-hidden rounded-xl border border-slate-200">
+            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
               <table className="w-full border-collapse text-left text-xs">
                 <thead className="bg-[#eef5f1] text-[#28534b]">
                   <tr>
@@ -169,7 +169,7 @@ export default function GuestDocumentPage() {
                 </thead>
                 <tbody>
                   {document.lines.map(line => (
-                    <tr key={line.id} className="border-t border-slate-200">
+                    <tr key={line.id} className="border-t border-slate-200 dark:border-slate-800">
                       <td className="px-3 py-3.5 leading-5 sm:px-4">{line.description}<span className="ml-1 text-slate-400">({line.unit})</span></td>
                       <td className="px-2 py-3.5 text-right font-mono">{Number(line.quantity)}</td>
                       <td className="hidden px-2 py-3.5 text-right font-mono sm:table-cell">{new Intl.NumberFormat("fr-GN").format(line.unitPrice)}</td>
@@ -213,7 +213,7 @@ export default function GuestDocumentPage() {
                 <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{document.notes}</p>
               </section>
             )}
-            <footer className="mt-12 border-t border-slate-200 pt-5 text-center text-[10px] font-medium tracking-wide text-slate-400">
+            <footer className="mt-12 border-t border-slate-200 dark:border-slate-800 pt-5 text-center text-[10px] font-medium tracking-wide text-slate-400">
               <p>{formatCompanyDocumentFooter(company.documentFooter)}</p>
               {legalLine && <p className="mt-1">{legalLine}</p>}
               {registrationLine && <p className="mt-1">{registrationLine}</p>}

@@ -19,16 +19,16 @@ type MetricProps = {
 
 const toneIcon: Record<NonNullable<MetricProps["tone"]>, string> = {
   primary: "bg-secondary text-primary",
-  danger: "bg-red-50 text-red-700",
+  danger: "bg-red-50 dark:bg-red-950/70 text-red-700 dark:text-red-200",
   neutral: "bg-muted text-muted-foreground",
-  warn: "bg-amber-50 text-amber-700",
+  warn: "bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-200",
 };
 
 const toneValue: Record<NonNullable<MetricProps["tone"]>, string> = {
   primary: "text-foreground",
-  danger: "text-red-700",
+  danger: "text-red-700 dark:text-red-200",
   neutral: "text-foreground",
-  warn: "text-amber-700",
+  warn: "text-amber-700 dark:text-amber-200",
 };
 
 /**
@@ -46,7 +46,7 @@ export function Metric({ icon: Icon, value, label, detail, tone = "primary", fla
     );
   }
   return (
-    <article className="lucepress-panel rounded-[1.35rem] p-4 sm:p-5">
+    <article className="lucepress-panel lucepress-hover-lift rounded-[1.35rem] p-4 sm:p-5">
       <div className="flex items-center gap-3">
         {Icon && (
           <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", toneIcon[tone])}>

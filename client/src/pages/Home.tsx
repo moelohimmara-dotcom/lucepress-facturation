@@ -50,7 +50,7 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-3xl pb-10">
+      <div className="mx-auto max-w-3xl pb-10 stagger-rise">
         <PageHeader
           kicker="Aujourd’hui"
           title={summary.total ? "Votre file à traiter." : "Rien d’urgent pour l’instant."}
@@ -157,7 +157,7 @@ export default function Home() {
 function InboxCard({ item, onOpen }: { item: TodayInboxItem; onOpen: () => void }) {
   const tone =
     item.priority === "urgent"
-      ? "border-red-200 bg-red-50/80"
+      ? "border-red-200 dark:border-red-800 bg-red-50/80"
       : item.priority === "action"
         ? "border-primary/20 bg-primary/[0.03] shadow-[0_18px_40px_-30px_oklch(0.3_0.079_166/55%)]"
         : "border-border bg-card shadow-[0_18px_40px_-32px_oklch(0.18_0.06_164/40%)]";
@@ -169,7 +169,7 @@ function InboxCard({ item, onOpen }: { item: TodayInboxItem; onOpen: () => void 
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          {item.priority === "urgent" && <AlertTriangle className="h-4 w-4 shrink-0 text-red-700" />}
+          {item.priority === "urgent" && <AlertTriangle className="h-4 w-4 shrink-0 text-red-700 dark:text-red-200" />}
           <p className="text-sm font-extrabold">{item.title}</p>
         </div>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.detail}</p>
