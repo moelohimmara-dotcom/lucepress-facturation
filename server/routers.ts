@@ -26,6 +26,7 @@ import {
 import { assertGuestShareRateLimit } from "./_core/guestShareRateLimit";
 import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
 import { buildDocumentShareDocxBuffer } from "./documentShareDocx";
+import { buildDocumentPdfBuffer } from "./pdfService";
 import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
 
 /** Reconstruit l'origine publique (https://...) pour les liens e-mail. */
@@ -1192,7 +1193,7 @@ export const appRouter = router({
             const buf = await buildDocumentShareDocxBuffer(payload, company);
             return { filename: `${document.number}.docx`, mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", base64: buf.toString("base64") };
           }
-          const buf = buildDocumentSharePdfBuffer(payload, company);
+          const buf = await buildDocumentPdfBuffer({ document: payload, company });
           return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
         }),
     }),
@@ -1487,33 +1488,36 @@ export const appRouter = router({
 
           const attachments = input.attachPdf === false ? undefined : [{
             filename: `${document.number}.pdf`,
-            content: buildDocumentSharePdfBuffer({
-              kind: document.kind,
-              number: document.number,
-              issueDate: document.issueDate,
-              validUntil: document.validUntil,
-              dueDate: document.dueDate,
-              clientName: document.clientName,
-              contactName: document.contactName,
-              clientAddress: document.clientAddress,
-              clientEmail: document.clientEmail,
-              clientIdentityKind: document.clientIdentityKind,
-              clientTaxId: document.clientTaxId,
-              clientRegistrationNumber: document.clientRegistrationNumber,
-              projectName: document.projectName,
-              notes: document.notes,
-              discountPercent: document.discountPercent,
-              discountAmount: document.discountAmount,
-              depositPercent: document.depositPercent,
-              depositDueDate: document.depositDueDate,
-              balanceDueDate: document.balanceDueDate,
-              paidAmount: document.paidAmount,
-              balanceDue: document.balanceDue,
-              subtotal: document.subtotal,
-              taxTotal: document.taxTotal,
-              total: document.total,
-              lines: document.lines,
-            }, company),
+            content: await buildDocumentPdfBuffer({
+              document: {
+                kind: document.kind,
+                number: document.number,
+                issueDate: document.issueDate,
+                validUntil: document.validUntil,
+                dueDate: document.dueDate,
+                clientName: document.clientName,
+                contactName: document.contactName,
+                clientAddress: document.clientAddress,
+                clientEmail: document.clientEmail,
+                clientIdentityKind: document.clientIdentityKind,
+                clientTaxId: document.clientTaxId,
+                clientRegistrationNumber: document.clientRegistrationNumber,
+                projectName: document.projectName,
+                notes: document.notes,
+                discountPercent: document.discountPercent,
+                discountAmount: document.discountAmount,
+                depositPercent: document.depositPercent,
+                depositDueDate: document.depositDueDate,
+                balanceDueDate: document.balanceDueDate,
+                paidAmount: document.paidAmount,
+                balanceDue: document.balanceDue,
+                subtotal: document.subtotal,
+                taxTotal: document.taxTotal,
+                total: document.total,
+                lines: document.lines,
+              },
+              company,
+            }),
             contentType: "application/pdf",
           }];
 
@@ -1593,7 +1597,7 @@ export const appRouter = router({
             const buf = await buildDocumentShareDocxBuffer(payload, company);
             return { filename: `${document.number}.docx`, mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", base64: buf.toString("base64") };
           }
-          const buf = buildDocumentSharePdfBuffer(payload, company);
+          const buf = await buildDocumentPdfBuffer({ document: payload, company });
           return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
         }),
     }),

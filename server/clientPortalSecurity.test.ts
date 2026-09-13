@@ -10,7 +10,7 @@ describe("portail client", () => {
     expect(router).toContain("db.getClientPortalInvoice(ctx.user.email, input.id)");
     expect(router).toContain("db.getClientPortalQuote(ctx.user.email, input.id)");
     expect(router).toContain("respondToClientPortalQuote");
-    expect(router).toMatch(/exportFile: protectedProcedure[\s\S]*getClientPortalInvoice[\s\S]*buildDocumentSharePdfBuffer/);
+    expect(router).toMatch(/exportFile: protectedProcedure[\s\S]*getClientPortalInvoice[\s\S]*buildDocumentPdfBuffer/);
     expect(database).toContain("lower(${clients.email}) = ${normalized}");
     expect(database).toContain("invoice.clientId !== client.id");
     expect(database).toContain("respondToClientPortalQuote");
