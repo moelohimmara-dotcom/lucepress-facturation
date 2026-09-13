@@ -55,17 +55,26 @@ export type SharePdfCompany = CompanyDocumentProfile & {
 
 const COLOR = {
   brand: [21, 63, 56] as [number, number, number],
-  brandDeep: [17, 59, 53] as [number, number, number],
+  brandDeep: [15, 45, 40] as [number, number, number],
+  brandSoft: [232, 242, 238] as [number, number, number],
   accent: [30, 96, 81] as [number, number, number],
+  gold: [212, 162, 78] as [number, number, number],
+  goldSoft: [251, 243, 226] as [number, number, number],
+  goldLine: [236, 217, 168] as [number, number, number],
   kicker: [75, 116, 109] as [number, number, number],
-  tableHeaderBg: [238, 245, 241] as [number, number, number],
+  tableHeaderBg: [232, 242, 238] as [number, number, number],
   tableHeaderText: [40, 83, 75] as [number, number, number],
+  ivory: [251, 248, 241] as [number, number, number],
+  line: [228, 221, 203] as [number, number, number],
   cardBg: [246, 250, 248] as [number, number, number],
   cardBorder: [216, 231, 223] as [number, number, number],
   notesBg: [248, 250, 249] as [number, number, number],
   body: [24, 58, 53] as [number, number, number],
+  ink: [36, 53, 48] as [number, number, number],
+  inkSoft: [99, 112, 107] as [number, number, number],
   slate: [100, 116, 139] as [number, number, number],
   slateLight: [148, 163, 184] as [number, number, number],
+  footLegal: [74, 87, 82] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
   brandTint: [214, 224, 220] as [number, number, number],
 };
@@ -75,6 +84,7 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 const MARGIN = 16;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+const FOOTER_TOP = PAGE_H - 30;
 
 function fmtDate(value: Date | string | null | undefined) {
   if (!value) return "—";
@@ -101,7 +111,7 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   const state = { y: MARGIN, page: 1 };
 
   const ensureSpace = (needed: number) => {
-    if (state.y + needed > PAGE_H - MARGIN - 18) {
+    if (state.y + needed > FOOTER_TOP - 6) {
       pdf.addPage();
       setPageBackground(pdf);
       state.page += 1;
@@ -113,29 +123,35 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   const kindLabel = document.kind === "facture" ? "Facture" : "Devis";
   const isInvoice = document.kind === "facture";
 
-  const headerBottom = 34;
+  const heroBottom = 36;
   pdf.setFillColor(...COLOR.brand);
-  pdf.rect(0, 0, PAGE_W, headerBottom, "F");
+  pdf.rect(0, 0, PAGE_W, heroBottom, "F");
+  pdf.setFillColor(...COLOR.brandDeep);
+  pdf.rect(PAGE_W * 0.42, 0, PAGE_W * 0.58, heroBottom, "F");
+  pdf.setFillColor(...COLOR.gold);
+  pdf.rect(0, heroBottom, PAGE_W, 1.6, "F");
 
   pdf.setTextColor(...COLOR.white);
   pdf.setFont(FONT.serif, "bold");
   pdf.setFontSize(22);
-  pdf.text(companyName, MARGIN, 16);
+  pdf.text(companyName, MARGIN, 15);
 
   pdf.setFont(FONT.sans, "bold");
-  pdf.setFontSize(8);
-  pdf.text("HYDRAULIQUE  ·  TRAVAUX  ·  SERVICES", MARGIN, 22);
+  pdf.setFontSize(7.5);
+  pdf.setTextColor(...COLOR.brandTint);
+  pdf.text("HYDRAULIQUE  ·  TRAVAUX  ·  SERVICES", MARGIN, 21);
 
   pdf.setFont(FONT.serif, "bold");
   pdf.setFontSize(24);
+  pdf.setTextColor(...COLOR.white);
   pdf.text(kindLabel, PAGE_W - MARGIN, 16, { align: "right" });
 
   pdf.setFont(FONT.mono, "bold");
   pdf.setFontSize(12);
-  pdf.setTextColor(...COLOR.brandTint);
+  pdf.setTextColor(...COLOR.gold);
   pdf.text(document.number, PAGE_W - MARGIN, 23, { align: "right" });
 
-  state.y = headerBottom + 10;
+  state.y = heroBottom + 12;
 
   const colW = CONTENT_W / 2;
   const leftColX = MARGIN;
@@ -279,9 +295,30 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   drawTotalsRow("Total TTC", fmtGnf(document.total), { bold: true, accent: true, big: true });
   if (isInvoice) {
     drawTotalsRow("Déjà encaissé", fmtGnf(document.paidAmount ?? 0));
-    drawTotalsRow("Solde dû", fmtGnf(document.balanceDue ?? 0), { bold: true, accent: true });
   }
-  state.y += 6;
+  state.y += 5;
+
+  if (isInvoice) {
+    ensureSpace(16);
+    const bandH = 14;
+    const bandY = state.y;
+    pdf.setFillColor(...COLOR.goldSoft);
+    pdf.setDrawColor(...COLOR.goldLine);
+    pdf.setLineWidth(0.2);
+    pdf.roundedRect(MARGIN, bandY, CONTENT_W, bandH, 2, 2, "FD");
+    pdf.setTextColor(...COLOR.inkSoft);
+    pdf.setFont(FONT.sans, "bold");
+    pdf.setFontSize(8);
+    pdf.text("SOLDE DÛ", MARGIN + 4, bandY + 8.5);
+    pdf.setFont(FONT.mono, "bold");
+    pdf.setFontSize(15);
+    pdf.setTextColor(...COLOR.brand);
+    pdf.text(fmtGnf(document.balanceDue ?? 0), PAGE_W - MARGIN - 4, bandY + 9.5, { align: "right" });
+    state.y = bandY + bandH + 7;
+  } else if (document.kind === "devis") {
+    drawTotalsRow("Solde dû", fmtGnf(document.total), { bold: true, accent: true });
+    state.y += 2;
+  }
 
   if (document.kind === "devis" && document.depositPercent) {
     const schedule = calculateQuotePaymentSchedule(document.total, document.depositPercent);
@@ -376,27 +413,30 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   const footerText = formatCompanyDocumentFooter(company.documentFooter);
   const legalLine = formatCompanyLegalLine(company);
   const regLine = formatCompanyRegistrationLine(company);
-  const footerH = 4 + (legalLine || regLine ? 7 : 0) + 2;
-  ensureSpace(footerH);
-  pdf.setDrawColor(...COLOR.accent);
-  pdf.setLineWidth(0.6);
-  pdf.line(MARGIN, state.y, MARGIN + 22, state.y);
-  state.y += 4.5;
+  const fy = FOOTER_TOP;
+  pdf.setDrawColor(...COLOR.gold);
+  pdf.setLineWidth(0.8);
+  pdf.line(PAGE_W / 2 - 6, fy, PAGE_W / 2 + 6, fy);
   pdf.setFont(FONT.serif, "italic");
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(9);
   pdf.setTextColor(...COLOR.brand);
-  pdf.text(footerText, PAGE_W / 2, state.y, { align: "center" });
+  pdf.text(footerText, PAGE_W / 2, fy + 6, { align: "center" });
   if (legalLine || regLine) {
-    state.y += 5.5;
-    ensureSpace(5);
-    pdf.setDrawColor(...COLOR.cardBorder);
+    pdf.setDrawColor(...COLOR.line);
     pdf.setLineWidth(0.1);
-    pdf.line(MARGIN, state.y - 2, PAGE_W - MARGIN, state.y - 2);
+    pdf.line(MARGIN, fy + 10, PAGE_W - MARGIN, fy + 10);
     pdf.setFont(FONT.sans, "normal");
-    pdf.setFontSize(6.8);
-    pdf.setTextColor(...COLOR.slateLight);
-    pdf.text(legalLine || "", MARGIN, state.y);
-    if (regLine) pdf.text(regLine, PAGE_W - MARGIN, state.y, { align: "right" });
+    pdf.setFontSize(7);
+    pdf.setTextColor(...COLOR.footLegal);
+    const regY = fy + 14.5;
+    if (legalLine) pdf.text(legalLine, MARGIN, regY);
+    if (regLine) pdf.text(regLine, PAGE_W - MARGIN, regY, { align: "right" });
+  }
+  if (state.page > 1) {
+    pdf.setFont(FONT.sans, "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(...COLOR.footLegal);
+    pdf.text(`Page ${state.page}`, PAGE_W - MARGIN, PAGE_H - 4, { align: "right" });
   }
 
   const arrayBuffer = pdf.output("arraybuffer");

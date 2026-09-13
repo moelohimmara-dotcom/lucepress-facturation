@@ -258,56 +258,61 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
                 </div>
               </section>
             )}
-            <article id="client-portal-quote" className="card-shadow overflow-hidden rounded-2xl border border-border bg-white text-[#183a35]">
-              <div className="border-b-[8px] border-[#153f38] p-6 sm:p-10">
-                <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src="/manus-storage/lucepress-emblem_bfa24e8e.png" alt="Emblème Lucepres" className="h-14 w-14 rounded-2xl bg-[#edf5f0] p-2" />
-                    <div>
-                      <p className="font-editorial text-3xl font-semibold">{LUCEPRES_PUBLIC_PROFILE.legalName}</p>
-                      <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4b746d]">Devis client</p>
-                    </div>
+            <article id="client-portal-quote" className="card-shadow overflow-hidden rounded-2xl border border-[#e4ddcb] bg-white text-[#243530]">
+              <div className="relative bg-gradient-to-br from-[#153f38] to-[#0f2d28] p-6 text-white sm:p-10">
+                <span className="absolute inset-x-0 bottom-0 h-[5px] bg-[#d4a24e]" />
+                <div className="flex items-center gap-3">
+                  <img src="/manus-storage/lucepress-emblem_bfa24e8e.png" alt="Emblème Lucepres" className="h-10 w-10 rounded-xl bg-white p-1.5" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/75">{LUCEPRES_PUBLIC_PROFILE.legalName} · Devis client</span>
+                </div>
+                <div className="mt-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                  <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#d4a24e]">Devis</p>
+                    <h1 className="font-editorial mt-2 text-2xl font-semibold tracking-tight">Votre devis est disponible</h1>
                   </div>
-                  <div className="sm:text-right">
-                    <p className="font-mono text-base font-extrabold text-[#1e6051]">{quote.number}</p>
-                    <p className="mt-1 text-xs text-slate-500">Émis le {formatDate(quote.issueDate)}</p>
-                    <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold ${quoteStatusClass(quote.status)}`}>{quoteStatusLabel(quote.status)}</p>
+                  <div className="flex flex-col items-start gap-1.5 sm:items-end">
+                    <div className="flex items-center gap-2"><span className="text-xs text-white/70">N°</span><span className="font-mono text-sm font-bold tracking-tight">{quote.number}</span></div>
+                    <p className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold ${quoteStatusClass(quote.status)}`}>{quoteStatusLabel(quote.status)}</p>
                   </div>
                 </div>
               </div>
               <div className="grid gap-7 p-6 sm:grid-cols-2 sm:p-10">
                 <section>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4b746d]">Destinataire</p>
-                  <p className="mt-2 text-sm font-extrabold">{quote.clientName}</p>
-                  {quote.contactName && <p className="mt-1 text-sm text-slate-600">{quote.contactName}</p>}
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Facturé à</p>
+                  <p className="mt-2 text-sm font-bold text-[#243530]">{quote.clientName}</p>
+                  {quote.contactName && <p className="mt-0.5 text-sm text-[#63706b]">{quote.contactName}</p>}
                 </section>
-                <section className="sm:text-right">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4b746d]">Validité</p>
-                  <p className="mt-2 text-sm">Valide jusqu’au : <strong>{formatDate(quote.validUntil)}</strong></p>
+                <section>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Détails du document</p>
+                  <dl className="mt-2 overflow-hidden rounded-xl border border-[#e4ddcb] bg-[#fbf8f1]">
+                    <PortalInfoRow label="Émis le" value={formatDate(quote.issueDate)} />
+                    <PortalInfoRow label="Valide jusqu’au" value={formatDate(quote.validUntil)} />
+                  </dl>
                 </section>
               </div>
               <div className="px-6 pb-6 sm:px-10 sm:pb-10">
                 <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#eef5f1] text-[#28534b]">
-                      <tr><th className="px-3 py-3">Désignation</th><th className="px-3 py-3 text-right">Qté</th><th className="px-3 py-3 text-right">Total</th></tr>
+                    <thead className="bg-[#e8f2ee] text-[#28534b]">
+                      <tr><th className="px-3 py-3 font-extrabold">Désignation</th><th className="px-3 py-3 text-right font-extrabold">Qté</th><th className="px-3 py-3 text-right font-extrabold">Total</th></tr>
                     </thead>
                     <tbody>
                       {quote.lines.map(line => (
                         <tr key={line.id} className="border-t border-slate-200 dark:border-slate-800">
                           <td className="px-3 py-3">{line.description}</td>
-                          <td className="px-3 py-3 text-right">{Number(line.quantity)}</td>
+                          <td className="px-3 py-3 text-right font-mono text-[#63706b]">{Number(line.quantity)}</td>
                           <td className="px-3 py-3 text-right font-mono font-bold">{formatGnf(line.lineTotal)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="ml-auto mt-5 max-w-xs space-y-2 border-b border-[#153f38] pb-4 text-sm">
-                  <TotalLine label="Total TTC" value={formatGnf(quote.total)} strong />
+                <div className="ml-auto mt-6 w-full max-w-[320px] space-y-2 text-sm">
+                  <div className="flex justify-between border-t-2 border-[#153f38] pt-3 text-base font-extrabold"><span>Total TTC</span><span className="font-mono text-[#153f38]">{formatGnf(quote.total)}</span></div>
                 </div>
-                <footer className="mt-10 flex items-center justify-center gap-2 border-t border-slate-200 dark:border-slate-800 pt-5 text-center text-[10px] text-slate-400">
-                  <CheckCircle2 className="h-3.5 w-3.5" />Document consulté dans votre espace client sécurisé.
+                <footer className="mt-10 rounded-b-2xl bg-[#e8f2ee] px-6 py-6 text-center sm:px-10">
+                  <span className="mx-auto mb-3 block h-[3px] w-12 rounded bg-[#d4a24e]" />
+                  <p className="flex items-center justify-center gap-2 text-[11px] font-medium text-[#4a5752]"><CheckCircle2 className="h-3.5 w-3.5 text-[#153f38]" />Document consulté dans votre espace client sécurisé.</p>
                 </footer>
               </div>
             </article>
@@ -366,53 +371,60 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
             <p className="mt-3 text-sm font-extrabold">Cette facture n’est pas disponible pour votre compte.</p>
           </section>
         ) : (
-          <article id="client-portal-invoice" className="card-shadow overflow-hidden rounded-2xl border border-border bg-white text-[#183a35]">
-            <div className="border-b-[8px] border-[#153f38] p-6 sm:p-10">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <img src="/manus-storage/lucepress-emblem_bfa24e8e.png" alt="Emblème Lucepres" className="h-14 w-14 rounded-2xl bg-[#edf5f0] p-2" />
-                  <div>
-                    <p className="font-editorial text-3xl font-semibold">{LUCEPRES_PUBLIC_PROFILE.legalName}</p>
-                    <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4b746d]">Facture client</p>
-                  </div>
+          <article id="client-portal-invoice" className="card-shadow overflow-hidden rounded-2xl border border-[#e4ddcb] bg-white text-[#243530]">
+            <div className="relative bg-gradient-to-br from-[#153f38] to-[#0f2d28] p-6 text-white sm:p-10">
+              <span className="absolute inset-x-0 bottom-0 h-[5px] bg-[#d4a24e]" />
+              <div className="flex items-center gap-3">
+                <img src="/manus-storage/lucepress-emblem_bfa24e8e.png" alt="Emblème Lucepres" className="h-10 w-10 rounded-xl bg-white p-1.5" />
+                <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/75">{LUCEPRES_PUBLIC_PROFILE.legalName} · Facture client</span>
+              </div>
+              <div className="mt-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#d4a24e]">Facture</p>
+                  <h1 className="font-editorial mt-2 text-2xl font-semibold tracking-tight">Votre facture est disponible</h1>
                 </div>
-                <div className="sm:text-right">
-                  <p className="font-mono text-base font-extrabold text-[#1e6051]">{invoice.number}</p>
-                  <p className="mt-1 text-xs text-slate-500">Émise le {formatDate(invoice.issueDate)}</p>
+                <div className="flex flex-col items-start gap-1.5 sm:items-end">
+                  <div className="flex items-center gap-2"><span className="text-xs text-white/70">N°</span><span className="font-mono text-sm font-bold tracking-tight">{invoice.number}</span></div>
                 </div>
               </div>
             </div>
             <div className="grid gap-7 p-6 sm:grid-cols-2 sm:p-10">
               <section>
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4b746d]">Destinataire</p>
-                <p className="mt-2 text-sm font-extrabold">{invoice.clientName}</p>
-                {invoice.contactName && <p className="mt-1 text-sm text-slate-600">{invoice.contactName}</p>}
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Facturé à</p>
+                <p className="mt-2 text-sm font-bold text-[#243530]">{invoice.clientName}</p>
+                {invoice.contactName && <p className="mt-0.5 text-sm text-[#63706b]">{invoice.contactName}</p>}
               </section>
-              <section className="sm:text-right">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4b746d]">Règlement</p>
-                <p className="mt-2 text-sm">Échéance : <strong>{formatDate(invoice.dueDate)}</strong></p>
-                <p className="mt-1 text-sm">Statut : <strong>{invoice.balanceDue > 0 ? invoice.isOverdue ? "En retard" : "Solde à régler" : "Réglée"}</strong></p>
+              <section>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Règlement</p>
+                <dl className="mt-2 overflow-hidden rounded-xl border border-[#e4ddcb] bg-[#fbf8f1]">
+                  <PortalInfoRow label="Échéance" value={formatDate(invoice.dueDate)} />
+                  <PortalInfoRow label="Statut" value={invoice.balanceDue > 0 ? (invoice.isOverdue ? "En retard" : "Solde à régler") : "Réglée"} />
+                </dl>
               </section>
             </div>
             <div className="px-6 pb-6 sm:px-10 sm:pb-10">
+              <div className="mb-6 flex items-center justify-between rounded-2xl border border-[#ecd9a8] bg-gradient-to-br from-[#fbf3e2] to-[#fbf8f1] px-6 py-5">
+                <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#63706b]">Solde dû</span>
+                <span className="font-mono text-2xl font-extrabold text-[#153f38]">{formatGnf(invoice.balanceDue)}</span>
+              </div>
               <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#eef5f1] text-[#28534b]"><tr><th className="px-3 py-3">Désignation</th><th className="px-3 py-3 text-right">Qté</th><th className="px-3 py-3 text-right">Total</th></tr></thead>
+                  <thead className="bg-[#e8f2ee] text-[#28534b]"><tr><th className="px-3 py-3 font-extrabold">Désignation</th><th className="px-3 py-3 text-right font-extrabold">Qté</th><th className="px-3 py-3 text-right font-extrabold">Total</th></tr></thead>
                   <tbody>
                     {invoice.lines.map(line => (
                       <tr key={line.id} className="border-t border-slate-200 dark:border-slate-800">
                         <td className="px-3 py-3">{line.description}</td>
-                        <td className="px-3 py-3 text-right">{Number(line.quantity)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-[#63706b]">{Number(line.quantity)}</td>
                         <td className="px-3 py-3 text-right font-mono font-bold">{formatGnf(line.lineTotal)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="ml-auto mt-5 max-w-xs space-y-2 border-b border-[#153f38] pb-4 text-sm">
-                <TotalLine label="Total TTC" value={formatGnf(invoice.total)} />
-                <TotalLine label="Déjà encaissé" value={formatGnf(invoice.paidAmount)} />
-                <TotalLine label="Solde dû" value={formatGnf(invoice.balanceDue)} strong />
+              <div className="ml-auto mt-6 w-full max-w-[320px] space-y-2 text-sm">
+                <div className="flex justify-between text-[#63706b]"><span>Total TTC</span><span className="font-mono">{formatGnf(invoice.total)}</span></div>
+                <div className="flex justify-between text-[#63706b]"><span>Déjà encaissé</span><span className="font-mono">{formatGnf(invoice.paidAmount)}</span></div>
+                <div className="flex justify-between border-t-2 border-[#153f38] pt-2 font-extrabold"><span>Solde dû</span><span className="font-mono text-[#153f38]">{formatGnf(invoice.balanceDue)}</span></div>
               </div>
               {invoice.balanceDue > 0 && (
                 <form onSubmit={submitPromise} className="mt-7 rounded-xl border border-[#cbdcd5] bg-[#f4f9f6] p-4">
@@ -444,8 +456,9 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
                   </div>
                 </section>
               )}
-              <footer className="mt-10 flex items-center justify-center gap-2 border-t border-slate-200 dark:border-slate-800 pt-5 text-center text-[10px] text-slate-400">
-                <CheckCircle2 className="h-3.5 w-3.5" />Document consulté dans votre espace client sécurisé.
+              <footer className="mt-10 rounded-b-2xl bg-[#e8f2ee] px-6 py-6 text-center sm:px-10">
+                <span className="mx-auto mb-3 block h-[3px] w-12 rounded bg-[#d4a24e]" />
+                <p className="flex items-center justify-center gap-2 text-[11px] font-medium text-[#4a5752]"><CheckCircle2 className="h-3.5 w-3.5 text-[#153f38]" />Document consulté dans votre espace client sécurisé.</p>
               </footer>
             </div>
           </article>
@@ -477,6 +490,6 @@ function PortalShell({ children }: { children: React.ReactNode }) {
 function CenteredLoader() { return <div className="flex min-h-[55vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>; }
 function EmptyInvoices() { return <EmptyState icon={ReceiptText} title="Aucune facture disponible" description="Vos prochaines factures apparaitront ici après émission par Lucepres." compact />; }
 function EmptyQuotes() { return <EmptyState icon={FileText} title="Aucun devis disponible" description="Les devis envoyés par Lucepres apparaîtront ici pour acceptation ou refus." compact />; }
-function TotalLine({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <div className={`flex justify-between gap-3 ${strong ? "text-base font-extrabold text-[#1e6051]" : "text-slate-600"}`}><span>{label}</span><span className="font-mono">{value}</span></div>;
+function PortalInfoRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-center justify-between border-b border-[#e4ddcb] px-5 py-2.5 last:border-b-0"><dt className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">{label}</dt><dd className="font-bold text-[#243530]">{value}</dd></div>;
 }

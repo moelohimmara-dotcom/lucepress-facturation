@@ -10,8 +10,8 @@ export type EmailTemplate = {
   variables: string[];
 };
 
-const BRAND = "#1a4d44";
-const BRAND_DARK = "#113b35";
+const BRAND = "#153f38";
+const BRAND_DARK = "#0f2d28";
 const BRAND_LIGHT = "#e8f2ee";
 const ACCENT = "#d4a24e";
 const ACCENT_SOFT = "#fbf3e2";
