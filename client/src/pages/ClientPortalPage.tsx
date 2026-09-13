@@ -3,7 +3,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
-import { downloadPdfFromElement } from "@/lib/pdf";
 import { trpc } from "@/lib/trpc";
 import { formatGnf } from "@shared/billing";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
@@ -12,6 +11,15 @@ import { ArrowLeft, CalendarDays, CheckCircle2, Download, FileText, Loader2, Rec
 import React, { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+
+function triggerDownload(filename: string, base64: string, mime: string) {
+  const link = document.createElement("a");
+  link.href = `data:${mime};base64,${base64}`;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 function formatDate(value: Date | string | null) {
   return value ? new Date(value).toLocaleDateString("fr-GN") : "Non renseignée";
@@ -187,6 +195,7 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
   const utils = trpc.useUtils();
   const { data: quote, isLoading } = trpc.billing.clientPortal.quote.useQuery({ id: quoteId });
   const [isExporting, setIsExporting] = useState(false);
+  const exportQuoteFile = trpc.billing.clientPortal.exportFile.useMutation();
   const respond = trpc.billing.clientPortal.respondToQuote.useMutation({
     onSuccess: result => {
       utils.billing.clientPortal.quote.invalidate({ id: quoteId });
@@ -199,10 +208,11 @@ function ClientQuoteDetail({ quoteId, onBack }: { quoteId: number; onBack: () =>
   async function downloadPdf() {
     setIsExporting(true);
     try {
-      await downloadPdfFromElement("client-portal-quote", `devis-${quote?.number ?? quoteId}`);
-      toast.success("Votre devis PDF a été téléchargé.");
+      const res = await exportQuoteFile.mutateAsync({ id: quoteId, kind: "devis", format: "pdf" });
+      triggerDownload(res.filename, res.base64, res.mime);
+      toast.success("Votre devis PDF a \u00e9t\u00e9 t\u00e9l\u00e9charg\u00e9.");
     } catch {
-      toast.error("Le PDF n’a pas pu être généré. Réessayez dans un instant.");
+      toast.error("Le PDF n\u2019a pas pu \u00eatre g\u00e9n\u00e9r\u00e9. R\u00e9essayez dans un instant.");
     } finally {
       setIsExporting(false);
     }
@@ -314,6 +324,7 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
   const [isExporting, setIsExporting] = useState(false);
   const [promiseDate, setPromiseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [promiseNote, setPromiseNote] = useState("");
+  const exportInvoiceFile = trpc.billing.clientPortal.exportFile.useMutation();
   const paymentPromise = trpc.billing.clientPortal.createPaymentPromise.useMutation({
     onSuccess: () => {
       utils.billing.clientPortal.invoice.invalidate({ id: invoiceId });
@@ -325,10 +336,11 @@ function ClientInvoiceDetail({ invoiceId, onBack }: { invoiceId: number; onBack:
   async function downloadPdf() {
     setIsExporting(true);
     try {
-      await downloadPdfFromElement("client-portal-invoice", `facture-${invoice?.number ?? invoiceId}`);
-      toast.success("Votre facture PDF a été téléchargée.");
+      const res = await exportInvoiceFile.mutateAsync({ id: invoiceId, kind: "facture", format: "pdf" });
+      triggerDownload(res.filename, res.base64, res.mime);
+      toast.success("Votre facture PDF a \u00e9t\u00e9 t\u00e9l\u00e9charg\u00e9e.");
     } catch {
-      toast.error("Le PDF n’a pas pu être généré. Réessayez dans un instant.");
+      toast.error("Le PDF n\u2019a pas pu \u00eatre g\u00e9n\u00e9r\u00e9. R\u00e9essayez dans un instant.");
     } finally {
       setIsExporting(false);
     }

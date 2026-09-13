@@ -1153,6 +1153,48 @@ export const appRouter = router({
           }
         }),
       createPaymentPromise: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), promisedDate: dateText, note: z.string().trim().max(500).optional() })).mutation(({ ctx, input }) => db.createClientPaymentPromise({ ...input, email: ctx.user.email, createdById: ctx.user.id })),
+      exportFile: protectedProcedure
+        .input(z.object({ id: z.number().int().positive(), kind: z.enum(["facture", "devis"]), format: z.enum(["pdf", "docx"]) }))
+        .mutation(async ({ ctx, input }) => {
+          const document = input.kind === "facture"
+            ? await db.getClientPortalInvoice(ctx.user.email, input.id)
+            : await db.getClientPortalQuote(ctx.user.email, input.id);
+          if (!document) throw new TRPCError({ code: "NOT_FOUND", message: "Ce document n\u2019est pas accessible depuis votre compte." });
+          const company = await db.getCompanySettings();
+          const payload = {
+            kind: document.kind,
+            number: document.number,
+            issueDate: document.issueDate,
+            validUntil: document.validUntil,
+            dueDate: document.dueDate,
+            clientName: document.clientName,
+            contactName: document.contactName,
+            clientAddress: document.clientAddress,
+            clientEmail: document.clientEmail,
+            clientIdentityKind: document.clientIdentityKind,
+            clientTaxId: document.clientTaxId,
+            clientRegistrationNumber: document.clientRegistrationNumber,
+            projectName: document.projectName,
+            notes: document.notes,
+            discountPercent: document.discountPercent,
+            discountAmount: document.discountAmount,
+            depositPercent: document.depositPercent,
+            depositDueDate: document.depositDueDate,
+            balanceDueDate: document.balanceDueDate,
+            paidAmount: document.paidAmount,
+            balanceDue: document.balanceDue,
+            subtotal: document.subtotal,
+            taxTotal: document.taxTotal,
+            total: document.total,
+            lines: document.lines,
+          };
+          if (input.format === "docx") {
+            const buf = await buildDocumentShareDocxBuffer(payload, company);
+            return { filename: `${document.number}.docx`, mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", base64: buf.toString("base64") };
+          }
+          const buf = buildDocumentSharePdfBuffer(payload, company);
+          return { filename: `${document.number}.pdf`, mime: "application/pdf", base64: buf.toString("base64") };
+        }),
     }),
     agent: router({
       center: agentOperatorProcedure.query(() => db.listAgentDelegationCenter()),
