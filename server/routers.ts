@@ -957,6 +957,41 @@ export const appRouter = router({
         variables: z.record(z.string(), z.string()),
       }))
       .query(({ input }) => db.renderEmailTemplate(input.slug, input.variables)),
+    generate: adminProcedure
+      .input(z.object({
+        brief: z.string().trim().min(8).max(2000),
+        variables: z.array(z.string()).max(20).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const models = await listLLMModels();
+        const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id
+          ?? models.data.find(entry => entry.id === "mistralai/mistral-nemotron")?.id
+          ?? models.data[0]?.id;
+        if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n'est actuellement disponible." });
+        const varsHint = input.variables && input.variables.length > 0
+          ? `Variables disponibles (placeholders {{nom}}): ${input.variables.join(", ")}. Utilisez-les dans le HTML et le sujet.`
+          : "Aucune variable dynamique requise.";
+        const systemPrompt = `Tu es le rédacteur de modèles d'e-mail de Lucepress Sarl, entreprise guinéenne de BTP, forage et services durables. Tu génères un modèle d'e-mail HTML professional, chaleureux et lisible (style Mailchimp « warm humanist » : carte sur fond ivoire, hero dégradé vert #1a4d44, barre accent or #d4a24e, pied de page vert clair). RèGLES : (1) HTML table-based pour compatibilité mail (pas de div/flex/grid). (2) CSS inline dans les <style> du <head>. (3) Responsive (media query <580px). (4) Police system-ui. (5) Boutons en <a> avec background, pas de JS. (6) Tutoiement chaleureux, phrases courtes orientées action. (7) Variables sous forme {{nom}}. RÉPONDS UNIQUEMENT par un objet JSON valide : {"name": "...", "subject": "...", "html": "...", "text": "..."} sans texte autour.`;
+        try {
+          const result = await invokeLLM({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Demande: ${input.brief}\n\n${varsHint}` },
+            ],
+            response_format: { type: "json_schema", json_schema: { name: "email_template", schema: { type: "object", properties: { name: { type: "string" }, subject: { type: "string" }, html: { type: "string" }, text: { type: "string" } }, required: ["name", "subject", "html", "text"], additionalProperties: false } } },
+          });
+          const content = result.choices[0]?.message.content;
+          if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle IA est indisponible. Réessayez dans un instant." });
+          let parsed: { name: string; subject: string; html: string; text: string };
+          try { parsed = JSON.parse(content); }
+          catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle IA ne peut pas être lu. Réessayez dans un instant." }); }
+          return { name: String(parsed.name), subject: String(parsed.subject), html: String(parsed.html), text: String(parsed.text ?? ""), model };
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error instanceof Error ? error.message : "La génération IA a échoué." });
+        }
+      }),
   }),
 
   billing: router({

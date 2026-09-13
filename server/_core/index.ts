@@ -10,7 +10,7 @@ import { registerIntegrationExternalRoutes } from "../integrations/externalRoute
 import { registerAgentCampaignScheduleRoutes } from "../agentCampaignScheduleRoutes";
 import { serveStatic } from "./serveStatic";
 import { createContext } from "./context";
-import { pingDatabase, getLastDbError, getGuestDocumentByShareToken } from "../db";
+import { pingDatabase, getLastDbError, getGuestDocumentByShareToken, seedDefaultEmailTemplates } from "../db";
 import { buildHealthPayload } from "./health";
 import { buildDocumentSharePdfBuffer } from "../documentSharePdf";
 
@@ -54,6 +54,10 @@ export async function createApp() {
   app.get("/api/health", async (_req, res) => {
     const dbOk = await pingDatabase();
     res.status(200).json({ ...buildHealthPayload({ dbOk }), dbError: dbOk ? null : getLastDbError() });
+  });
+
+  void seedDefaultEmailTemplates().catch((err) => {
+    console.warn("[seed] email templates non amorcés:", err instanceof Error ? err.message : String(err));
   });
 
   app.get("/api/d/:token.pdf", async (req, res) => {
