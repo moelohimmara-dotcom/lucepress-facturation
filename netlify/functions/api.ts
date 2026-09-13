@@ -9,6 +9,7 @@ if (!(globalThis as any).crypto) {
 import serverlessHttp from "serverless-http";
 import { createApp } from "../../server/_core/index.ts";
 
+const BUILD_ID = "build-2026-09-13-redeploy";
 let handlerPromise = null;
 
 async function getHandler() {
@@ -83,7 +84,7 @@ export default async (event: any, context: any) => {
     return v1ToWebResponse({
       statusCode: 500,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ diag: "api-handler-throw", message }),
+      body: JSON.stringify({ diag: `${BUILD_ID}:api-handler-throw`, message }),
     });
   }
 };
