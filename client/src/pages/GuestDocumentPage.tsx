@@ -114,40 +114,50 @@ export default function GuestDocumentPage() {
           </div>
         )}
 
-        <article id="lucepress-guest-document" className="card-shadow mx-auto max-w-[210mm] bg-white text-[#183a35]">
-          <div className="border-b-[10px] border-[#153f38] p-8 sm:p-12">
-            <div className="flex flex-col justify-between gap-6 sm:flex-row">
+        <article id="lucepress-guest-document" className="card-shadow mx-auto max-w-[210mm] overflow-hidden rounded-2xl border border-[#e4ddcb] bg-white text-[#243530]">
+          <div className="relative bg-gradient-to-br from-[#153f38] to-[#0f2d28] p-8 text-white sm:p-12">
+            <span className="absolute inset-x-0 bottom-0 h-[5px] bg-[#d4a24e]" />
+            <div className="flex items-center gap-3">
+              <span className="font-editorial flex h-11 w-11 items-center justify-center rounded-xl bg-white text-2xl font-bold italic text-[#153f38]">L</span>
+              <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-white/75">{company.legalName || LUCEPRES_PUBLIC_PROFILE.legalName} · Hydraulique · Travaux · Services</span>
+            </div>
+            <div className="mt-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="font-editorial text-3xl font-semibold tracking-tight">{company.legalName || LUCEPRES_PUBLIC_PROFILE.legalName}</p>
-                <p className="mt-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#4b746d]">Hydraulique · Travaux · Services</p>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#d4a24e]">{kindLabel}</p>
+                <h1 className="font-editorial mt-2.5 text-3xl font-semibold tracking-tight">Votre {kindLabel.toLowerCase()} est disponible</h1>
               </div>
-              <div className="sm:text-right">
-                <p className="font-editorial text-3xl font-semibold">{kindLabel}</p>
-                <p className="mt-2 font-mono text-sm font-bold text-[#1e6051]">{document.number}</p>
+              <div className="flex flex-col items-start gap-1.5 sm:items-end">
+                <div className="flex items-center gap-2"><span className="text-xs text-white/70">N°</span><span className="font-mono text-sm font-bold tracking-tight">{document.number}</span></div>
               </div>
             </div>
           </div>
           <div className="grid gap-8 p-8 sm:grid-cols-2 sm:p-12">
             <section>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#4b746d]">Destinataire</p>
-              <p className="mt-3 text-sm font-extrabold">{document.clientName}</p>
-              {document.contactName && <p className="mt-1 text-sm">{document.contactName}</p>}
-              {document.clientAddress && <p className="mt-1 max-w-xs whitespace-pre-line text-sm leading-6 text-slate-600">{document.clientAddress}</p>}
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Facturé à</p>
+              <p className="mt-2.5 text-base font-bold text-[#243530]">{document.clientName}</p>
+              {document.contactName && <p className="mt-0.5 text-sm">{document.contactName}</p>}
+              {document.clientAddress && <p className="mt-0.5 max-w-xs whitespace-pre-line text-sm leading-6 text-[#63706b]">{document.clientAddress}</p>}
             </section>
-            <section className="sm:text-right">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#4b746d]">Informations</p>
-              <dl className="mt-3 space-y-1.5 text-sm">
-                <div className="flex justify-between gap-4 sm:justify-end"><dt className="text-slate-500">Date d’émission</dt><dd className="font-bold">{formatDate(document.issueDate)}</dd></div>
-                {document.kind === "devis" && document.validUntil && <div className="flex justify-between gap-4 sm:justify-end"><dt className="text-slate-500">Valide jusqu’au</dt><dd className="font-bold">{formatDate(document.validUntil)}</dd></div>}
-                {document.kind === "facture" && document.dueDate && <div className="flex justify-between gap-4 sm:justify-end"><dt className="text-slate-500">Échéance</dt><dd className="font-bold">{formatDate(document.dueDate)}</dd></div>}
-                {document.projectName && <div className="flex justify-between gap-4 sm:justify-end"><dt className="text-slate-500">Chantier</dt><dd className="font-bold">{document.projectName}</dd></div>}
+            <section>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Détails du document</p>
+              <dl className="mt-2.5 overflow-hidden rounded-xl border border-[#e4ddcb] bg-[#fbf8f1]">
+                <GuestInfoRow label="Date d’émission" value={formatDate(document.issueDate)} />
+                {document.kind === "devis" && document.validUntil && <GuestInfoRow label="Valide jusqu’au" value={formatDate(document.validUntil)} />}
+                {document.kind === "facture" && document.dueDate && <GuestInfoRow label="Échéance" value={formatDate(document.dueDate)} />}
+                {document.projectName && <GuestInfoRow label="Chantier" value={document.projectName} />}
               </dl>
             </section>
           </div>
           <div className="px-8 pb-8 sm:px-12">
+            {document.kind === "facture" && (
+              <div className="mb-7 flex items-center justify-between rounded-2xl border border-[#ecd9a8] bg-gradient-to-br from-[#fbf3e2] to-[#fbf8f1] px-6 py-5">
+                <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#63706b]">Solde dû</span>
+                <span className="font-mono text-2xl font-extrabold text-[#153f38]">{formatGnf(document.balanceDue)}</span>
+              </div>
+            )}
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
               <table className="w-full border-collapse text-left text-xs">
-                <thead className="bg-[#eef5f1] text-[#28534b]">
+                <thead className="bg-[#e8f2ee] text-[#28534b]">
                   <tr>
                     <th className="px-3 py-3 font-extrabold sm:px-4">Désignation</th>
                     <th className="px-2 py-3 text-right font-extrabold">Qté</th>
@@ -159,52 +169,56 @@ export default function GuestDocumentPage() {
                   {document.lines.map(line => (
                     <tr key={line.id} className="border-t border-slate-200 dark:border-slate-800">
                       <td className="px-3 py-3.5 leading-5 sm:px-4">{line.description}<span className="ml-1 text-slate-400">({line.unit})</span></td>
-                      <td className="px-2 py-3.5 text-right font-mono">{Number(line.quantity)}</td>
-                      <td className="hidden px-2 py-3.5 text-right font-mono sm:table-cell">{new Intl.NumberFormat("fr-GN").format(line.unitPrice)}</td>
+                      <td className="px-2 py-3.5 text-right font-mono text-[#63706b]">{Number(line.quantity)}</td>
+                      <td className="hidden px-2 py-3.5 text-right font-mono text-[#63706b] sm:table-cell">{new Intl.NumberFormat("fr-GN").format(line.unitPrice)}</td>
                       <td className="px-3 py-3.5 text-right font-mono font-bold sm:px-4">{new Intl.NumberFormat("fr-GN").format(line.lineTotal)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="ml-auto mt-5 max-w-xs space-y-2 border-b border-[#153f38] pb-4 text-sm">
-              <div className="flex justify-between text-slate-600"><span>Sous-total</span><span className="font-mono">{formatGnf(document.subtotal)}</span></div>
-              <div className="flex justify-between text-slate-600"><span>Taxes</span><span className="font-mono">{formatGnf(document.taxTotal)}</span></div>
-              {document.discountAmount > 0 && <div className="flex justify-between text-slate-600"><span>Remise · {document.discountPercent}%</span><span className="font-mono">− {formatGnf(document.discountAmount)}</span></div>}
-              <div className="mt-3 flex justify-between text-base font-extrabold"><span>Total TTC</span><span className="font-mono text-[#1e6051]">{formatGnf(document.total)}</span></div>
+            <div className="ml-auto mt-6 w-full max-w-[320px] space-y-2 text-sm">
+              <div className="flex justify-between text-[#63706b]"><span>Sous-total</span><span className="font-mono">{formatGnf(document.subtotal)}</span></div>
+              <div className="flex justify-between text-[#63706b]"><span>Taxes</span><span className="font-mono">{formatGnf(document.taxTotal)}</span></div>
+              {document.discountAmount > 0 && <div className="flex justify-between text-[#63706b]"><span>Remise · {document.discountPercent}%</span><span className="font-mono">− {formatGnf(document.discountAmount)}</span></div>}
+              <div className="mt-3 flex justify-between border-t-2 border-[#153f38] pt-3 text-base font-extrabold"><span>Total TTC</span><span className="font-mono text-[#153f38]">{formatGnf(document.total)}</span></div>
               {document.kind === "facture" && (
                 <>
-                  <div className="flex justify-between text-slate-600"><span>Déjà encaissé</span><span className="font-mono">{formatGnf(document.paidAmount)}</span></div>
-                  <div className="flex justify-between font-extrabold"><span>Solde dû</span><span className="font-mono text-[#1e6051]">{formatGnf(document.balanceDue)}</span></div>
+                  <div className="flex justify-between text-[#63706b]"><span>Déjà encaissé</span><span className="font-mono">{formatGnf(document.paidAmount)}</span></div>
+                  <div className="flex justify-between font-extrabold"><span>Solde dû</span><span className="font-mono text-[#153f38]">{formatGnf(document.balanceDue)}</span></div>
                 </>
               )}
             </div>
-            {schedule && (
-              <section className="mt-8 rounded-xl border border-[#d8e7df] bg-[#f6faf8] p-4">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#4b746d]">Échéancier proposé</p>
-                <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
-                  <div><p className="font-extrabold">Acompte · {schedule.depositPercent}%</p><p className="mt-1 font-mono text-sm text-[#1e6051]">{formatGnf(schedule.depositAmount)}</p></div>
-                  <div><p className="font-extrabold">Solde · {schedule.balancePercent}%</p><p className="mt-1 font-mono text-sm text-[#1e6051]">{formatGnf(schedule.balanceAmount)}</p></div>
-                </div>
-              </section>
+            {(schedule || bankLine || document.notes) && (
+              <div className="mt-7 grid gap-4 sm:grid-cols-2">
+                {schedule && (
+                  <section className="rounded-xl border border-[#e4ddcb] bg-[#fbf8f1] p-4">
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Échéancier proposé</p>
+                    <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+                      <div><p className="font-extrabold">Acompte · {schedule.depositPercent}%</p><p className="mt-1 font-mono text-sm text-[#153f38]">{formatGnf(schedule.depositAmount)}</p></div>
+                      <div><p className="font-extrabold">Solde · {schedule.balancePercent}%</p><p className="mt-1 font-mono text-sm text-[#153f38]">{formatGnf(schedule.balanceAmount)}</p></div>
+                    </div>
+                  </section>
+                )}
+                {bankLine && (
+                  <section className="rounded-xl border border-[#e4ddcb] bg-[#fbf8f1] p-4">
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Règlement</p>
+                    <p className="mt-2 text-xs leading-5 text-[#63706b]">{bankLine}</p>
+                    {company.paymentInstructions && <p className="mt-2 whitespace-pre-line text-xs leading-5 text-[#63706b]">{company.paymentInstructions}</p>}
+                  </section>
+                )}
+                {document.notes && (
+                  <section className="rounded-xl border border-[#e4ddcb] bg-[#fbf8f1] p-4">
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">Conditions &amp; garanties</p>
+                    <p className="mt-2 whitespace-pre-line text-xs leading-5 text-[#63706b]">{document.notes}</p>
+                  </section>
+                )}
+              </div>
             )}
-            {bankLine && (
-              <section className="mt-8 rounded-xl border border-[#d8e7df] bg-[#f6faf8] p-4">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#4b746d]">Règlement</p>
-                <p className="mt-2 text-xs leading-5 text-slate-600">{bankLine}</p>
-                {company.paymentInstructions && <p className="mt-2 whitespace-pre-line text-xs leading-5 text-slate-600">{company.paymentInstructions}</p>}
-              </section>
-            )}
-            {document.notes && (
-              <section className="mt-8 rounded-xl bg-[#f8faf9] p-4">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#4b746d]">Notes</p>
-                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{document.notes}</p>
-              </section>
-            )}
-            <footer className="mt-12 border-t border-slate-200 dark:border-slate-800 pt-5 text-center text-[10px] font-medium tracking-wide text-slate-400">
-              <p>{formatCompanyDocumentFooter(company.documentFooter)}</p>
-              {legalLine && <p className="mt-1">{legalLine}</p>}
-              {registrationLine && <p className="mt-1">{registrationLine}</p>}
+            <footer className="mt-10 rounded-b-2xl bg-[#e8f2ee] px-8 py-7 text-center sm:px-12">
+              <span className="mx-auto mb-3 block h-[3px] w-12 rounded bg-[#d4a24e]" />
+              <p className="font-editorial text-sm font-medium italic text-[#153f38]">{formatCompanyDocumentFooter(company.documentFooter)}</p>
+              {(legalLine || registrationLine) && <p className="mt-3 text-[11px] leading-relaxed text-[#4a5752]">{[legalLine, registrationLine].filter(Boolean).join(" · ")}</p>}
             </footer>
           </div>
         </article>
@@ -220,7 +234,7 @@ export default function GuestDocumentPage() {
 
 function GuestShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#f4f7f5] text-foreground">
+    <div className="min-h-screen bg-[#f4ede0] text-foreground">
       <div className="border-b border-border bg-white/90 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <p className="font-editorial text-lg font-semibold tracking-tight">{LUCEPRES_PUBLIC_PROFILE.legalName}</p>
@@ -230,4 +244,8 @@ function GuestShell({ children }: { children: ReactNode }) {
       <div className="px-4 pt-6">{children}</div>
     </div>
   );
+}
+
+function GuestInfoRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-center justify-between border-b border-[#e4ddcb] px-5 py-3 last:border-b-0"><dt className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#63706b]">{label}</dt><dd className="font-bold text-[#243530]">{value}</dd></div>;
 }
