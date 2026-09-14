@@ -20,6 +20,7 @@ vi.mock("@/lib/trpc", () => ({
         create: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
         update: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
         invitePortal: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+        delete: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       },
       assistant: { extractClient: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) }, summarizeClientHistory: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) } },
     },

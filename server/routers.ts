@@ -1014,6 +1014,15 @@ export const appRouter = router({
       update: staffProcedure
         .input(clientInputSchema.extend({ id: z.number().int().positive() }))
         .mutation(({ input }) => db.updateClient(input.id, input)),
+      delete: staffProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ input }) => {
+          try {
+            return await db.deleteClient(input.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le client n’a pas pu être supprimé." });
+          }
+        }),
       invitePortal: staffProcedure
         .input(z.object({ clientId: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
@@ -1393,6 +1402,15 @@ export const appRouter = router({
             return await db.updateDocumentStatus(input.id, input.status, ctx.user.id);
           } catch (error) {
             throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le statut n’a pas pu être mis à jour." });
+          }
+        }),
+      delete: staffProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          try {
+            return await db.deleteDocument(input.id, ctx.user.id);
+          } catch (error) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Le document n’a pas pu être supprimé." });
           }
         }),
       createDepositInvoice: staffProcedure
