@@ -95,6 +95,7 @@ export default defineConfig({
     emptyOutDir: true,
     chunkSizeWarningLimit: 400,
     rollupOptions: {
+      external: [/^three(\/.*)?$/, /^https:\/\//],
       output: {
         manualChunks: {
           vendor: ["react", "react-dom", "wouter"],

@@ -17,6 +17,8 @@ vi.mock("@/const", () => ({ startLogin: vi.fn() }));
 vi.mock("@/contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }) }));
 vi.mock("@/lib/trpc", () => ({ trpc: { billing: { workspaceSearch: { useQuery: () => ({ data: [{ id: 7, kind: "creance", title: "FAC-007", subtitle: "Créance · Kankan BTP", href: "/creances?facture=7" }], isFetching: false }) } } } }));
 vi.mock("wouter", () => ({ useLocation: () => ["/", navigate] }));
+vi.mock("@/lib/ascendPlanet", () => ({ startPlanetScene: () => Promise.resolve(() => {}) }));
+vi.mock("@/components/ascend-landing.css", () => ({}));
 vi.mock("@/components/ui/avatar", () => ({ Avatar: ({ children }: any) => createElement("div", null, children), AvatarFallback: ({ children }: any) => createElement("span", null, children) }));
 vi.mock("@/components/ui/button", () => ({ Button: ({ children, ...props }: any) => createElement("button", props, children) }));
 vi.mock("@/components/ui/dropdown-menu", () => ({ DropdownMenu: ({ children }: any) => createElement("div", null, children), DropdownMenuContent: ({ children }: any) => createElement("div", null, children), DropdownMenuItem: ({ children, ...props }: any) => createElement("button", props, children), DropdownMenuTrigger: ({ children }: any) => createElement("div", null, children) }));

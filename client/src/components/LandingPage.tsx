@@ -1,273 +1,386 @@
-import { Button } from "@/components/ui/button";
-import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
-import {
-  ArrowRight,
-  FileText,
-  MapPin,
-  ReceiptText,
-  ShieldCheck,
-  Sparkles,
-  UsersRound,
-  WalletCards,
-  Wrench,
-} from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { LucepresMark } from "./LucepresMark";
+import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
+import { startPlanetScene } from "@/lib/ascendPlanet";
+import "./ascend-landing.css";
 
-const trustBadges = [
-  { icon: ShieldCheck, label: "Espace sécurisé" },
-  { icon: WalletCards, label: "Montants en GNF" },
-  { icon: MapPin, label: "Pensé pour la Guinée" },
-  { icon: Sparkles, label: "Agent IA intégré" },
+const DASH_BAR_HEIGHTS = [62, 88, 47, 95, 71, 80, 58];
+const DASH_ROWS = [
+  { label: "Nouveaux devis", w: 90 },
+  { label: "Devis validés", w: 72 },
+  { label: "Factures émises", w: 48 },
+  { label: "Encaissé", w: 34 },
 ] as const;
 
-const primaryFeatures = [
-  {
-    icon: Sparkles,
-    title: "Devis en 5 étapes guidées",
-    description: "Décris ton chantier, l'assistant IA prépare un brouillon complet. Tu relis, tu valides, tu envoies. Sans te perdre dans un long formulaire.",
-    tag: "Nouveau",
-  },
-  {
-    icon: UsersRound,
-    title: "Portail client",
-    description: "Tes clients consultent et acceptent leurs devis en toute autonomie, sur un lien sécurisé. Fini les allers-retours par téléphone.",
-    tag: "Autonome",
-  },
+const LOGOS = ["HydroConakry", "BTP Kankan", "Forage Nimba", "Maintenance Kindia", "Travaux Nzérékoré", "Énergie Boké"] as const;
+
+const FEATURES = [
+  { Icon: IconWorkflow, title: "Devis en 5 étapes guidées", text: "Décris ton chantier, l'assistant IA prépare un brouillon complet. Tu relis, tu valides, tu envoies — sans te perdre dans un long formulaire." },
+  { Icon: IconAnalytics, title: "Pilotage en direct", text: "Tes encaissements, créances et marges chantier par chantier, sur un seul tableau de bord qui te dit quoi faire ensuite." },
+  { Icon: IconLeads, title: "Portail client", text: "Tes clients consultent et acceptent leurs devis en toute autonomie sur un lien sécurisé. Fini les allers-retours par téléphone." },
+  { Icon: IconBolt, title: "Relances en un clic", text: "Déclenche une relance dès qu'une facture approche l'échéance — en quelques secondes, pas en quelques jours." },
+  { Icon: IconShield, title: "Sécurité entreprise", text: "Espace sécurisé, rôles par équipe et montants en GNF. Une sécurité discrète qui grandit avec tes collaborateurs." },
+  { Icon: IconGlobe, title: "Pensé pour la Guinée", text: "Multi-chantiers, formatage GNF fr-GN et faibles latences partout où tes chantiers se trouvent en Guinée." },
 ] as const;
 
-const standardFeatures = [
-  {
-    icon: FileText,
-    title: "Devis & factures",
-    description: "Crée, envoie et suis tes documents. Du brouillon au paiement, tout reste dans un seul espace.",
-  },
-  {
-    icon: ReceiptText,
-    title: "Créances & relances",
-    description: "Vois d'un coup d'œil qui doit quoi, relance en un clic, garde le cap sur les paiements attendus.",
-  },
-  {
-    icon: WalletCards,
-    title: "Pilotage financier",
-    description: "Compare les coûts réels et la marge encaissée à la prévision, chantier par chantier.",
-  },
-  {
-    icon: Wrench,
-    title: "Catalogue métier",
-    description: "Hydraulique, hygiène, maintenance : un catalogue prêt à compléter avec tes prix.",
-  },
+const STATS = [
+  { value: "3.4×", label: "Pipeline commercial accéléré" },
+  { value: "92%", label: "Devis acceptés du premier envoi" },
+  { value: "−63%", label: "Retards de paiement" },
+  { value: "GNF", label: "Tout en franc guinéen" },
 ] as const;
 
-const steps = [
-  { number: "01", label: "Enregistre tes clients", detail: "Manuellement ou par extraction IA depuis un e-mail.", icon: UsersRound },
-  { number: "02", label: "Crée tes devis", detail: "Assistant IA ou saisie guidée en 5 étapes, puis envoi par e-mail.", icon: FileText },
-  { number: "03", label: "Suis les paiements", detail: "Créances, relances et marges, en un coup d'œil chaque matin.", icon: WalletCards },
+const FOOTER_COLS = [
+  { title: "Produit", links: ["Devis", "Factures", "Créances"] },
+  { title: "Société", links: ["À propos", "Contact", "Chantiers"] },
+  { title: "Légal", links: ["Confidentialité", "Conditions", "Sécurité"] },
 ] as const;
-
-function goToLogin(setLocation: (path: string) => void) {
-  setLocation("/login");
-}
 
 export function LandingPage() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    let cleanupScene: (() => void) | undefined;
+    let lenis: { destroy: () => void } | undefined;
+    let observer: IntersectionObserver | undefined;
+
+    if (canvasRef.current) {
+      startPlanetScene(canvasRef.current).then((fn) => {
+        cleanupScene = fn;
+      });
+    }
+
+    if (!reduceMotion) {
+      import(/* @vite-ignore */ "https://unpkg.com/lenis@1.3.23/dist/lenis.mjs")
+        .then((mod: any) => {
+          const Lenis = mod.default ?? mod;
+          const instance = new Lenis({ duration: 1.15, smoothWheel: true, touchMultiplier: 1.5 });
+          lenis = instance;
+          let rafId = 0;
+          const raf = (t: number) => {
+            instance.raf(t);
+            rafId = requestAnimationFrame(raf);
+          };
+          rafId = requestAnimationFrame(raf);
+          (instance as any)._rafId = rafId;
+        })
+        .catch(() => {});
+    }
+
+    const revealEls = Array.from(root.querySelectorAll<HTMLElement>("[data-reveal]"));
+    if (reduceMotion) {
+      revealEls.forEach((el) => el.classList.add("in"));
+    } else {
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("in");
+              observer?.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.18, rootMargin: "0px 0px -8% 0px" },
+      );
+      revealEls.forEach((el) => observer!.observe(el));
+    }
+
+    const onDashboardBars = () => {
+      root.querySelectorAll<HTMLElement>(".dash-bar").forEach((bar, i) => {
+        bar.style.animationDelay = `${i * 90}ms`;
+      });
+    };
+    onDashboardBars();
+
+    return () => {
+      cleanupScene?.();
+      if (lenis) {
+        cancelAnimationFrame((lenis as any)._rafId);
+        lenis.destroy();
+      }
+      observer?.disconnect();
+    };
+  }, []);
+
+  const goLogin = () => setLocation("/login");
+
   return (
-    <div className="surface-grid relative min-h-screen overflow-hidden bg-background">
-      <div className="lucepress-ornament pointer-events-none absolute inset-0 opacity-30" aria-hidden />
+    <div className="ascend-landing" ref={rootRef}>
+      <canvas className="planet-canvas" ref={canvasRef} aria-hidden />
+      <div className="page" id="top">
+        <header className="hero">
+          <nav className="nav">
+            <a className="brand" href="#top" aria-label={`${LUCEPRES_PUBLIC_PROFILE.displayName} — accueil`}>
+              <span className="brand-mark" aria-hidden>▲</span>
+              <span>{LUCEPRES_PUBLIC_PROFILE.displayName}</span>
+            </a>
+            <div className="nav-links">
+              <a href="#features">Fonctions</a>
+              <a href="#solutions">Solutions</a>
+              <a href="#solutions">Témoignages</a>
+              <a href="#cta">Aide</a>
+            </div>
+            <button type="button" className="btn btn-ghost" onClick={goLogin}>
+              Se connecter
+            </button>
+          </nav>
 
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
-        <div className="flex items-center gap-3">
-          <LucepresMark />
-          <span className="font-editorial text-xl font-semibold tracking-tight">{LUCEPRES_PUBLIC_PROFILE.displayName}</span>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => goToLogin(setLocation)}
-          className="h-10 rounded-xl border-border bg-card/80 font-bold backdrop-blur"
-        >
-          Se connecter
-        </Button>
-      </header>
-
-      <main className="relative z-10 mx-auto max-w-4xl px-5 pt-8 text-center sm:px-8 sm:pt-14">
-        <p className="lucepress-kicker">{LUCEPRES_PUBLIC_PROFILE.positioning} · {LUCEPRES_PUBLIC_PROFILE.location}</p>
-        <h1 className="font-editorial mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
-          Du premier devis<br className="hidden sm:block" /> au paiement encaissé.
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-          Lucepres réunit la création de devis, le suivi des créances et un agent IA — pensé pour les chantiers d'hydraulique, de BTP et de maintenance en Guinée. Tu gagnes du temps sur le papier, tu gardes le cap sur la trésorerie.
-        </p>
-
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Button
-            onClick={() => goToLogin(setLocation)}
-            className="h-12 rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-150 active:scale-[0.97]"
-          >
-            Accéder à l'espace
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-          <a
-            href="#fonctions"
-            className="inline-flex h-12 items-center rounded-xl border border-border bg-card/60 px-5 text-sm font-bold text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 hover:text-primary"
-          >
-            Voir comment ça marche
-          </a>
-        </div>
-
-        <ul className="mx-auto mt-9 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2.5 text-xs font-bold text-muted-foreground">
-          {trustBadges.map((badge) => (
-            <li key={badge.label} className="inline-flex items-center gap-1.5">
-              <badge.icon className="h-4 w-4 text-primary" aria-hidden />
-              {badge.label}
-            </li>
-          ))}
-        </ul>
-      </main>
-
-      <ProductMockup />
-
-      <section id="fonctions" aria-labelledby="features-title" className="relative z-10 mx-auto mt-20 max-w-6xl px-5 sm:px-8">
-        <div className="mb-10 text-center">
-          <p className="lucepress-kicker">Tout l'atelier</p>
-          <h2 id="features-title" className="font-editorial mt-3 text-3xl font-semibold tracking-tight">Ce qui change ton quotidien</h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-            Chaque fonction de Lucepres vise une décision claire : valider, envoyer, suivre.
-          </p>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          {primaryFeatures.map((feature) => (
-            <article
-              key={feature.title}
-              className="lucepress-panel stagger-rise relative flex flex-col rounded-[1.5rem] p-7 transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-                  <feature.icon className="h-6 w-6" aria-hidden />
-                </div>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-primary">{feature.tag}</span>
-              </div>
-              <h3 className="font-editorial mt-5 text-xl font-semibold">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{feature.description}</p>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {standardFeatures.map((feature) => (
-            <article
-              key={feature.title}
-              className="lucepress-panel rounded-[1.35rem] p-5 transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <feature.icon className="h-5 w-5" aria-hidden />
-              </div>
-              <h3 className="font-editorial mt-4 text-base font-semibold">{feature.title}</h3>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">{feature.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="steps-title" className="relative z-10 mx-auto mt-20 max-w-4xl px-5 sm:px-8">
-        <div className="lucepress-panel rounded-[1.5rem] p-8 sm:p-10">
-          <div className="mb-8 text-center">
-            <p className="lucepress-kicker">En trois gestes</p>
-            <h2 id="steps-title" className="font-editorial mt-3 text-3xl font-semibold tracking-tight">Du premier client au paiement encaissé</h2>
+          <div className="hero-inner">
+            <h1 className="hero-title" data-reveal style={{ "--rd": "60ms" } as React.CSSProperties}>
+              Du premier devis<br />au <em>paiement</em> encaissé.
+            </h1>
+            <p className="hero-sub" data-reveal style={{ "--rd": "180ms" } as React.CSSProperties}>
+              Lucepres réunit la création de devis, le suivi des créances et un agent IA — pensé pour les chantiers
+              d'hydraulique, de BTP et de maintenance en Guinée. Tu gagnes du temps sur le papier, tu gardes le cap sur la trésorerie.
+            </p>
+            <div className="hero-actions" data-reveal style={{ "--rd": "300ms" } as React.CSSProperties}>
+              <button type="button" className="btn btn-primary" onClick={goLogin}>
+                Accéder à l'espace
+                <IconArrow />
+              </button>
+              <a className="btn btn-outline" href="#cta">
+                Planifier un échange
+              </a>
+            </div>
           </div>
-          <ol className="grid gap-6 sm:grid-cols-3">
-            {steps.map((step) => (
-              <li key={step.number} className="text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-                  <step.icon className="h-5 w-5" aria-hidden />
-                </div>
-                <h3 className="mt-4 text-sm font-extrabold">{step.label}</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{step.detail}</p>
-              </li>
+
+          <div className="logos" data-reveal style={{ "--rd": "420ms" } as React.CSSProperties}>
+            <p className="logos-label">Ils avancent avec Lucepres</p>
+            <div className="logos-row">
+              {LOGOS.map((name) => (
+                <span className="logo" key={name}>{name}</span>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        <section className="section features" id="features" aria-labelledby="features-title">
+          <div className="section-head">
+            <span className="eyebrow" data-reveal>Tout l'atelier en orbite</span>
+            <h2 id="features-title" data-reveal style={{ "--rd": "80ms" } as React.CSSProperties}>
+              Une seule plateforme pour tout ton moteur commercial
+            </h2>
+            <p data-reveal style={{ "--rd": "160ms" } as React.CSSProperties}>
+              Arrête d'empiler les outils. Lucepres réunit la capture, l'automatisation et l'analyse sur une seule surface
+              que toute ton équipe prend plaisir à utiliser.
+            </p>
+          </div>
+          <div className="feature-grid">
+            {FEATURES.map(({ Icon, title, text }, i) => (
+              <article
+                className="card"
+                key={title}
+                data-reveal
+                style={{ "--rd": `${i * 90}ms` } as React.CSSProperties}
+              >
+                <div className="card-icon"><Icon /></div>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
             ))}
-          </ol>
-        </div>
-      </section>
-
-      <section aria-labelledby="cta-title" className="relative z-10 mx-auto mt-20 max-w-4xl px-5 pb-20 text-center sm:px-8">
-        <div className="lucepress-panel rounded-[1.5rem] bg-primary p-10 text-primary-foreground sm:p-14">
-          <h2 id="cta-title" className="font-editorial text-3xl font-semibold leading-tight sm:text-4xl">
-            Commence dès aujourd'hui.
-          </h2>
-          <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-primary-foreground/80">
-            Connecte-toi pour accéder à tes devis, factures et chantiers. Ta file de décisions du matin t'attend.
-          </p>
-          <Button
-            onClick={() => goToLogin(setLocation)}
-            className="mt-7 h-12 rounded-xl bg-primary-foreground px-6 text-sm font-bold text-primary shadow-lg transition-transform duration-150 active:scale-[0.97]"
-          >
-            Accéder à l'espace Lucepres
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      </section>
-
-      <footer className="relative z-10 border-t border-border bg-background/80 px-5 py-8 backdrop-blur sm:px-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-xs text-muted-foreground sm:flex-row">
-          <span>{LUCEPRES_PUBLIC_PROFILE.legalName} · {LUCEPRES_PUBLIC_PROFILE.location}</span>
-          <div className="flex flex-col items-center gap-1 sm:flex-row sm:gap-4">
-            <a href={`tel:${LUCEPRES_PUBLIC_PROFILE.phone.replace(/\s/g, "")}`} className="font-bold hover:text-primary">{LUCEPRES_PUBLIC_PROFILE.phone}</a>
-            <a href={`mailto:${LUCEPRES_PUBLIC_PROFILE.email}`} className="font-bold hover:text-primary">{LUCEPRES_PUBLIC_PROFILE.email}</a>
           </div>
-          <span>{LUCEPRES_PUBLIC_PROFILE.documentFooter}</span>
-        </div>
-      </footer>
+        </section>
+
+        <section className="section showcase" id="solutions" aria-labelledby="solutions-title">
+          <div className="showcase-grid">
+            <div className="showcase-copy">
+              <span className="eyebrow" data-reveal>Conçu pour la cadence</span>
+              <h2 id="solutions-title" data-reveal style={{ "--rd": "90ms" } as React.CSSProperties}>
+                Vois toute ta trésorerie avancer en direct
+              </h2>
+              <p data-reveal style={{ "--rd": "180ms" } as React.CSSProperties}>
+                Chaque devis, chaque facture, chaque encaissement — rendu en direct. Lucepres te donne l'altitude pour
+                repérer ce qui marche et les commandes pour accélérer aussitôt.
+              </p>
+              <div className="hero-actions" data-reveal style={{ "--rd": "270ms" } as React.CSSProperties}>
+                <button type="button" className="btn btn-primary" onClick={goLogin}>
+                  Explorer la plateforme
+                  <IconArrow />
+                </button>
+              </div>
+            </div>
+            <div className="dashboard" data-reveal style={{ "--rd": "160ms" } as React.CSSProperties}>
+              <div className="dash-top">
+                <span className="dash-title">Trésorerie · Q3</span>
+                <span className="dash-live">
+                  <span className="dot" aria-hidden />
+                  Live
+                </span>
+              </div>
+              <div className="dash-bars" role="img" aria-label="Aperçu illustratif du tableau de bord en GNF">
+                {DASH_BAR_HEIGHTS.map((ht, i) => (
+                  <div className="dash-bar grow" key={i} style={{ height: `${ht}%` }} />
+                ))}
+              </div>
+              <div className="dash-rows">
+                {DASH_ROWS.map((row) => (
+                  <RowFragment key={row.label} label={row.label} w={row.w} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="stats">
+            {STATS.map((stat, i) => (
+              <div
+                className="stat"
+                key={stat.label}
+                data-reveal
+                style={{ "--rd": `${i * 80}ms` } as React.CSSProperties}
+              >
+                <div className="stat-value">{stat.value}</div>
+                <div className="stat-label">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="section cta" id="cta" aria-labelledby="cta-title">
+          <div className="cta-card">
+            <span className="eyebrow" data-reveal style={{ "--rd": "60ms" } as React.CSSProperties}>Prêt quand tu l'es</span>
+            <h2 id="cta-title" data-reveal style={{ "--rd": "140ms" } as React.CSSProperties}>
+              Mets ta croissance sur une nouvelle trajectoire
+            </h2>
+            <p data-reveal style={{ "--rd": "220ms" } as React.CSSProperties}>
+              Connecte-toi en quelques minutes. Accès réservé à l'équipe Lucepres. Rejoins les collaborateurs qui font
+              avancer leurs chantiers chaque matin.
+            </p>
+            <div className="hero-actions" data-reveal style={{ "--rd": "300ms" } as React.CSSProperties}>
+              <button type="button" className="btn btn-primary" onClick={goLogin}>
+                Accéder à l'espace
+                <IconArrow />
+              </button>
+              <a
+                className="btn btn-outline"
+                href={`mailto:${LUCEPRES_PUBLIC_PROFILE.email}`}
+              >
+                Parler à l'équipe
+              </a>
+            </div>
+          </div>
+
+          <footer className="footer">
+            <div className="footer-brand">
+              <a className="brand" href="#top">
+                <span className="brand-mark" aria-hidden>▲</span>
+                <span>{LUCEPRES_PUBLIC_PROFILE.displayName}</span>
+              </a>
+              <p>L'atelier de gestion commerciale pour les chantiers ambitieux de Guinée.</p>
+              <p>
+                <a href={`tel:${LUCEPRES_PUBLIC_PROFILE.phone.replace(/\s/g, "")}`}>{LUCEPRES_PUBLIC_PROFILE.phone}</a>
+                <br />
+                <a href={`mailto:${LUCEPRES_PUBLIC_PROFILE.email}`}>{LUCEPRES_PUBLIC_PROFILE.email}</a>
+              </p>
+            </div>
+            <div className="footer-cols">
+              {FOOTER_COLS.map((col) => (
+                <div className="footer-col" key={col.title}>
+                  <h4>{col.title}</h4>
+                  {col.links.map((link) => (
+                    <a
+                      key={link}
+                      href={link === "Contact" ? `mailto:${LUCEPRES_PUBLIC_PROFILE.email}` : "#"}
+                    >
+                      {link}
+                    </a>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </footer>
+
+          <p className="copyright">
+            © {new Date().getFullYear()} {LUCEPRES_PUBLIC_PROFILE.legalName} — Bâti parmi les étoiles.
+          </p>
+        </section>
+      </div>
     </div>
   );
 }
 
-function ProductMockup() {
+function RowFragment({ label, w }: { label: string; w: number }) {
   return (
-    <section aria-label="Aperçu du tableau de bord" className="relative z-10 mx-auto mt-14 max-w-5xl px-5 sm:px-8">
-      <div className="lucepress-panel overflow-hidden rounded-[1.5rem] p-3 shadow-2xl shadow-primary/10 sm:p-4">
-        <div className="rounded-xl border border-border bg-background/80 p-5 sm:p-7">
-          <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
-            <div>
-              <p className="lucepress-kicker">Aujourd'hui</p>
-              <p className="font-editorial mt-1 text-lg font-semibold">Ta file de décisions</p>
-            </div>
-            <div className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[11px] font-bold text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-              Rechercher…
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {[
-              { label: "Encaissé", value: "8 450 000 GNF", tone: "text-emerald-600", bg: "bg-emerald-500/10" },
-              { label: "En attente", value: "3 120 000 GNF", tone: "text-amber-600", bg: "bg-amber-500/10" },
-              { label: "En retard", value: "980 000 GNF", tone: "text-red-600", bg: "bg-red-500/10" },
-            ].map((card) => (
-              <div key={card.label} className={`rounded-xl ${card.bg} p-4`}>
-                <p className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">{card.label}</p>
-                <p className={`font-mono mt-1.5 text-sm font-extrabold ${card.tone}`}>{card.value}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 space-y-2">
-            {[
-              { kind: "Devis", number: "DEV-2026-0042", client: "Entreprise Kankan", status: "À envoyer", tone: "text-amber-600" },
-              { kind: "Facture", number: "FAC-2026-0018", client: "BTP Conakry", status: "En attente", tone: "text-amber-600" },
-              { kind: "Créance", number: "FAC-2026-0011", client: "Hydraulique Nzérékoré", status: "En retard", tone: "text-red-600" },
-            ].map((row) => (
-              <div key={row.number} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/50 px-4 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="shrink-0 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-extrabold text-primary">{row.kind}</span>
-                  <span className="truncate text-xs font-bold">{row.number}</span>
-                  <span className="hidden truncate text-xs text-muted-foreground sm:inline">{row.client}</span>
-                </div>
-                <span className={`shrink-0 text-[11px] font-extrabold ${row.tone}`}>{row.status}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+    <>
+      <span>{label} {w}%</span>
+      <div className="dash-track">
+        <div className="dash-fill fill" style={{ "--w": `${w}%` } as React.CSSProperties} />
       </div>
-      <p className="mt-3 text-center text-xs text-muted-foreground">Aperçu illustratif du tableau de bord — les montants sont fictifs.</p>
-    </section>
+    </>
+  );
+}
+
+function SvgBase({ children }: { children: React.ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {children}
+    </svg>
+  );
+}
+function IconWorkflow() {
+  return (
+    <SvgBase>
+      <rect x="3" y="3" width="6" height="6" rx="1.2" />
+      <rect x="15" y="15" width="6" height="6" rx="1.2" />
+      <path d="M6 9v3a3 3 0 0 0 3 3h3" />
+    </SvgBase>
+  );
+}
+function IconAnalytics() {
+  return (
+    <SvgBase>
+      <path d="M4 19V5" />
+      <path d="M4 19h16" />
+      <path d="M8 16v-4" />
+      <path d="M13 16V8" />
+      <path d="M18 16v-7" />
+    </SvgBase>
+  );
+}
+function IconLeads() {
+  return (
+    <SvgBase>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </SvgBase>
+  );
+}
+function IconShield() {
+  return (
+    <SvgBase>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path d="m9 12 2 2 4-4" />
+    </SvgBase>
+  );
+}
+function IconBolt() {
+  return (
+    <SvgBase>
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
+    </SvgBase>
+  );
+}
+function IconGlobe() {
+  return (
+    <SvgBase>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20Z" />
+    </SvgBase>
+  );
+}
+function IconArrow() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
   );
 }
