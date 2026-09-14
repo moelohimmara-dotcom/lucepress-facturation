@@ -523,6 +523,18 @@ export async function updateClient(id: number, input: ClientInput) {
   return { success: true };
 }
 
+export async function deleteClient(id: number) {
+  const db = await requireDb();
+  const client = await getClientById(id);
+  if (!client) throw new Error("Client introuvable.");
+  const linkedDocuments = await db.select({ id: documents.id }).from(documents).where(and(eq(documents.clientId, id), eq(documents.tenantId, currentTenant()))).limit(1);
+  if (linkedDocuments.length) throw new Error("Supprimez d'abord les devis et factures de ce client.");
+  const blockedJobs = await db.select({ id: agentMessageJobs.id }).from(agentMessageJobs).where(and(eq(agentMessageJobs.clientId, id), eq(agentMessageJobs.tenantId, currentTenant()))).limit(1);
+  if (blockedJobs.length) throw new Error("Ce client est lié à une campagne de relance IA. Annulez ou supprimez la campagne avant de le supprimer.");
+  await db.delete(clients).where(and(eq(clients.id, id), eq(clients.tenantId, currentTenant())));
+  return { success: true };
+}
+
 export async function findClientDuplicates(input: ClientDuplicateCandidate, excludedId?: number) {
   const existing = await listClients();
   return findPotentialClientDuplicates(existing, input, excludedId).map(match => ({
@@ -1960,6 +1972,21 @@ export async function getDocumentById(id: number) {
   const balance = calculatePaymentBalance(header[0].total, paidAmount);
   const status = header[0].kind === "facture" ? invoicePaymentStatus(header[0].total, paidAmount, header[0].dueDate, header[0].status) : header[0].status;
   return { ...header[0], status, lines, payments: paymentRows, paidAmount, balanceDue: header[0].kind === "facture" ? balance.balanceDue : 0, isOverdue: header[0].kind === "facture" && isInvoiceOverdue(status, header[0].dueDate) };
+}
+
+export async function deleteDocument(id: number, actorId: number) {
+  const db = await requireDb();
+  const document = await getDocumentById(id);
+  if (!document) throw new Error("Document introuvable.");
+  const blocked = await db.select({ id: agentMessageJobs.id }).from(agentMessageJobs).where(and(eq(agentMessageJobs.documentId, id), eq(agentMessageJobs.tenantId, currentTenant()))).limit(1);
+  if (blocked.length) throw new Error("Ce document est lié à une campagne de relance IA. Annulez ou supprimez la campagne avant de le supprimer.");
+  await db.delete(documents).where(and(eq(documents.id, id), eq(documents.tenantId, currentTenant())));
+  try {
+    await createClientActivity({ clientId: document.clientId, documentId: undefined, type: "note", title: `${document.kind === "devis" ? "Devis" : "Facture"} ${document.number} supprimé`, description: `Supprimé par l'équipe`, createdById: actorId });
+  } catch {
+    /* Activity log is best-effort. */
+  }
+  return { success: true };
 }
 
 export async function createDocument(input: {
