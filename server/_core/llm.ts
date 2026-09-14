@@ -552,6 +552,32 @@ const PREFERRED_INSTRUCT_MODELS = [
   "meta/llama-3.1-8b-instruct",
 ];
 
+const FALLBACK_REASONING_MODELS = [
+  "nvidia/nemotron-3-super-120b-a12b",
+  "nvidia/nemotron-3-ultra-550b-a55b",
+];
+
+const NON_CHAT_PATTERNS = [
+  /-embed/i,
+  /-reward/i,
+  /-parse/i,
+  /-vl-/i,
+  /-vision/i,
+  /-rerank/i,
+  /-guard/i,
+  /-ocr/i,
+];
+
+const isLikelyChatModel = (id: string): boolean => {
+  if (!id || id.length === 0) return false;
+  if (NON_CHAT_PATTERNS.some(re => re.test(id))) return false;
+  const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  if (looksLikeUuid) return false;
+  if (!id.includes("/")) return false;
+  if (/instruct|chat|nemotron|llama|mistral|qwen|deepseek|gemma|phi/i.test(id)) return true;
+  return false;
+};
+
 export async function pickLLMModel(
   models: ModelsResponse,
   ...fallbacks: string[]
@@ -563,8 +589,11 @@ export async function pickLLMModel(
   for (const fallback of fallbacks) {
     if (ids.has(fallback)) return fallback;
   }
-  const first = models.data[0];
-  if (first) return first.id;
+  for (const fallback of FALLBACK_REASONING_MODELS) {
+    if (ids.has(fallback)) return fallback;
+  }
+  const chatModel = models.data.find(m => isLikelyChatModel(m.id));
+  if (chatModel) return chatModel.id;
   throw new Error("Aucun modele IA n'est actuellement disponible.");
 }
 
