@@ -5,50 +5,61 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(process.cwd(), "client/src/components/LandingPage.tsx"), "utf8");
 
-describe("landing page publique Lucepress", () => {
-  it("expose un hero clair orienté bénéfice et non une promesse abstraite", () => {
+describe("landing page publique Lucepress (refonte immersive)", () => {
+  it("expose un hero clair orienté bénéfice (devis → paiement encaissé)", () => {
     expect(source).toContain("Du premier devis");
-    expect(source).toContain("au paiement encaissé");
+    expect(source).toContain("au");
+    expect(source).toContain("paiement");
+    expect(source).toContain("encaiss");
     expect(source).toContain("Tu gagnes du temps sur le papier");
   });
 
-  it("affiche des pastilles de réassurance visibles (sécurisé, GNF, Guinée, IA)", () => {
-    expect(source).toContain("Espace sécurisé");
-    expect(source).toContain("Montants en GNF");
+  it("affiche une réassurance métier visible (Guinée, GNF, IA, sécurité)", () => {
     expect(source).toContain("Pensé pour la Guinée");
-    expect(source).toContain("Agent IA intégré");
-  });
-
-  it("présente un aperçu produit (mockup du tableau de bord) sous le hero", () => {
-    expect(source).toContain("Aperçu illustratif du tableau de bord");
-    expect(source).toContain("Ta file de décisions");
     expect(source).toContain("GNF");
+    expect(source).toContain("agent IA");
+    expect(source).toContain("Sécurité entreprise");
   });
 
-  it("hiérarchise les fonctions différenciantes (devis guidés, portail client)", () => {
+  it("présente un aperçu produit (dashboard mockup de trésorerie) sous le hero", () => {
+    expect(source).toContain("dash-bars");
+    expect(source).toContain("dash-rows");
+    expect(source).toContain("Trésorerie");
+    expect(source).toContain("Live");
+    expect(source).toContain("DASH_BAR_HEIGHTS");
+    expect(source).toContain("DASH_ROWS");
+  });
+
+  it("hiérarchise les fonctions différenciantes (devis guidés, portail client, relances)", () => {
     expect(source).toContain("Devis en 5 étapes guidées");
     expect(source).toContain("Portail client");
-    expect(source).toContain("primaryFeatures");
-    expect(source).toContain("standardFeatures");
+    expect(source).toContain("Relances en un clic");
+    expect(source).toContain("FEATURES");
   });
 
-  it("concrétise les étapes avec des icônes et des détails orientés action", () => {
-    expect(source).toContain("Enregistre tes clients");
-    expect(source).toContain("Crée tes devis");
-    expect(source).toContain("Suis les paiements");
-    expect(source).toContain("saisie guidée en 5 étapes");
+  it("affiche des statistiques chiffrées (stats grid)", () => {
+    expect(source).toContain("STATS");
+    expect(source).toContain("3.4×");
+    expect(source).toContain("92%");
+    expect(source).toContain("stat-value");
+  });
+
+  it("monte une scène WebGL planète immersive en arrière-plan", () => {
+    expect(source).toContain("startPlanetScene");
+    expect(source).toContain("planet-canvas");
   });
 
   it("expose les coordonnées de contact dans le footer", () => {
     expect(source).toContain("mailto:");
     expect(source).toContain("tel:");
     expect(source).toContain("LUCEPRES_PUBLIC_PROFILE.phone");
+    expect(source).toContain("LUCEPRES_PUBLIC_PROFILE.email");
   });
 
   it("structure la page de façon accessible (aria-labelledby sur les sections)", () => {
     expect(source).toContain('aria-labelledby="features-title"');
-    expect(source).toContain('aria-labelledby="steps-title"');
+    expect(source).toContain('aria-labelledby="solutions-title"');
     expect(source).toContain('aria-labelledby="cta-title"');
-    expect(source).toContain('aria-label="Aperçu du tableau de bord"');
+    expect(source).toContain("Aperçu illustratif du tableau de bord");
   });
 });
