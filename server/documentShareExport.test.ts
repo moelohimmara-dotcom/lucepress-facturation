@@ -78,6 +78,23 @@ describe("buildDocumentSharePdfBuffer", () => {
     const buf = buildDocumentSharePdfBuffer({ ...sampleDoc, lines: [] }, company);
     expect(buf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
   });
+
+  it("génère un PDF multi-pages avec en-tête et pied sur chaque page", () => {
+    const manyLines = Array.from({ length: 80 }, (_, i) => ({
+      description: `Prestation de forage lot ${i + 1} avec description longue pour forcer le passage à la page suivante`,
+      quantity: i + 1,
+      unit: "m",
+      unitPrice: 250000,
+      lineTotal: (i + 1) * 250000,
+    }));
+    const buf = buildDocumentSharePdfBuffer({ ...sampleDoc, lines: manyLines, subtotal: 20_000_000, total: 20_000_000, balanceDue: 20_000_000 }, company);
+    expect(buf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    const text = buf.toString("latin1");
+    const countMatch = text.match(/\/Type\s*\/Pages[^]*?\/Count\s*(\d+)/);
+    const pageCount = countMatch ? Number(countMatch[1]) : 0;
+    expect(pageCount).toBeGreaterThan(1);
+    expect(text).toContain("Lucepres Sarl");
+  });
 });
 
 describe("buildDocumentShareDocxBuffer", () => {

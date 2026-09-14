@@ -109,18 +109,64 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
   setPageBackground(pdf);
 
   const state = { y: MARGIN, page: 1 };
+  const companyName = company.legalName || LUCEPRES_PUBLIC_PROFILE.legalName;
+  const kindLabel = document.kind === "facture" ? "Facture" : "Devis";
+  const footerText = formatCompanyDocumentFooter(company.documentFooter);
+  const legalLine = formatCompanyLegalLine(company);
+  const regLine = formatCompanyRegistrationLine(company);
+
+  const drawPageFooter = () => {
+    const fy = FOOTER_TOP;
+    pdf.setDrawColor(...COLOR.gold);
+    pdf.setLineWidth(0.8);
+    pdf.line(PAGE_W / 2 - 6, fy, PAGE_W / 2 + 6, fy);
+    pdf.setFont(FONT.serif, "italic");
+    pdf.setFontSize(9);
+    pdf.setTextColor(...COLOR.brand);
+    pdf.text(footerText, PAGE_W / 2, fy + 6, { align: "center" });
+    if (legalLine || regLine) {
+      pdf.setDrawColor(...COLOR.line);
+      pdf.setLineWidth(0.1);
+      pdf.line(MARGIN, fy + 10, PAGE_W - MARGIN, fy + 10);
+      pdf.setFont(FONT.sans, "normal");
+      pdf.setFontSize(7);
+      pdf.setTextColor(...COLOR.footLegal);
+      const regY = fy + 14.5;
+      if (legalLine) pdf.text(legalLine, MARGIN, regY);
+      if (regLine) pdf.text(regLine, PAGE_W - MARGIN, regY, { align: "right" });
+    }
+    pdf.setFont(FONT.sans, "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(...COLOR.footLegal);
+    pdf.text(`Page ${state.page}`, PAGE_W - MARGIN, PAGE_H - 4, { align: "right" });
+  };
+
+  const drawContinuationHeader = () => {
+    pdf.setFillColor(...COLOR.brand);
+    pdf.rect(0, 0, PAGE_W, 14, "F");
+    pdf.setTextColor(...COLOR.white);
+    pdf.setFont(FONT.serif, "bold");
+    pdf.setFontSize(10);
+    pdf.text(companyName, MARGIN, 9);
+    pdf.setFont(FONT.sans, "bold");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(...COLOR.brandTint);
+    pdf.text(`${kindLabel.toUpperCase()} ${document.number}`, PAGE_W - MARGIN, 9, { align: "right" });
+    pdf.setFillColor(...COLOR.gold);
+    pdf.rect(0, 14, PAGE_W, 0.8, "F");
+    state.y = 20;
+  };
 
   const ensureSpace = (needed: number) => {
     if (state.y + needed > FOOTER_TOP - 6) {
+      drawPageFooter();
       pdf.addPage();
       setPageBackground(pdf);
       state.page += 1;
-      state.y = MARGIN;
+      drawContinuationHeader();
     }
   };
 
-  const companyName = company.legalName || LUCEPRES_PUBLIC_PROFILE.legalName;
-  const kindLabel = document.kind === "facture" ? "Facture" : "Devis";
   const isInvoice = document.kind === "facture";
 
   const heroBottom = 36;
@@ -410,34 +456,7 @@ export function buildDocumentSharePdfBuffer(document: SharePdfDocument, company:
     state.y += cardH + 6;
   }
 
-  const footerText = formatCompanyDocumentFooter(company.documentFooter);
-  const legalLine = formatCompanyLegalLine(company);
-  const regLine = formatCompanyRegistrationLine(company);
-  const fy = FOOTER_TOP;
-  pdf.setDrawColor(...COLOR.gold);
-  pdf.setLineWidth(0.8);
-  pdf.line(PAGE_W / 2 - 6, fy, PAGE_W / 2 + 6, fy);
-  pdf.setFont(FONT.serif, "italic");
-  pdf.setFontSize(9);
-  pdf.setTextColor(...COLOR.brand);
-  pdf.text(footerText, PAGE_W / 2, fy + 6, { align: "center" });
-  if (legalLine || regLine) {
-    pdf.setDrawColor(...COLOR.line);
-    pdf.setLineWidth(0.1);
-    pdf.line(MARGIN, fy + 10, PAGE_W - MARGIN, fy + 10);
-    pdf.setFont(FONT.sans, "normal");
-    pdf.setFontSize(7);
-    pdf.setTextColor(...COLOR.footLegal);
-    const regY = fy + 14.5;
-    if (legalLine) pdf.text(legalLine, MARGIN, regY);
-    if (regLine) pdf.text(regLine, PAGE_W - MARGIN, regY, { align: "right" });
-  }
-  if (state.page > 1) {
-    pdf.setFont(FONT.sans, "normal");
-    pdf.setFontSize(7);
-    pdf.setTextColor(...COLOR.footLegal);
-    pdf.text(`Page ${state.page}`, PAGE_W - MARGIN, PAGE_H - 4, { align: "right" });
-  }
+  drawPageFooter();
 
   const arrayBuffer = pdf.output("arraybuffer");
   return Buffer.from(arrayBuffer);

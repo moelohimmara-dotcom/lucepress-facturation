@@ -128,6 +128,14 @@ body { font-family: "Outfit", system-ui, sans-serif; }
 /* Avoid breaking a table row across pages */
 tr, .print-keep-together { break-inside: avoid; page-break-inside: avoid; }
 thead { display: table-header-group; }
+tfoot { display: table-footer-group; }
+
+/* Keep document blocks intact across page breaks */
+section, footer, .rounded-xl, .rounded-2xl, [class*="border-[#e4ddcb]"], [class*="bg-[#fbf8f1]"] { break-inside: avoid; page-break-inside: avoid; }
+/* Totals block stays together */
+.ml-auto { break-inside: avoid; page-break-inside: avoid; }
+/* Hero header starts a fresh page context */
+.print-document-root > div:first-child { break-after: avoid; }
 
 @media screen {
   body { background: #f4ede0; padding: 24px; }
