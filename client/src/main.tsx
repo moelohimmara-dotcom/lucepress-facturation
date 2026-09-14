@@ -14,6 +14,15 @@ import "@fontsource/caveat/latin-400.css";
 import "@fontsource/caveat/latin-600.css";
 import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
 
+if ("serviceWorker" in navigator) {
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+}
+
 function reportWebVitals(metric: { name: string; value: number; id: string }) {
   // En prod, envoyer à Sentry/Analytics. En dev, log discret.
   if (import.meta.env.DEV) console.debug(`[WebVitals] ${metric.name}: ${Math.round(metric.value)}`);
