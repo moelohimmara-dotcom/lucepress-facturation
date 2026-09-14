@@ -133,6 +133,8 @@ L'ancienne version reste servie quelques minutes. Vérifier avec `?cb=<nombre>`.
 | Contexte tenant | `server/_core/tenantContext.ts` (runWithTenant / currentTenant) |
 | PDF serveur | `server/documentSharePdf.ts` (buildDocumentSharePdfBuffer) |
 | Function serverless | `netlify/functions/api.ts` |
+| Documentation API | `docs/API.md` |
+| Landing publique immersive WebGL | `docs/landing-immersive-webgl.md`, `client/src/lib/ascendPlanet.ts` |
 | Config build frontend | `vite.config.ts` (VitePWA) |
 
 ---
