@@ -101,6 +101,10 @@ const navigationGroups = [
 
 const SIDEBAR_WIDTH_KEY = "lucepress-sidebar-width";
 const LAST_ROUTE_KEY = "lucepress-last-route";
+let routeRestorationConsumed = false;
+export function resetRouteRestoration() {
+  routeRestorationConsumed = false;
+}
 const COMPACT_MODE_KEY = "lucepress-sidebar-compact";
 const SIDEBAR_GUIDANCE_SEEN_KEY = "lucepress-sidebar-guidance-v3-seen";
 const DEFAULT_WIDTH = 276;
@@ -180,8 +184,10 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
   const { data: workspaceResults = [], isFetching: isWorkspaceSearching } = trpc.billing.workspaceSearch.useQuery(workspaceSearchInput, { enabled: workspaceSearchOpen && workspaceSearchQuery.trim().length >= 2 && isStaffRole(user?.role) });
 
   useEffect(() => {
+    if (routeRestorationConsumed) return;
     const routeToRestore = getRestorableRoute(location, localStorage.getItem(LAST_ROUTE_KEY), menuItems.map(item => item.path));
     if (routeToRestore) setLocation(routeToRestore);
+    routeRestorationConsumed = true;
   }, []);
 
   useEffect(() => {

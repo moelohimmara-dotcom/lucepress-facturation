@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigate = vi.fn();
 
@@ -43,9 +43,12 @@ vi.mock("@/components/ui/command", () => ({
   CommandShortcut: ({ children }: any) => createElement("span", null, children),
 }));
 
-import { DashboardLayoutContent } from "../client/src/components/DashboardLayout";
+import { DashboardLayoutContent, resetRouteRestoration } from "../client/src/components/DashboardLayout";
 
 describe("sidebar Lucepress sur format contraint", () => {
+  beforeEach(() => {
+    resetRouteRestoration();
+  });
   it("isole l’Assistant IA dans le pied de barre et laisse Clients et Chantiers dans la navigation défilante", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1280 });
     render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
@@ -66,6 +69,19 @@ describe("sidebar Lucepress sur format contraint", () => {
     localStorage.setItem("lucepress-last-route", "/clients");
     render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
     expect(navigate).toHaveBeenCalledWith("/clients");
+    localStorage.removeItem("lucepress-last-route");
+  });
+
+  it("ne restaure la rubrique mémorisée qu’une seule fois par session de navigation", () => {
+    navigate.mockClear();
+    localStorage.setItem("lucepress-last-route", "/clients");
+    render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/clients");
+    cleanup();
+    navigate.mockClear();
+    render(createElement(DashboardLayoutContent, { setSidebarWidth: vi.fn() }, createElement("div", null, "Contenu")));
+    expect(navigate).not.toHaveBeenCalledWith("/clients");
     localStorage.removeItem("lucepress-last-route");
   });
 
