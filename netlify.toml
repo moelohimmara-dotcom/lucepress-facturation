@@ -36,3 +36,28 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Le service worker doit toujours être re-téléchargé pour détecter les mises à jour PWA.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Le manifeste PWA ne change qu'au déploiement : courte durée + revalidation.
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# L'index HTML référence les chunks hashés : jamais cacher, sinon le navigateur
+# garde un index obsolète qui pointe vers d'anciens assets et rate l'auto-update.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Les assets hashés (js, css, fonts, images) sont immuables : cache long sûr.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
