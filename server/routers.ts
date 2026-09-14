@@ -977,6 +977,7 @@ export const appRouter = router({
         try {
           const result = await invokeLLM({
             model,
+            max_tokens: 400,
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `Demande: ${input.brief}\n\n${varsHint}` },
@@ -1304,6 +1305,7 @@ export const appRouter = router({
                 if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n'est actuellement disponible." });
                 const result = await invokeLLM({
                   model,
+                  max_tokens: 400,
                   messages: [
                     { role: "system", content: "Tu es le Copilote de marge et recouvrement de Lucepress, entreprise guineenne de BTP, forage et services durables. Analyse seulement les faits du contexte JSON fourni. Redige en francais une aide interne claire, breve et structuree. Ne fabrique aucun montant, client, echeance, statut, promesse, regle ou action realisee. Les chiffres restent des references a verifier dans l'application. Priorise les promesses echues, les retards, puis les marges realisees sous seuil. Propose uniquement des controles ou des brouillons de relance a faire approuver. Ne pretends jamais qu'un message a ete envoye, qu'un paiement a ete recu ou qu'une modification a ete appliquee. Signale explicitement les donnees insuffisantes." },
                     { role: "user", content: JSON.stringify(context) },
@@ -1642,6 +1644,7 @@ export const appRouter = router({
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
+            max_tokens: 400,
             messages: [
               { role: "system", content: "Tu es l’assistant de suivi commercial de Lucepress, entreprise BTP et forage. À partir de l’historique fourni, rédige en français une synthèse brève et factuelle pour préparer le prochain échange avec le client. Ne fabrique aucun fait. Signale les éléments financiers ou commerciaux à vérifier et propose des prochaines étapes pragmatiques. Le résultat est une aide interne à relire, jamais un message envoyé au client." },
               { role: "user", content: JSON.stringify({ client: { nom: client.companyName, contact: client.contactName }, historique: history.slice(0, 50).map(event => ({ date: event.createdAt, type: event.type, titre: event.title, detail: event.description })) }) },
@@ -1662,6 +1665,7 @@ export const appRouter = router({
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
+            max_tokens: 400,
             messages: [
               { role: "system", content: "Tu es l’assistant de recouvrement de Lucepress, entreprise guinéenne BTP et forage. Rédige en français un modèle d’e-mail de relance professionnel, factuel et prêt à relire, sans menaces ni affirmation juridique. Mentionne le numéro de facture, le montant du solde en GNF et l’échéance connue. Le résultat est un brouillon : ne prétends jamais que l’e-mail a été envoyé." },
               { role: "user", content: JSON.stringify({ ton: input.tone, facture: document.number, client: document.clientName, contact: document.contactName, email: document.clientEmail, echeance: document.dueDate, soldeGNF: document.balanceDue, dateEmission: document.issueDate }) },
@@ -1740,6 +1744,7 @@ export const appRouter = router({
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
+            max_tokens: 400,
             messages: [
               { role: "system", content: "Tu es l’assistant de recouvrement de Lucepress, entreprise guinéenne BTP et forage. Prépare un brouillon d’e-mail distinct et personnalisé pour chaque facture fournie. Chaque texte doit être professionnel, factuel, sans menace ni affirmation juridique, et mentionner exactement le numéro de facture, le solde en GNF et l’échéance connue. Respecte l’instruction interne facultative seulement si elle est compatible avec ces faits. Ces contenus sont des brouillons internes : ne prétends jamais qu’un e-mail a été envoyé ou programmé. Retourne strictement une entrée par documentId fourni, sans en ajouter ni en omettre." },
               { role: "user", content: JSON.stringify({ ton: input.tone, instructionInterne: instruction ?? null, factures: invoices.map(invoice => ({ documentId: invoice.id, facture: invoice.number, client: invoice.clientName, contact: invoice.contactName, echeance: invoice.dueDate, soldeGNF: invoice.balanceDue, dateEmission: invoice.issueDate })) }) },
@@ -1769,6 +1774,7 @@ export const appRouter = router({
           if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
           const result = await invokeLLM({
             model,
+            max_tokens: 400,
             messages: [
               { role: "system", content: "Tu es l’assistant administratif de Lucepress. Extrais uniquement les coordonnées d’un prospect ou client contenues dans le texte fourni. Ne fabrique jamais une donnée absente : utilise une chaîne vide. companyName doit être le nom de l’entreprise, du particulier ou du client ; si aucun nom exploitable n’est mentionné, utilise 'Client à confirmer' et signale-le dans missingFields. NIF, RCCM et identifiants fiscaux sont facultatifs : ne les mets jamais dans missingFields. missingFields ne concerne que les coordonnées de contact vraiment utiles (e-mail, téléphone, adresse) si elles manquent. notes doit contenir seulement les précisions utiles au répertoire. La sortie est un brouillon à faire relire avant enregistrement." },
               { role: "user", content: input.text },
@@ -1794,6 +1800,7 @@ export const appRouter = router({
           const serviceContext = catalog.map(service => ({ code: service.code, name: service.name, unit: service.unit, unitPrice: service.defaultUnitPrice, taxRate: service.defaultTaxRate })).slice(0, 80);
           const result = await invokeLLM({
             model,
+            max_tokens: 400,
             messages: [
               { role: "system", content: "Tu es l’assistant commercial de Lucepress, entreprise guinéenne BTP et forage. À partir d’une simple description de chantier, prépare un devis complet, structuré et prêt à relire en français. Déduis le domaine, le périmètre, les étapes, les prestations, les hypothèses, la durée d’exécution, les conditions de paiement et une durée de validité raisonnable. Il s’agit toujours d’un brouillon à faire relire : ne prétends jamais qu’il est validé. Réutilise le catalogue fourni quand il correspond. Si un prix fiable n’est pas présent dans le catalogue, utilise 0 comme prix unitaire et mentionne explicitement la vérification requise dans note, technicalNotes et assumptions. Tous les montants sont des entiers en francs guinéens (GNF). Les lignes doivent être exhaustives mais ne dois pas inventer de prix." },
               { role: "user", content: JSON.stringify({ besoin: input.description, domaine: input.projectType ?? "non précisé", tauxTaxeParDefaut: input.taxRate, cataloguePrestations: serviceContext }) },
