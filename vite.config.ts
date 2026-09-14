@@ -38,6 +38,8 @@ const plugins = [
       globPatterns: ["**/*.{js,css,html,svg,png,ico,woff,woff2}"],
       navigateFallback: "/index.html",
       navigateFallbackDenylist: [/^\/api\//],
+      skipWaiting: true,
+      clientsClaim: true,
       runtimeCaching: [
         {
           urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
@@ -60,9 +62,10 @@ const plugins = [
         {
           urlPattern: ({ request }) =>
             ["style", "script", "image", "worker"].includes(request.destination),
-          handler: "StaleWhileRevalidate",
+          handler: "NetworkFirst",
           options: {
             cacheName: "assets-runtime",
+            networkTimeoutSeconds: 4,
             expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
             cacheableResponse: { statuses: [0, 200] },
           },
