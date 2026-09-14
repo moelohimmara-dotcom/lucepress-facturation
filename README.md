@@ -237,6 +237,8 @@ pnpm db:push
 
 ## API tRPC et routeurs
 
+> Documentation complète : [`docs/API.md`](./docs/API.md) (transports, RBAC, routeurs, routes Express brutes, serverless, conventions).
+
 Le routeur principal `appRouter` (dans `server/routers.ts`) expose :
 
 | Routeur | Procédures | Accès |
