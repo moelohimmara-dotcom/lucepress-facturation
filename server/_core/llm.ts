@@ -491,7 +491,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     created: number;
     choices: Array<{
       index: number;
-      message: { role: string; content: string };
+      message: { role: string; content: string | null; reasoning_content?: string | null };
       finish_reason: string | null;
     }>;
     usage?: {
@@ -501,7 +501,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     };
   };
 
-  const rawContent = data.choices?.[0]?.message?.content ?? "";
+  const message = data.choices?.[0]?.message;
+  let rawContent = message?.content ?? "";
+  if (!rawContent && message?.reasoning_content) {
+    const extracted = extractJson(message.reasoning_content);
+    if (extracted.ok) rawContent = JSON.stringify(extracted.value);
+  }
   const parsed = extractJson(rawContent);
   const safeContent = parsed.ok ? JSON.stringify(parsed.value) : rawContent;
   return {
@@ -535,6 +540,33 @@ export type ModelsResponse = {
   object: string;
   data: ModelInfo[];
 };
+
+const PREFERRED_INSTRUCT_MODELS = [
+  "meta/llama-3.3-70b-instruct",
+  "meta/llama-3.1-70b-instruct",
+  "meta/llama-3.1-405b-instruct",
+  "mistralai/mistral-large-2-instruct",
+  "mistralai/mixtral-8x7b-instruct",
+  "mistralai/mistral-nemo-12b-instruct",
+  "nvidia/llama-3.1-nemotron-70b-instruct",
+  "meta/llama-3.1-8b-instruct",
+];
+
+export async function pickLLMModel(
+  models: ModelsResponse,
+  ...fallbacks: string[]
+): Promise<string> {
+  const ids = new Set(models.data.map(m => m.id));
+  for (const preferred of PREFERRED_INSTRUCT_MODELS) {
+    if (ids.has(preferred)) return preferred;
+  }
+  for (const fallback of fallbacks) {
+    if (ids.has(fallback)) return fallback;
+  }
+  const first = models.data[0];
+  if (first) return first.id;
+  throw new Error("Aucun modele IA n'est actuellement disponible.");
+}
 
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();

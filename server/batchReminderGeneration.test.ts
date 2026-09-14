@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./db", () => ({ getDocumentById: mocks.getDocumentById, createClientActivity: mocks.createClientActivity }));
 vi.mock("./_core/llm", () => ({
   listLLMModels: async () => ({ data: [{ id: "gpt-5-mini" }] }),
+  pickLLMModel: async () => "gpt-5-mini",
   invokeLLM: async () => ({ choices: [{ message: { content: JSON.stringify({ reminders: [
     { documentId: 4, subject: "Relance FAC-2026-004", greeting: "Bonjour Mamadou,", body: "Le solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" },
     { documentId: 8, subject: "Relance FAC-2026-008", greeting: "Bonjour Mamadou,", body: "Le solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" },

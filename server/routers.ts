@@ -6,7 +6,7 @@ import { SERVICE_CATEGORIES } from "../shared/defaultServices";
 import { validateQuotePaymentSchedule } from "../shared/paymentSchedule";
 import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { invokeLLM, listLLMModels } from "./_core/llm";
+import { invokeLLM, listLLMModels, pickLLMModel } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router, staffProcedure } from "./_core/trpc";
 import { sendMail, isMailConfigured, getSmtpUser } from "./_core/mailer";
@@ -966,10 +966,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const models = await listLLMModels();
-        const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-super-120b-a12b")?.id
-          ?? models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id
-          ?? models.data[0]?.id;
-        if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n'est actuellement disponible." });
+        const model = await pickLLMModel(models);
         const varsHint = input.variables && input.variables.length > 0
           ? `Variables disponibles (placeholders {{nom}}): ${input.variables.join(", ")}. Utilisez-les dans le HTML et le sujet.`
           : "Aucune variable dynamique requise.";
@@ -1299,10 +1296,7 @@ export const appRouter = router({
               .mutation(async () => {
                 const context = await db.getAgentCopilotContext();
                 const models = await listLLMModels();
-                const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-super-120b-a12b")?.id
-                  ?? models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id
-                  ?? models.data[0]?.id;
-                if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n'est actuellement disponible." });
+                const model = await pickLLMModel(models);
                 const result = await invokeLLM({
                   model,
                   max_tokens: 1200,
@@ -1640,8 +1634,7 @@ export const appRouter = router({
           if (!client) throw new TRPCError({ code: "NOT_FOUND", message: "Client introuvable." });
           const history = await db.listClientActivities(input.clientId);
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-super-120b-a12b")?.id ?? models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id ?? models.data[0]?.id;
-          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const model = await pickLLMModel(models);
           const result = await invokeLLM({
             model,
             max_tokens: 1200,
@@ -1661,8 +1654,7 @@ export const appRouter = router({
           const document = await db.getDocumentById(input.documentId);
           if (!document || document.kind !== "facture" || document.balanceDue <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-super-120b-a12b")?.id ?? models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id ?? models.data[0]?.id;
-          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const model = await pickLLMModel(models);
           const result = await invokeLLM({
             model,
             max_tokens: 1200,
@@ -1740,8 +1732,7 @@ export const appRouter = router({
           if (documents.some(document => !document || document.kind !== "facture" || document.balanceDue <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "Chaque relance doit concerner une facture avec un solde impayé." });
           const invoices = documents as Array<NonNullable<typeof documents[number]>>;
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-super-120b-a12b")?.id ?? models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id ?? models.data[0]?.id;
-          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const model = await pickLLMModel(models);
           const result = await invokeLLM({
             model,
             max_tokens: 1200,
@@ -1770,8 +1761,7 @@ export const appRouter = router({
         .input(z.object({ text: z.string().trim().min(10).max(6000) }))
         .mutation(async ({ input }) => {
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-super-120b-a12b")?.id ?? models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id ?? models.data[0]?.id;
-          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const model = await pickLLMModel(models);
           const result = await invokeLLM({
             model,
             max_tokens: 1200,
@@ -1795,8 +1785,7 @@ export const appRouter = router({
         .mutation(async ({ input }) => {
           const catalog = await db.listServices();
           const models = await listLLMModels();
-          const model = models.data.find(entry => entry.id === "nvidia/nemotron-3-super-120b-a12b")?.id ?? models.data.find(entry => entry.id === "nvidia/nemotron-3-ultra-550b-a55b")?.id ?? models.data[0]?.id;
-          if (!model) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Aucun modèle IA n’est actuellement disponible." });
+          const model = await pickLLMModel(models);
           const serviceContext = catalog.map(service => ({ code: service.code, name: service.name, unit: service.unit, unitPrice: service.defaultUnitPrice, taxRate: service.defaultTaxRate })).slice(0, 80);
           const result = await invokeLLM({
             model,

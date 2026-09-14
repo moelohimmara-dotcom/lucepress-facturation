@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./db", () => ({ createClientActivity: mocks.createClientActivity, getClientById: mocks.getClientById, listClientActivities: mocks.listClientActivities }));
 vi.mock("./_core/llm", () => ({
   listLLMModels: async () => ({ data: [{ id: "gpt-5-mini" }] }),
+  pickLLMModel: async () => "gpt-5-mini",
   invokeLLM: async () => ({ choices: [{ message: { content: JSON.stringify({ summary: "Un paiement partiel a été reçu ; le suivi de facture reste nécessaire.", attentionPoints: ["Solde à vérifier"], nextSteps: ["Préparer un point avec le client"] }) } }] }),
 }));
 
