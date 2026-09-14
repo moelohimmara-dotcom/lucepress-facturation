@@ -48,15 +48,19 @@ describe("éditeur de devis multi-services", () => {
     const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
     const { unmount } = render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
     fireEvent.change(screen.getByLabelText("Client"), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
     fireEvent.click(screen.getByRole("button", { name: "Multi-services" }));
     fireEvent.click(screen.getByRole("button", { name: /Hydraulique/ }));
     fireEvent.click(screen.getByRole("button", { name: "Appliquer le modèle" }));
-    fireEvent.change(screen.getAllByRole("spinbutton")[1], { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
+    fireEvent.change(screen.getAllByRole("spinbutton")[0], { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
     fireEvent.click(screen.getByLabelText("Prévoir un échéancier"));
     fireEvent.change(screen.getByLabelText("Acompte (%)"), { target: { value: "30" } });
     fireEvent.change(screen.getByLabelText("Échéance acompte"), { target: { value: "2026-08-31" } });
     fireEvent.change(screen.getByLabelText("Échéance solde"), { target: { value: "2026-09-26" } });
-    fireEvent.click(screen.getByRole("button", { name: "Enregistrer le document" }));
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer le devis/ }));
 
     expect(state.created).toHaveBeenCalledWith(expect.objectContaining({ discountPercent: 10, depositPercent: 30, depositDueDate: "2026-08-31", balanceDueDate: "2026-09-26", lines: expect.arrayContaining([expect.objectContaining({ description: "Étude hydraulique", quantity: 2 })]) }));
     unmount();
@@ -71,12 +75,44 @@ describe("éditeur de devis multi-services", () => {
     const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
     render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
     expect(screen.getByText("Guide express · devis")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Client"), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
     expect(screen.getByRole("button", { name: /Gros œuvre/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Gros œuvre/ }));
     fireEvent.click(screen.getByRole("button", { name: "Appliquer le modèle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
     expect(screen.getByDisplayValue("BTP-PRE-001")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Passer le guide" }));
     expect(localStorage.getItem("lucepress-quote-editor-guide-seen")).toBe("true");
+  });
+
+  it("guide la création d’un devis en cinq étapes et bloque l’avancement sans client", async () => {
+    const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
+    render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
+    expect(screen.getByText("Client & chantier")).toBeTruthy();
+    expect(screen.getByText("Point de départ")).toBeTruthy();
+    expect(screen.getByText("Prestations & chiffrage")).toBeTruthy();
+    expect(screen.getByText("Conditions")).toBeTruthy();
+    expect(screen.getByText("Vérification")).toBeTruthy();
+    expect(screen.getByText("Étape 1/5")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
+    expect(screen.queryByText("Étape 2/5")).toBeNull();
+    expect(screen.getByText("Étape 1/5")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Client"), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
+    expect(screen.getByText("Étape 2/5")).toBeTruthy();
+  });
+
+  it("mémorise l’étape atteinte et restaure la navigation au rechargement", async () => {
+    const { default: DocumentEditorPage } = await import("../client/src/pages/DocumentEditorPage");
+    const { unmount } = render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
+    fireEvent.change(screen.getByLabelText("Client"), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Étape suivante" }));
+    expect(localStorage.getItem("lucepress-quote-wizard-step")).toBe("1");
+    unmount();
+    render(createElement(DocumentEditorPage, { kind: "devis", mode: "create" }));
+    expect(screen.getByText("Étape 2/5")).toBeTruthy();
+    localStorage.removeItem("lucepress-quote-wizard-step");
   });
 
   it("accompagne la création d’une facture en trois étapes et mémorise la fin du guide", async () => {
