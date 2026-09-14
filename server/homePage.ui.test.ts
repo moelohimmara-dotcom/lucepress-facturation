@@ -9,8 +9,16 @@ describe("cockpit Aujourd’hui", () => {
   it("expose une file de validation fondée sur buildTodayInbox", () => {
     expect(source).toContain("buildTodayInbox");
     expect(source).toContain("À valider");
-    expect(source).toContain("Votre file à traiter");
     expect(source).toContain("mailStatus");
+  });
+
+  it("affiche les vraies statistiques essentielles du tableau de bord", () => {
+    expect(source).toContain("Tableau de bord");
+    expect(source).toContain("billing.dashboard");
+    expect(source).toContain("Encaissé");
+    expect(source).toContain("En attente d'encaissement");
+    expect(source).toContain("En retard");
+    expect(source).toContain("formatGnf");
   });
 
   it("conserve le démarrage guidé court pour le test 48 h", () => {
