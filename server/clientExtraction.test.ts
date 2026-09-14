@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./_core/llm", () => ({
   listLLMModels: async () => ({ data: [{ id: "gpt-5-mini" }] }),
   pickLLMModel: async () => "gpt-5-mini",
+  pickLLMModelCandidates: async () => ["gpt-5-mini"],
+  invokeLLMWithFallback: async (_params, candidates) => ({ choices: [{ message: { content: JSON.stringify({ companyName: "Bati Guinée", contactName: "Mamadou Diallo", email: "contact@batiguinee.example", phone: "+224 600 11 22 33", address: "Conakry, Ratoma", taxId: "NIF-2026", notes: "Projet de forage à étudier", missingFields: [] }) } }], model: candidates?.[0] ?? "gpt-5-mini" }),
   invokeLLM: async () => ({ choices: [{ message: { content: JSON.stringify({ companyName: "Bati Guinée", contactName: "Mamadou Diallo", email: "contact@batiguinee.example", phone: "+224 600 11 22 33", address: "Conakry, Ratoma", taxId: "NIF-2026", notes: "Projet de forage à étudier", missingFields: [] }) } }] }),
 }));
 

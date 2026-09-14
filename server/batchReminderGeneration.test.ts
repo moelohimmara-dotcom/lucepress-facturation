@@ -3,15 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getDocumentById: vi.fn(async (id: number) => ({ id, clientId: id + 10, kind: "facture", number: `FAC-2026-00${id}`, clientName: `Client ${id}`, contactName: "Mamadou Diallo", dueDate: "2026-08-15", issueDate: "2026-08-01", balanceDue: 350000 })),
   createClientActivity: vi.fn(async () => ({ id: 1 })),
+  llmContent: JSON.stringify({ reminders: [
+    { documentId: 4, subject: "Relance FAC-2026-004", greeting: "Bonjour Mamadou,", body: "Le solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" },
+    { documentId: 8, subject: "Relance FAC-2026-008", greeting: "Bonjour Mamadou,", body: "Le solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" },
+  ] }),
 }));
 vi.mock("./db", () => ({ getDocumentById: mocks.getDocumentById, createClientActivity: mocks.createClientActivity }));
 vi.mock("./_core/llm", () => ({
   listLLMModels: async () => ({ data: [{ id: "gpt-5-mini" }] }),
   pickLLMModel: async () => "gpt-5-mini",
-  invokeLLM: async () => ({ choices: [{ message: { content: JSON.stringify({ reminders: [
-    { documentId: 4, subject: "Relance FAC-2026-004", greeting: "Bonjour Mamadou,", body: "Le solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" },
-    { documentId: 8, subject: "Relance FAC-2026-008", greeting: "Bonjour Mamadou,", body: "Le solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" },
-  ] }) } }] }),
+  pickLLMModelCandidates: async () => ["gpt-5-mini"],
+  invokeLLMWithFallback: async (_params, candidates) => ({ choices: [{ message: { content: mocks.llmContent } }], model: candidates?.[0] ?? "gpt-5-mini" }),
+  invokeLLM: async () => ({ choices: [{ message: { content: mocks.llmContent } }] }),
 }));
 
 import { appRouter } from "./routers";

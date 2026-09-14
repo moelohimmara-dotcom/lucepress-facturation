@@ -9,7 +9,7 @@ if (!(globalThis as any).crypto) {
 import serverlessHttp from "serverless-http";
 import { createApp } from "../../server/_core/index.ts";
 
-const BUILD_ID = "build-2026-09-13-redeploy";
+const BUILD_ID = "build-2026-09-13-llm-filter-v2";
 let handlerPromise = null;
 
 async function getHandler() {

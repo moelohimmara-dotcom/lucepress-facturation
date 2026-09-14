@@ -529,6 +529,32 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   };
 }
 
+export async function invokeLLMWithFallback(
+  params: InvokeParams,
+  candidates: string[]
+): Promise<InvokeResult> {
+  if (candidates.length === 0) {
+    throw new Error("Aucun modele IA n'est actuellement disponible.");
+  }
+  let lastError: unknown;
+  for (const model of candidates) {
+    try {
+      return await invokeLLM({ ...params, model });
+    } catch (error) {
+      lastError = error;
+      const msg = error instanceof Error ? error.message : String(error);
+      console.warn(`LLM invoke failed for model ${model}: ${msg}`);
+      if (/404|Not Found|Not found/i.test(msg)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("LLM invoke failed for all candidate models");
+}
+
 export type ModelInfo = {
   id: string;
   object: string;
@@ -578,23 +604,40 @@ const isLikelyChatModel = (id: string): boolean => {
   return false;
 };
 
+export async function pickLLMModelCandidates(
+  models: ModelsResponse,
+  ...fallbacks: string[]
+): Promise<string[]> {
+  const ids = new Set(models.data.map(m => m.id));
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const add = (id?: string) => {
+    if (id && !seen.has(id)) { seen.add(id); candidates.push(id); }
+  };
+  for (const preferred of PREFERRED_INSTRUCT_MODELS) {
+    if (ids.has(preferred)) add(preferred);
+  }
+  for (const fallback of fallbacks) {
+    if (ids.has(fallback)) add(fallback);
+  }
+  for (const fallback of FALLBACK_REASONING_MODELS) {
+    if (ids.has(fallback)) add(fallback);
+  }
+  for (const m of models.data) {
+    if (isLikelyChatModel(m.id)) add(m.id);
+  }
+  if (candidates.length === 0) {
+    throw new Error("Aucun modele IA n'est actuellement disponible.");
+  }
+  return candidates;
+}
+
 export async function pickLLMModel(
   models: ModelsResponse,
   ...fallbacks: string[]
 ): Promise<string> {
-  const ids = new Set(models.data.map(m => m.id));
-  for (const preferred of PREFERRED_INSTRUCT_MODELS) {
-    if (ids.has(preferred)) return preferred;
-  }
-  for (const fallback of fallbacks) {
-    if (ids.has(fallback)) return fallback;
-  }
-  for (const fallback of FALLBACK_REASONING_MODELS) {
-    if (ids.has(fallback)) return fallback;
-  }
-  const chatModel = models.data.find(m => isLikelyChatModel(m.id));
-  if (chatModel) return chatModel.id;
-  throw new Error("Aucun modele IA n'est actuellement disponible.");
+  const candidates = await pickLLMModelCandidates(models, ...fallbacks);
+  return candidates[0];
 }
 
 export async function listLLMModels(): Promise<ModelsResponse> {

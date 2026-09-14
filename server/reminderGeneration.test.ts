@@ -8,6 +8,8 @@ vi.mock("./db", () => ({ getDocumentById: mocks.getDocumentById, createClientAct
 vi.mock("./_core/llm", () => ({
   listLLMModels: async () => ({ data: [{ id: "gpt-5-mini" }] }),
   pickLLMModel: async () => "gpt-5-mini",
+  pickLLMModelCandidates: async () => ["gpt-5-mini"],
+  invokeLLMWithFallback: async (_params, candidates) => ({ choices: [{ message: { content: JSON.stringify({ subject: "Relance facture FAC-2026-0004", greeting: "Bonjour Mamadou,", body: "Sauf erreur, un solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" }) } }], model: candidates?.[0] ?? "gpt-5-mini" }),
   invokeLLM: async () => ({ choices: [{ message: { content: JSON.stringify({ subject: "Relance facture FAC-2026-0004", greeting: "Bonjour Mamadou,", body: "Sauf erreur, un solde de 350 000 GNF reste dû.", closing: "Cordialement,\nLucepress", tone: "courtois" }) } }] }),
 }));
 

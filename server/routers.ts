@@ -6,7 +6,7 @@ import { SERVICE_CATEGORIES } from "../shared/defaultServices";
 import { validateQuotePaymentSchedule } from "../shared/paymentSchedule";
 import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { invokeLLM, listLLMModels, pickLLMModel } from "./_core/llm";
+import { invokeLLM, invokeLLMWithFallback, listLLMModels, pickLLMModelCandidates } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router, staffProcedure } from "./_core/trpc";
 import { sendMail, isMailConfigured, getSmtpUser } from "./_core/mailer";
@@ -966,27 +966,27 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const models = await listLLMModels();
-        const model = await pickLLMModel(models);
+        const candidates = await pickLLMModelCandidates(models);
         const varsHint = input.variables && input.variables.length > 0
           ? `Variables disponibles (placeholders {{nom}}): ${input.variables.join(", ")}. Utilisez-les dans le HTML et le sujet.`
           : "Aucune variable dynamique requise.";
         const systemPrompt = `Tu es le rédacteur de modèles d'e-mail de Lucepress Sarl, entreprise guinéenne de BTP, forage et services durables. Tu génères un modèle d'e-mail HTML professional, chaleureux et lisible (style Mailchimp « warm humanist » : carte sur fond ivoire, hero dégradé vert #1a4d44, barre accent or #d4a24e, pied de page vert clair). RèGLES : (1) HTML table-based pour compatibilité mail (pas de div/flex/grid). (2) CSS inline dans les <style> du <head>. (3) Responsive (media query <580px). (4) Police system-ui. (5) Boutons en <a> avec background, pas de JS. (6) Tutoiement chaleureux, phrases courtes orientées action. (7) Variables sous forme {{nom}}. RÉPONDS UNIQUEMENT par un objet JSON valide : {"name": "...", "subject": "...", "html": "...", "text": "..."} sans texte autour.`;
         try {
-          const result = await invokeLLM({
-            model,
+          const result = await invokeLLMWithFallback({
             max_tokens: 1200,
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `Demande: ${input.brief}\n\n${varsHint}` },
             ],
             response_format: { type: "json_schema", json_schema: { name: "email_template", schema: { type: "object", properties: { name: { type: "string" }, subject: { type: "string" }, html: { type: "string" }, text: { type: "string" } }, required: ["name", "subject", "html", "text"], additionalProperties: false } } },
-          });
+          },
+          candidates);
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle IA est indisponible. Réessayez dans un instant." });
           let parsed: { name: string; subject: string; html: string; text: string };
           try { parsed = JSON.parse(content); }
           catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle IA ne peut pas être lu. Réessayez dans un instant." }); }
-          return { name: String(parsed.name), subject: String(parsed.subject), html: String(parsed.html), text: String(parsed.text ?? ""), model };
+          return { name: String(parsed.name), subject: String(parsed.subject), html: String(parsed.html), text: String(parsed.text ?? ""), model: result.model };
         } catch (error) {
           if (error instanceof TRPCError) throw error;
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error instanceof Error ? error.message : "La génération IA a échoué." });
@@ -1296,19 +1296,19 @@ export const appRouter = router({
               .mutation(async () => {
                 const context = await db.getAgentCopilotContext();
                 const models = await listLLMModels();
-                const model = await pickLLMModel(models);
-                const result = await invokeLLM({
-                  model,
+                const candidates = await pickLLMModelCandidates(models);
+                const result = await invokeLLMWithFallback({
                   max_tokens: 1200,
                   messages: [
                     { role: "system", content: "Tu es le Copilote de marge et recouvrement de Lucepress, entreprise guineenne de BTP, forage et services durables. Analyse seulement les faits du contexte JSON fourni. Redige en francais une aide interne claire, breve et structuree. Ne fabrique aucun montant, client, echeance, statut, promesse, regle ou action realisee. Les chiffres restent des references a verifier dans l'application. Priorise les promesses echues, les retards, puis les marges realisees sous seuil. Propose uniquement des controles ou des brouillons de relance a faire approuver. Ne pretends jamais qu'un message a ete envoye, qu'un paiement a ete recu ou qu'une modification a ete appliquee. Signale explicitement les donnees insuffisantes." },
                     { role: "user", content: JSON.stringify(context) },
                   ],
                   response_format: { type: "json_schema", json_schema: agentCopilotResponseSchema },
-                });
+                },
+          candidates);
                 const content = result.choices[0]?.message.content;
                 if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA est indisponible. Reessayez dans un instant." });
-                try { return { briefing: JSON.parse(content) as { summary: string; marginAlerts: string[]; collectionPriorities: string[]; suggestedActions: string[]; dataToVerify: string[]; sourceReferences: string[] }, requiresReview: true, model }; }
+                try { return { briefing: JSON.parse(content) as { summary: string; marginAlerts: string[]; collectionPriorities: string[]; suggestedActions: string[]; dataToVerify: string[]; sourceReferences: string[] }, requiresReview: true, model: result.model }; }
                 catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le briefing IA ne peut pas etre lu. Reessayez dans un instant." }); }
               }),
     }),
@@ -1634,16 +1634,16 @@ export const appRouter = router({
           if (!client) throw new TRPCError({ code: "NOT_FOUND", message: "Client introuvable." });
           const history = await db.listClientActivities(input.clientId);
           const models = await listLLMModels();
-          const model = await pickLLMModel(models);
-          const result = await invokeLLM({
-            model,
+          const candidates = await pickLLMModelCandidates(models);
+          const result = await invokeLLMWithFallback({
             max_tokens: 1200,
             messages: [
               { role: "system", content: "Tu es l’assistant de suivi commercial de Lucepress, entreprise BTP et forage. À partir de l’historique fourni, rédige en français une synthèse brève et factuelle pour préparer le prochain échange avec le client. Ne fabrique aucun fait. Signale les éléments financiers ou commerciaux à vérifier et propose des prochaines étapes pragmatiques. Le résultat est une aide interne à relire, jamais un message envoyé au client." },
               { role: "user", content: JSON.stringify({ client: { nom: client.companyName, contact: client.contactName }, historique: history.slice(0, 50).map(event => ({ date: event.createdAt, type: event.type, titre: event.title, detail: event.description })) }) },
             ],
             response_format: { type: "json_schema", json_schema: clientHistorySummarySchema },
-          });
+          },
+          candidates);
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le résumé IA est indisponible. Réessayez dans un instant." });
           try { return { summary: JSON.parse(content) as { summary: string; attentionPoints: string[]; nextSteps: string[] }, requiresReview: true }; } catch { throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le résumé IA ne peut pas être lu. Réessayez dans un instant." }); }
@@ -1654,16 +1654,16 @@ export const appRouter = router({
           const document = await db.getDocumentById(input.documentId);
           if (!document || document.kind !== "facture" || document.balanceDue <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "La relance doit concerner une facture avec un solde impayé." });
           const models = await listLLMModels();
-          const model = await pickLLMModel(models);
-          const result = await invokeLLM({
-            model,
+          const candidates = await pickLLMModelCandidates(models);
+          const result = await invokeLLMWithFallback({
             max_tokens: 1200,
             messages: [
               { role: "system", content: "Tu es l’assistant de recouvrement de Lucepress, entreprise guinéenne BTP et forage. Rédige en français un modèle d’e-mail de relance professionnel, factuel et prêt à relire, sans menaces ni affirmation juridique. Mentionne le numéro de facture, le montant du solde en GNF et l’échéance connue. Le résultat est un brouillon : ne prétends jamais que l’e-mail a été envoyé." },
               { role: "user", content: JSON.stringify({ ton: input.tone, facture: document.number, client: document.clientName, contact: document.contactName, email: document.clientEmail, echeance: document.dueDate, soldeGNF: document.balanceDue, dateEmission: document.issueDate }) },
             ],
             response_format: { type: "json_schema", json_schema: reminderResponseSchema },
-          });
+          },
+          candidates);
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Le modèle de relance est indisponible. Réessayez dans un instant." });
           try {
@@ -1732,16 +1732,16 @@ export const appRouter = router({
           if (documents.some(document => !document || document.kind !== "facture" || document.balanceDue <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "Chaque relance doit concerner une facture avec un solde impayé." });
           const invoices = documents as Array<NonNullable<typeof documents[number]>>;
           const models = await listLLMModels();
-          const model = await pickLLMModel(models);
-          const result = await invokeLLM({
-            model,
+          const candidates = await pickLLMModelCandidates(models);
+          const result = await invokeLLMWithFallback({
             max_tokens: 1200,
             messages: [
               { role: "system", content: "Tu es l’assistant de recouvrement de Lucepress, entreprise guinéenne BTP et forage. Prépare un brouillon d’e-mail distinct et personnalisé pour chaque facture fournie. Chaque texte doit être professionnel, factuel, sans menace ni affirmation juridique, et mentionner exactement le numéro de facture, le solde en GNF et l’échéance connue. Respecte l’instruction interne facultative seulement si elle est compatible avec ces faits. Ces contenus sont des brouillons internes : ne prétends jamais qu’un e-mail a été envoyé ou programmé. Retourne strictement une entrée par documentId fourni, sans en ajouter ni en omettre." },
               { role: "user", content: JSON.stringify({ ton: input.tone, instructionInterne: instruction ?? null, factures: invoices.map(invoice => ({ documentId: invoice.id, facture: invoice.number, client: invoice.clientName, contact: invoice.contactName, echeance: invoice.dueDate, soldeGNF: invoice.balanceDue, dateEmission: invoice.issueDate })) }) },
             ],
             response_format: { type: "json_schema", json_schema: batchReminderResponseSchema },
-          });
+          },
+          candidates);
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Les modèles de relance sont indisponibles. Réessayez dans un instant." });
           try {
@@ -1761,16 +1761,16 @@ export const appRouter = router({
         .input(z.object({ text: z.string().trim().min(10).max(6000) }))
         .mutation(async ({ input }) => {
           const models = await listLLMModels();
-          const model = await pickLLMModel(models);
-          const result = await invokeLLM({
-            model,
+          const candidates = await pickLLMModelCandidates(models);
+          const result = await invokeLLMWithFallback({
             max_tokens: 1200,
             messages: [
               { role: "system", content: "Tu es l’assistant administratif de Lucepress. Extrais uniquement les coordonnées d’un prospect ou client contenues dans le texte fourni. Ne fabrique jamais une donnée absente : utilise une chaîne vide. companyName doit être le nom de l’entreprise, du particulier ou du client ; si aucun nom exploitable n’est mentionné, utilise 'Client à confirmer' et signale-le dans missingFields. NIF, RCCM et identifiants fiscaux sont facultatifs : ne les mets jamais dans missingFields. missingFields ne concerne que les coordonnées de contact vraiment utiles (e-mail, téléphone, adresse) si elles manquent. notes doit contenir seulement les précisions utiles au répertoire. La sortie est un brouillon à faire relire avant enregistrement." },
               { role: "user", content: input.text },
             ],
             response_format: { type: "json_schema", json_schema: clientExtractionResponseSchema },
-          });
+          },
+          candidates);
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "L’extraction IA est indisponible. Réessayez dans un instant." });
           try {
@@ -1785,17 +1785,17 @@ export const appRouter = router({
         .mutation(async ({ input }) => {
           const catalog = await db.listServices();
           const models = await listLLMModels();
-          const model = await pickLLMModel(models);
+          const candidates = await pickLLMModelCandidates(models);
           const serviceContext = catalog.map(service => ({ code: service.code, name: service.name, unit: service.unit, unitPrice: service.defaultUnitPrice, taxRate: service.defaultTaxRate })).slice(0, 80);
-          const result = await invokeLLM({
-            model,
+          const result = await invokeLLMWithFallback({
             max_tokens: 1200,
             messages: [
               { role: "system", content: "Tu es l’assistant commercial de Lucepress, entreprise guinéenne BTP et forage. À partir d’une simple description de chantier, prépare un devis complet, structuré et prêt à relire en français. Déduis le domaine, le périmètre, les étapes, les prestations, les hypothèses, la durée d’exécution, les conditions de paiement et une durée de validité raisonnable. Il s’agit toujours d’un brouillon à faire relire : ne prétends jamais qu’il est validé. Réutilise le catalogue fourni quand il correspond. Si un prix fiable n’est pas présent dans le catalogue, utilise 0 comme prix unitaire et mentionne explicitement la vérification requise dans note, technicalNotes et assumptions. Tous les montants sont des entiers en francs guinéens (GNF). Les lignes doivent être exhaustives mais ne dois pas inventer de prix." },
               { role: "user", content: JSON.stringify({ besoin: input.description, domaine: input.projectType ?? "non précisé", tauxTaxeParDefaut: input.taxRate, cataloguePrestations: serviceContext }) },
             ],
             response_format: { type: "json_schema", json_schema: proposalSchema },
-          });
+          },
+          candidates);
           const content = result.choices[0]?.message.content;
           if (typeof content !== "string") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La proposition IA est indisponible. Réessayez dans un instant." });
           try {
