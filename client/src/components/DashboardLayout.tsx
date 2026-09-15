@@ -61,7 +61,7 @@ import {
   X,
 } from "lucide-react";
 import React, { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Redirect, useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { LandingPage } from "./LandingPage";
 import { Button } from "./ui/button";
@@ -123,6 +123,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
+  const [location] = useLocation();
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -130,7 +131,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) return <DashboardLayoutSkeleton />;
 
-  if (!user) return <LandingPage />;
+  // Visiteur non connecte : l accueil public reste accessible ; tout lien profond
+  // vers un ecran protege renvoie vers la connexion.
+  if (!user) {
+    if (location === "/" || location === "/tableau-de-bord") return <LandingPage />;
+    return <Redirect to="/login" />;
+  }
 
   return (
     <SidebarProvider style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}>
