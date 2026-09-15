@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lucepress — Maquettes hi-fi du panneau d'administration</title>
+<style>
+  :root{
+    --brand:#153f38;
+    --brand-2:#0f2d28;
+    --brand-soft:#e8f2ee;
+    --gold:#a9791f;
+    --gold-soft:#f6edda;
+    --paper:#faf7f1;
+    --card:#ffffff;
+    --ink:#243530;
+    --ink-soft:#4d5651;
+    --muted:#7c857f;
+    --hair:#e4ddcb;
+    --hair-2:#efe9dc;
+    --ok:#256b46;
+    --warn:#9a6414;
+    --crit:#93302f;
+    --radius:12px;
+    --radius-sm:8px;
+    --shadow:0 1px 2px rgba(36,53,48,.05);
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand)}
+  .topbar{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--brand);color:#fff}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.01em}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:var(--gold);display:grid;place-items:center;color:#3a2c08;font-size:12px;font-weight:800}
+  .topbar .tag{margin-left:6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#cfe3dc;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:3px 9px}
+  .topbar .spacer{flex:1}
+  .topbar .who{font-size:12px;color:#cfe3dc}
+  .shell{display:grid;grid-template-columns:232px 1fr;gap:0;min-height:calc(100vh - 52px)}
+  .rail{border-right:1px solid var(--hair);background:#f6f2ea;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+  .rail .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:800;margin:10px 10px 6px}
+  .rail-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:1px solid transparent;border-radius:10px;padding:9px 10px;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer}
+  .rail-btn:hover{background:#efe9dd}
+  .rail-btn:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+  .rail-btn[aria-current="true"]{background:#fff;border-color:var(--hair);color:var(--brand)}
+  .rail-btn svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .stage{padding:26px 30px 60px;max-width:1180px}
+  .screen{display:none}
+  .screen[data-active="true"]{display:block}
+  .pagehead{margin-bottom:20px}
+  .kicker{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;color:var(--gold);margin:0 0 6px}
+  h1{font-family:var(--serif);font-weight:600;font-size:26px;letter-spacing:-.01em;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:13.5px;margin:0;max-width:70ch}
+  .row{display:grid;gap:14px}
+  .row.c4{grid-template-columns:repeat(4,1fr)}
+  .row.c3{grid-template-columns:repeat(3,1fr)}
+  .row.c2{grid-template-columns:1.15fr .85fr}
+  .card{background:var(--card);border:1px solid var(--hair);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card .hd{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--hair-2);font-weight:700;font-size:13.5px}
+  .card .bd{padding:14px 16px}
+  .kpi{padding:13px 15px}
+  .kpi .lab{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .kpi .val{font-family:var(--mono);font-size:19px;font-weight:700;margin-top:5px;color:var(--brand)}
+  .kpi .val.gold{color:var(--gold)}
+  .kpi .note{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .tile{display:flex;flex-direction:column;gap:4px;padding:14px 15px}
+  .tile b{font-size:13.5px}
+  .tile span{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:800;padding:9px 12px;border-bottom:1px solid var(--hair)}
+  td{padding:11px 12px;border-bottom:1px solid var(--hair-2);vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:3px 7px;border:1px solid currentColor}
+  .b-ok{color:var(--ok);background:#eaf5ee}
+  .b-warn{color:var(--warn);background:#fbf3e2}
+  .b-crit{color:var(--crit);background:#fbecec}
+  .b-mut{color:#5c6660;background:#f1efea}
+  .b-brand{color:var(--brand);background:var(--brand-soft)}
+  .muted{color:var(--muted)}
+  .mono{font-family:var(--mono);font-size:12.5px}
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;border:1px solid var(--hair);background:#fff;color:var(--ink);font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;cursor:pointer}
+  .btn:hover{background:#f7f4ee}
+  .btn:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-2)}
+  .btn.ghost{border-color:transparent;color:var(--brand)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+  .field label{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .field .inp{border:1px solid var(--hair);border-radius:9px;padding:9px 11px;font-size:13.5px;background:#fff;color:var(--ink)}
+  .field .inp.filled{color:var(--ink)}
+  .field .inp.empty{color:#9aa39d;font-style:italic}
+  .field .hint{font-size:11.5px;color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+  .list{display:flex;flex-direction:column}
+  .item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair-2)}
+  .item:last-child{border-bottom:0}
+  .item .t{flex:1}
+  .item .t b{font-size:13.5px}
+  .item .t p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-weight:800;font-size:12px;flex:none}
+  .matrix td.c{text-align:center}
+  .matrix .yes{color:var(--ok);font-weight:800}
+  .matrix .no{color:#b3b8b4}
+  .matrix .part{color:var(--warn);font-weight:700;font-size:12px}
+  .banner{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--hair);border-left:3px solid var(--brand);background:#f7f4ee;border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft)}
+  .note{font-size:12px;color:var(--muted)}
+  .foot{margin-top:26px;font-size:11.5px;color:var(--muted)}
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr}
+    .rail{border-right:0;border-bottom:1px solid var(--hair);flex-direction:row;overflow-x:auto}
+    .rail .eyebrow{display:none}
+    .rail-btn{white-space:nowrap}
+    .row.c4,.row.c3,.row.c2,.grid2{grid-template-columns:1fr}
+    .stage{padding:20px 16px 48px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot">L</span> Lucepress <span class="tag">Maquettes hi-fi · v1</span></div>
+  <div class="spacer"></div>
+  <div class="who">Administrateur · admin@lucepress.app</div>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Navigation du panneau d'administration">
+    <div class="eyebrow">Pilotage</div>
+    <button class="rail-btn" data-screen="console" aria-current="true">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Console d'administration</button>
+    <button class="rail-btn" data-screen="team">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 6"/><path d="M18 20a5.2 5.2 0 0 0-2.4-4.4"/></svg>
+      Comptes &amp; rôles</button>
+    <button class="rail-btn" data-screen="company">
+      <svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg>
+      Entreprise &amp; documents</button>
+    <div class="eyebrow">Connexions</div>
+    <button class="rail-btn" data-screen="integrations">
+      <svg viewBox="0 0 24 24"><path d="M9 7V5a3 3 0 0 1 6 0v2"/><rect x="4" y="7" width="16" height="12" rx="2.5"/><path d="M9 13h6"/></svg>
+      Intégrations &amp; connexions</button>
+    <button class="rail-btn" data-screen="agent">
+      <svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4"/><circle cx="9" cy="13" r="1.1"/><circle cx="15" cy="13" r="1.1"/></svg>
+      Agent IA</button>
+    <div class="eyebrow">Confiance</div>
+    <button class="rail-btn" data-screen="security">
+      <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z"/><path d="M9.5 12.2l1.8 1.8 3.4-3.6"/></svg>
+      Sécurité &amp; sessions</button>
+    <button class="rail-btn" data-screen="audit">
+      <svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 10h7M9 13.5h7M9 17h4"/></svg>
+      Journal d'audit</button>
+  </nav>
+
+  <main class="stage">
+
+    <!-- 1. CONSOLE -->
+    <section class="screen" id="s-console" data-active="true">
+      <div class="pagehead">
+        <p class="kicker">Administration · vue d'ensemble</p>
+        <h1>Console d'administration</h1>
+        <p class="sub">Tout ce qui régit l'application au même endroit : équipe, entreprise, documents, recouvrement, intégrations, agent IA et traçabilité.</p>
+      </div>
+      <div class="row c4">
+        <div class="card kpi"><div class="lab">Comptes actifs</div><div class="val">2</div><div class="note">1 administrateur · 1 cadre</div></div>
+        <div class="card kpi"><div class="lab">Documents</div><div class="val">5</div><div class="note">3 devis acceptés · 1 envoyé</div></div>
+        <div class="card kpi"><div class="lab">En attente d'encaissement</div><div class="val gold">1 435 200 GNF</div><div class="note">1 créance ouverte</div></div>
+        <div class="card kpi"><div class="lab">Envoi e-mail</div><div class="val" style="font-size:15px;color:var(--ok)">Opérationnel</div><div class="note">SMTP configuré</div></div>
+      </div>
+
+      <div class="row c3" style="margin-top:14px">
+        <div class="card tile"><b>Comptes &amp; rôles</b><span>Admin, cadre, directeur — invitation et révocation</span></div>
+        <div class="card tile"><b>Entreprise &amp; documents</b><span>Identité, mentions légales, coordonnées bancaires</span></div>
+        <div class="card tile"><b>Intégrations</b><span>5 fournisseurs contrôlés · OAuth côté serveur</span></div>
+        <div class="card tile"><b>Agent IA</b><span>Délégations bornées, approbations, simulation</span></div>
+        <div class="card tile"><b>Sécurité</b><span>Mots de passe, sessions, revue d'accès</span></div>
+        <div class="card tile"><b>Journal d'audit</b><span>Traçabilité exportable des actions sensibles</span></div>
+      </div>
+
+      <div class="row c2" style="margin-top:14px">
+        <div class="card">
+          <div class="hd">Activité récente</div>
+          <div class="bd list">
+            <div class="item"><div class="t"><b>Devis accepté via lien e-mail</b><p>DEV-2026-0004 · décision client · 14/09 12:35</p></div><span class="badge b-brand">Document</span></div>
+            <div class="item"><div class="t"><b>Devis envoyé par e-mail</b><p>DEV-2026-0004 → client · lien sécurisé · 14/09 12:32</p></div><span class="badge b-mut">E-mail</span></div>
+            <div class="item"><div class="t"><b>Statut document : à envoyer → envoyé</b><p>DEV-2026-0003 · 14/09 08:31</p></div><span class="badge b-mut">Statut</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd">À traiter</div>
+          <div class="bd">
+            <div class="banner"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--gold);fill:none;stroke-width:1.8;flex:none;margin-top:2px"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>
+              <div><b>1 facture à encaisser.</b> FAC-2026-0003 · Malika morgan llc · échéance 18 sept. 2026 · solde 1 435 200 GNF.</div></div>
+            <div class="actions" style="margin-top:12px">
+              <button class="btn primary">Ouvrir les créances</button>
+              <button class="btn">Nouveau devis</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. TEAM -->
+    <section class="screen" id="s-team">
+      <div class="pagehead">
+        <p class="kicker">Administration · accès</p>
+        <h1>Comptes &amp; rôles</h1>
+        <p class="sub">Créer un accès, ajuster les droits, réinitialiser un mot de passe bloqué ou révoquer une arrivée. Chaque changement de rôle est journalisé.</p>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn primary">Inviter par e-mail</button>
+          <button class="btn">Nouveau compte</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">Membres <span class="note" style="font-weight:400">— 2 comptes sur cette instance</span></div>
+        <table>
+          <thead><tr><th>Personne</th><th>Rôle</th><th>Dernière connexion</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div style="display:flex;gap:10px;align-items:center"><span class="avatar">A</span><div><b>Administrateur</b><div class="muted" style="font-size:12px">admin@lucepress.app · vous</div></div></div></td>
+              <td><span class="badge b-brand">Admin</span></td>
+              <td class="mono">15/09/2026, 04:00</td>
+              <td style="text-align:right"><button class="btn ghost">Réinitialiser le mot de passe</button></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;gap:10px;align-items:center"><span class="avatar">M</span><div><b>Moelohim Mara</b><div class="muted" style="font-size:12px">moelohimmara@gmail.com</div></div></div></td>
+              <td><span class="badge b-mut">Cadre</span></td>
+              <td class="mono">14/09/2026, 10:40</td>
+              <td style="text-align:right"><button class="btn">Passer directeur</button> <button class="btn ghost" style="color:var(--crit)">Supprimer</button></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;gap:10px;align-items:center"><span class="avatar">?</span><div><b>badpearce8@gmail.com</b><div class="muted" style="font-size:12px">invitation en attente · expire le 17/09/2026</div></div></div></td>
+              <td><span class="badge b-warn">Invité · Directeur</span></td>
+              <td class="muted">—</td>
+              <td style="text-align:right"><button class="btn">Renvoyer</button> <button class="btn ghost" style="color:var(--crit)">Révoquer</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="hd">Matrice des droits</div>
+        <table class="matrix">
+          <thead><tr><th>Capacité</th><th class="c">Admin</th><th class="c">Directeur</th><th class="c">Cadre</th></tr></thead>
+          <tbody>
+            <tr><td>Consulter devis, factures, clients</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Émettre et envoyer un document</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Enregistrer un paiement</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Paramètres entreprise &amp; modèles</td><td class="c yes">✓</td><td class="c part">partiel</td><td class="c no">—</td></tr>
+            <tr><td>Comptes, rôles et invitations</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><td>Intégrations &amp; gouvernance agent IA</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><td>Supprimer un document</td><td class="c yes">✓</td><td class="c part">partiel</td><td class="c no">—</td></tr>
+          </tbody>
+        </table>
+        <div class="bd note">Les liens d'invitation sont valables 72 heures ; un nouvel envoi invalide le précédent.</div>
+      </div>
+    </section>
+
+    <!-- 3. COMPANY -->
+    <section class="screen" id="s-company">
+      <div class="pagehead">
+        <p class="kicker">Administration · organisation</p>
+        <h1>Entreprise &amp; documents</h1>
+        <p class="sub">Ces informations alimentent l'en-tête et le pied de chaque devis et facture, à l'écran comme dans le PDF.</p>
+        <div class="actions" style="margin-top:12px"><button class="btn primary">Enregistrer</button><button class="btn">Aperçu du document</button></div>
+      </div>
+
+      <div class="row c2">
+        <div class="card">
+          <div class="hd">Identité et mentions légales</div>
+          <div class="bd">
+            <div class="grid2">
+              <div class="field"><label>Raison sociale *</label><div class="inp filled">Lucepress</div></div>
+              <div class="field"><label>Téléphone</label><div class="inp filled">+224 624 19 06 20</div></div>
+              <div class="field"><label>E-mail</label><div class="inp filled">admin@lucepress.app</div></div>
+              <div class="field"><label>Site web</label><div class="inp empty">Non renseigné</div></div>
+              <div class="field"><label>NIF (facultatif)</label><div class="inp empty">À compléter</div></div>
+              <div class="field"><label>RCCM (facultatif)</label><div class="inp empty">À compléter</div></div>
+            </div>
+            <div class="field"><label>Situation administrative</label><div class="inp filled">Société immatriculée (NIF / RCCM si connus)</div></div>
+            <div class="field"><label>Pied de document personnalisé</label><div class="inp filled">Solutions durables pour les communautés.</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd">Coordonnées bancaires</div>
+          <div class="bd">
+            <div class="banner" style="border-left-color:var(--gold)"><div><b>Facultatives tant qu'elles ne sont pas confirmées.</b> Dès qu'un élément est saisi, la mention de règlement apparaît sur les documents.</div></div>
+            <div class="grid2" style="margin-top:14px">
+              <div class="field"><label>Banque</label><div class="inp empty">Non renseignée</div></div>
+              <div class="field"><label>Titulaire du compte</label><div class="inp empty">Non renseigné</div></div>
+              <div class="field"><label>Numéro de compte</label><div class="inp empty">Non renseigné</div></div>
+              <div class="field"><label>IBAN</label><div class="inp empty">Non renseigné</div></div>
+            </div>
+            <div class="field"><label>Instructions de règlement</label><div class="inp empty">Non renseignées</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. INTEGRATIONS -->
+    <section class="screen" id="s-integrations">
+      <div class="pagehead">
+        <p class="kicker">Administration · connexions</p>
+        <h1>Intégrations &amp; connexions</h1>
+        <p class="sub">Aucun secret n'est affiché ici. Toute écriture vers un système externe exige une validation humaine nominative.</p>
+      </div>
+
+      <div class="card">
+        <div class="hd">État des connexions</div>
+        <table>
+          <thead><tr><th>Fournisseur</th><th>Transport</th><th>État</th><th style="text-align:right">Action</th></tr></thead>
+          <tbody>
+            <tr><td><b>E-mail (SMTP)</b><div class="muted" style="font-size:12px">Devis, factures, relances, invitations</div></td><td class="muted">SMTP</td><td><span class="badge b-ok">Actif</span></td><td style="text-align:right"><button class="btn">Tester l'envoi</button></td></tr>
+            <tr><td><b>Google Workspace</b><div class="muted" style="font-size:12px">Agenda et archivage Drive</div></td><td class="muted">OAuth 2.0</td><td><span class="badge b-warn">À préparer</span></td><td style="text-align:right"><button class="btn">Préparer l'accès</button></td></tr>
+            <tr><td><b>WhatsApp Business</b><div class="muted" style="font-size:12px">Messagerie client (non activée)</div></td><td class="muted">API</td><td><span class="badge b-mut">Bientôt</span></td><td style="text-align:right"><button class="btn ghost">Documentation</button></td></tr>
+            <tr><td><b>Procore API</b><div class="muted" style="font-size:12px">Lecture projet, rapports journaliers</div></td><td class="muted">API</td><td><span class="badge b-warn">À préparer</span></td><td style="text-align:right"><button class="btn">Préparer l'accès</button></td></tr>
+            <tr><td><b>QuickBooks Online</b><div class="muted" style="font-size:12px">Synchronisation comptable</div></td><td class="muted">API</td><td><span class="badge b-warn">À préparer</span></td><td style="text-align:right"><button class="btn">Préparer l'accès</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row c2" style="margin-top:14px">
+        <div class="card">
+          <div class="hd">File d'approbations</div>
+          <div class="bd">
+            <div class="banner"><div>Une écriture externe ne progresse qu'après une décision nominative. <b>Simulation locale · aucun envoi externe.</b></div></div>
+            <div class="list" style="margin-top:10px">
+              <div class="item"><div class="t"><b>Créer une facture comptable</b><p>QuickBooks Online · en attente d'approbation</p></div><span class="badge b-warn">En attente</span></div>
+              <div class="item"><div class="t"><b>Synchroniser un rapport journalier</b><p>Procore · en attente d'approbation</p></div><span class="badge b-warn">En attente</span></div>
+              <div class="item"><div class="t"><b>Préparer une relance de chantier</b><p>WhatsApp Business · en attente d'approbation</p></div><span class="badge b-warn">En attente</span></div>
+            </div>
+            <div class="foot">Ces trois éléments sont des exemples de recette : en production, la file démarre vide et n'affiche que de vraies demandes.</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd">Assistant OAuth Google</div>
+          <div class="bd">
+            <div class="field"><label>Identifiant client OAuth</label><div class="inp empty">Non configuré</div></div>
+            <div class="field"><label>URI de redirection HTTPS</label><div class="inp empty">Non configurée</div></div>
+            <div class="field"><label>Autorisations demandées</label>
+              <div class="inp filled mono" style="font-size:11.5px">calendar.readonly · calendar.events · drive.file</div>
+            </div>
+            <div class="banner" style="border-left-color:var(--warn)"><div><b>OAuth désactivé — secret requis.</b> Le secret client reste côté serveur, jamais dans le navigateur.</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. AGENT -->
+    <section class="screen" id="s-agent">
+      <div class="pagehead">
+        <p class="kicker">Administration · automatisations</p>
+        <h1>Gouvernance de l'agent IA</h1>
+        <p class="sub">L'agent prépare, l'humain décide. Aucun message ne quitte Lucepress sans une délégation approuvée et une relecture.</p>
+      </div>
+
+      <div class="row c4">
+        <div class="card kpi"><div class="lab">Délégations simulées</div><div class="val">0</div></div>
+        <div class="card kpi"><div class="lab">Approbations à traiter</div><div class="val gold">0</div></div>
+        <div class="card kpi"><div class="lab">Brouillons prêts</div><div class="val">0</div></div>
+        <div class="card kpi"><div class="lab">Éléments bloqués</div><div class="val">0</div></div>
+      </div>
+
+      <div class="row c2" style="margin-top:14px">
+        <div class="card">
+          <div class="hd">Cadre de délégation</div>
+          <div class="bd list">
+            <div class="item"><div class="t"><b>Plafond par campagne</b><p>60 messages par jour maximum</p></div></div>
+            <div class="item"><div class="t"><b>Expiration</b><p>Une délégation expire au plus tard après 90 jours</p></div></div>
+            <div class="item"><div class="t"><b>Double approbation</b><p>Au-delà de 20 destinataires, deux responsables distincts</p></div></div>
+            <div class="item"><div class="t"><b>Relecture obligatoire</b><p>Les brouillons portent toujours la mention de relecture</p></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd">Copilote — briefing marge &amp; recouvrement</div>
+          <div class="bd">
+            <div class="banner"><div>Analyse les indicateurs calculés ; <b>ne crée, ne modifie et n'envoie rien</b>.</div></div>
+            <div style="margin-top:12px"><button class="btn primary">Générer le briefing à relire</button></div>
+            <div class="foot">Envois réels : passez par « Relances » (SMTP). L'agent reste en simulation tant qu'aucune délégation n'est approuvée.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. SECURITY -->
+    <section class="screen" id="s-security">
+      <div class="pagehead">
+        <p class="kicker">Administration · confiance</p>
+        <h1>Sécurité &amp; sessions</h1>
+        <p class="sub">Ce qui protège l'application : robustesse des mots de passe, sessions révocables, contrôle des jetons et revue d'accès.</p>
+      </div>
+
+      <div class="row c3">
+        <div class="card kpi"><div class="lab">Mots de passe</div><div class="val" style="font-size:15px">scrypt</div><div class="note">Jamais stockés en clair</div></div>
+        <div class="card kpi"><div class="lab">Anti-force brute</div><div class="val" style="font-size:15px">Actif</div><div class="note">Blocage progressif par compte et par IP</div></div>
+        <div class="card kpi"><div class="lab">MFA</div><div class="val" style="font-size:15px;color:var(--crit)">À activer</div><div class="note">Recommandé pour les comptes admin</div></div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="hd">Sessions actives</div>
+        <table>
+          <thead><tr><th>Appareil</th><th>Démarrée</th><th>Dernière activité</th><th style="text-align:right">Action</th></tr></thead>
+          <tbody>
+            <tr><td><b>Navigateur · Windows</b><div class="muted" style="font-size:12px">Administrateur</div></td><td class="mono">15/09/2026, 04:00</td><td class="mono">à l'instant</td><td style="text-align:right"><span class="badge b-ok">Session courante</span></td></tr>
+          </tbody>
+        </table>
+        <div class="bd"><button class="btn" style="color:var(--crit)">Révoquer toutes les autres sessions</button></div>
+      </div>
+
+      <div class="row c2" style="margin-top:14px">
+        <div class="card">
+          <div class="hd">Revue d'accès</div>
+          <div class="bd">
+            <p class="note" style="margin:0 0 10px">Exportez le journal d'audit (connexions, changements de rôle, actions d'administration) pour vos contrôles périodiques.</p>
+            <div class="actions"><button class="btn">Exporter la revue d'accès (CSV)</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd">Jetons &amp; clés</div>
+          <div class="bd">
+            <p class="note" style="margin:0 0 10px"><b>0 jeton affiché.</b> Les secrets des intégrations vivent côté serveur et ne sont jamais rendus au navigateur.</p>
+            <div class="actions"><button class="btn">Voir la politique de secrets</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. AUDIT -->
+    <section class="screen" id="s-audit">
+      <div class="pagehead">
+        <p class="kicker">Administration · traçabilité</p>
+        <h1>Journal d'audit</h1>
+        <p class="sub">Chaque changement de statut, envoi, approbation ou suppression est conservé et exportable.</p>
+        <div class="actions" style="margin-top:12px"><button class="btn primary">Cette semaine</button><button class="btn">Ce mois</button><button class="btn">Exporter CSV</button></div>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Action</th><th>Objet</th><th>Auteur</th><th>Date</th></tr></thead>
+          <tbody>
+            <tr><td><b>Facture supprimée</b><div class="muted" style="font-size:12px">Supprimé par l'équipe</div></td><td class="mono">FAC-2026-0002</td><td>Administrateur</td><td class="mono">14/09 12:36</td></tr>
+            <tr><td><b>Devis accepté via lien e-mail</b><div class="muted" style="font-size:12px">Décision invité</div></td><td class="mono">DEV-2026-0004</td><td>Administrateur</td><td class="mono">14/09 12:35</td></tr>
+            <tr><td><b>Devis envoyé par e-mail</b><div class="muted" style="font-size:12px">Lien invité sécurisé</div></td><td class="mono">DEV-2026-0004</td><td>Administrateur</td><td class="mono">14/09 12:32</td></tr>
+            <tr><td><b>Statut document : à envoyer → envoyé</b></td><td class="mono">DEV-2026-0003</td><td>Administrateur</td><td class="mono">14/09 08:31</td></tr>
+            <tr><td><b>Devis envoyé par e-mail</b><div class="muted" style="font-size:12px">Lien invité sécurisé</div></td><td class="mono">DEV-2026-0003</td><td>Administrateur</td><td class="mono">14/09 08:31</td></tr>
+          </tbody>
+        </table>
+        <div class="bd note">36 entrées au total sur la période. La journalisation couvre les connexions, les changements de rôle et les actions d'administration.</div>
+      </div>
+    </section>
+
+    <p class="foot">Maquettes hi-fi — Lucepress Facturation · écrans exécutés dans un seul fichier HTML, sans dépendance externe. Les montants sont en franc guinéen (GNF).</p>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var buttons = Array.prototype.slice.call(document.querySelectorAll(".rail-btn"));
+    var screens = Array.prototype.slice.call(document.querySelectorAll(".screen"));
+    function show(id) {
+      screens.forEach(function (s) { s.setAttribute("data-active", s.id === "s-" + id ? "true" : "false"); });
+      buttons.forEach(function (b) { b.setAttribute("aria-current", b.getAttribute("data-screen") === id ? "true" : "false"); });
+    }
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () { show(b.getAttribute("data-screen")); });
+    });
+    show("console");
+  })();
+</script>
+</body>
+</html>
