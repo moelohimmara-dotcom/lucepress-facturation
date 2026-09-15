@@ -1,0 +1,8 @@
+# Lucepress Sarl - robots.txt
+User-agent: *
+Allow: /
+# API applicative : non indexable
+Disallow: /api/
+Disallow: /storage/
+# Portail invité : liens à jeton, non indexables
+Disallow: /d/
