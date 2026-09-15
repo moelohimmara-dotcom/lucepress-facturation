@@ -26,7 +26,7 @@ import { trpc } from "@/lib/trpc";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import type { WorkspaceSearchFilters } from "@shared/workspaceSearch";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
-import { canAccessPath, isClientRole, isStaffRole } from "@shared/roles";
+import { canAccessPath, isClientRole, isStaffRole, isSystemRole } from "@shared/roles";
 import {
   ArrowRight,
   History,
@@ -54,6 +54,7 @@ import {
   ReceiptText,
   Settings,
   Sparkles,
+  SquareTerminal,
   Sun,
   UsersRound,
   WalletCards,
@@ -95,6 +96,10 @@ const navigationGroups = [
   { label: "Configuration", items: [
     { icon: Cable, label: "Intégrations", path: "/integrations" },
     { icon: Settings, label: "Paramètres", path: "/parametres" },
+  ] },
+  // Visible pour les rôles `systeme` et `admin` uniquement (voir canAccessPath).
+  { label: "Exploitation", items: [
+    { icon: SquareTerminal, label: "Console d’exploitation", path: "/console" },
   ] },
 ];
 
@@ -164,6 +169,14 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
     if (!isClientRole(user?.role)) return;
     if (canAccessPath("client", location)) return;
     setLocation("/portail-client");
+  }, [user?.role, location, setLocation]);
+
+  // L’administrateur système ne circule que dans la console (séparation des devoirs) :
+  // tout autre écran le ramène à /console.
+  useEffect(() => {
+    if (!isSystemRole(user?.role)) return;
+    if (canAccessPath("systeme", location)) return;
+    setLocation("/console");
   }, [user?.role, location, setLocation]);
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";

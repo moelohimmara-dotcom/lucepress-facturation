@@ -14,7 +14,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { IDENTITY_KINDS, omitOptionalPaperworkMissingFields } from "../shared/identityPaperwork";
 import { CLIENT_ACTIVITY_TYPES } from "../shared/clientActivityTypes";
-import { APP_ROLES, isStaffRole, STAFF_ROLES } from "../shared/roles";
+import { APP_ROLES, isStaffRole, STAFF_ASSIGNABLE_ROLES, type PersistedAppRole } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
@@ -85,7 +85,8 @@ async function dispatchReminderEmail(input: z.infer<typeof reminderEmailInputSch
 
 async function issueInvitation(opts: {
   email: string;
-  role: (typeof APP_ROLES)[number];
+  /** Seuls les rôles portés par l’énumération `invitations.role` sont invitable. */
+  role: PersistedAppRole;
   invitedById: number;
   invitedByName: string | null;
   tenantId: number;
@@ -669,6 +670,12 @@ export const appRouter = router({
             message: "Les accès portail client s’invitent depuis la fiche client.",
           });
         }
+        if (input.role === "systeme") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Le rôle système ne s’attribue pas depuis les comptes collaborateurs : la base ne le porte pas encore (migration hors Phase 1).",
+          });
+        }
         const existant = await db.getUserByEmail(input.email);
         if (existant) {
           throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
@@ -684,7 +691,10 @@ export const appRouter = router({
         return { success: true, openId: user.openId, id: user.id } as const;
       }),
     setRole: adminProcedure
-      .input(z.object({ userId: z.number().int().positive(), role: z.enum(STAFF_ROLES) }))
+      // `STAFF_ASSIGNABLE_ROLES` (admin/directeur/cadre) : même ensemble que
+      // `STAFF_ROLES` avant l’ajout du rôle système, qui n’est pas persistable
+      // dans l’énumération `role_admin_directeur` (Phase 1 sans migration).
+      .input(z.object({ userId: z.number().int().positive(), role: z.enum(STAFF_ASSIGNABLE_ROLES) }))
       .mutation(async ({ ctx, input }) => {
         // Garde-fou : un admin ne peut pas se rétrograder lui-même et laisser
         // l'instance sans administrateur.
@@ -741,6 +751,12 @@ export const appRouter = router({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Les accès portail client s’invitent depuis la fiche client, pas depuis les comptes internes.",
+          });
+        }
+        if (input.role === "systeme") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Le rôle système ne s’invite pas depuis les comptes collaborateurs : la base ne le porte pas encore (migration hors Phase 1).",
           });
         }
         return issueInvitation({

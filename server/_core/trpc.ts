@@ -90,3 +90,15 @@ export const staffProcedure = t.procedure.use(
     "Accès réservé à l’équipe commerciale Lucepres.",
   ),
 );
+
+/**
+ * Console d’exploitation : rôle système + admin (croisement explicite).
+ * Le contrôle ne repose jamais sur l’interface — chaque procédure de la console
+ * repasse par ce middleware.
+ */
+export const systemProcedure = t.procedure.use(
+  requireRoles(
+    ["systeme", "admin"],
+    "Accès réservé à la console d’exploitation Lucepres.",
+  ),
+);

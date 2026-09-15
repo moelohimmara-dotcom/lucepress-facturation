@@ -38,7 +38,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { calculateDocumentTotals, calculatePaymentBalance, formatDocumentNumber, initialDocumentStatus, invoicePaymentStatus, isInvoiceOverdue, summarizeDashboard, type DocumentKind, type DocumentStatus, type EditableDocumentLine, type PaymentMethod } from "../shared/billing";
-import type { AppRole } from "../shared/roles";
+import type { AppRole, PersistedAppRole } from "../shared/roles";
 import { normalizeIdentityKind, type IdentityKind } from "../shared/identityPaperwork";
 import type { ClientActivityType } from "../shared/clientActivityTypes";
 import {
@@ -171,8 +171,9 @@ export async function createLocalUser(input: {
    * Rôle explicite. Volontairement OBLIGATOIRE côté appelant : cette fonction
    * forçait auparavant `role: "admin"` en dur, ce qui donnait les pleins droits
    * à tout compte créé via `auth.register` (procédure publique).
+   * Type « persistable » : l’énumération `users.role` ne porte pas encore `systeme`.
    */
-  role: AppRole;
+  role: PersistedAppRole;
   tenantId?: number;
 }): Promise<{ id: number; openId: string }> {
   const db = await requireDb();
@@ -238,7 +239,7 @@ export async function listUsers(): Promise<
 }
 
 /** Change le rôle d'un compte (admin -> user ou user -> admin). */
-export async function setUserRole(userId: number, role: AppRole): Promise<void> {
+export async function setUserRole(userId: number, role: PersistedAppRole): Promise<void> {
   const db = await requireDb();
   await db.update(users).set({ role }).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant())));
 }
@@ -287,7 +288,8 @@ export const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
 export type NewInvitation = {
   tokenHash: string;
   email: string;
-  role: AppRole;
+  /** Type « persistable » : l’énumération `invitations.role` ne porte pas encore `systeme`. */
+  role: PersistedAppRole;
   invitedBy: number;
   tenantId?: number;
 };

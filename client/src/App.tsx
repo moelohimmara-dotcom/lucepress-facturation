@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { DashboardLayoutSkeleton } from "./components/DashboardLayoutSkeleton";
 import { AdminGate } from "./components/AdminGate";
 import { DirectionGate } from "./components/DirectionGate";
+import { SystemGate } from "./components/SystemGate";
 import { EnhancedToaster } from "@/components/EnhancedToast";
 import { CommandPalette } from "@/components/CommandPalette";
 import { TourGuide, appTourSteps } from "@/components/TourGuide";
@@ -39,6 +40,8 @@ const RemindersPage = lazy(() => import("./pages/RemindersPage"));
 const StaffAuditPage = lazy(() => import("./pages/StaffAuditPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const GuestDocumentPage = lazy(() => import("./pages/GuestDocumentPage"));
+// Console d’exploitation : bundle séparé, jamais chargé pour les autres rôles.
+const SystemConsolePage = lazy(() => import("./pages/SystemConsolePage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
 const GuestLazyFallback = () => (
@@ -78,6 +81,18 @@ function withDirectionGate<P extends object>(Page: ComponentType<P>, title: stri
 }
 
 const DirectionStaffAuditPage = withDirectionGate(StaffAuditPage, "Journal d’audit");
+
+function withSystemGate<P extends object>(Page: ComponentType<P>, title: string) {
+  return function GatedPage(props: P) {
+    return (
+      <SystemGate title={title}>
+        <Page {...props} />
+      </SystemGate>
+    );
+  };
+}
+
+const SystemConsoleRoute = withSystemGate(SystemConsolePage, "Console d’exploitation");
 
 function Router() {
   return (
@@ -119,6 +134,7 @@ function Router() {
             <Route path={"/reset-password"} component={ResetPasswordPage} />
             <Route path={"/relances"} component={RemindersPage} />
             <Route path={"/journal-audit"} component={DirectionStaffAuditPage} />
+            <Route path={"/console"} component={SystemConsoleRoute} />
             <Route path={"/login"} component={LoginPage} />
             <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
             <Route path={"/documents/:id"} component={DocumentPreviewPage} />

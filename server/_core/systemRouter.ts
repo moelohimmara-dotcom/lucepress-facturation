@@ -2,8 +2,13 @@ import { z } from "zod";
 import { pingDatabase } from "../db";
 import { buildHealthPayload } from "./health";
 import { notifyOwner } from "./notification";
-import { adminProcedure, publicProcedure, router } from "./trpc";
+import { adminProcedure, publicProcedure, router, systemProcedure } from "./trpc";
 import { listLLMModels, pickLLMModel } from "./llm";
+
+/** Identité applicative affichée par la console d’exploitation. */
+const APPLICATION_NAME = "Lucepress Facturation";
+/** Renseignée par l’hébergeur au déploiement ; `null` si inconnue (jamais inventée). */
+const APPLICATION_VERSION = process.env.APP_VERSION?.trim() || null;
 
 export const systemRouter = router({
   // Sans input obligatoire : le moniteur VPS / curl GET doit pouvoir
@@ -11,6 +16,22 @@ export const systemRouter = router({
   health: publicProcedure.query(async () => {
     const dbOk = await pingDatabase();
     return buildHealthPayload({ dbOk });
+  }),
+
+  /**
+   * Résumé d’exploitation pour la console (Phase 1 — socle).
+   * Réutilise `pingDatabase` et `buildHealthPayload` : aucune donnée inventée,
+   * aucune variable d’environnement, aucun secret, aucune stack.
+   */
+  overview: systemProcedure.query(async () => {
+    const dbOk = await pingDatabase();
+    return {
+      application: {
+        name: APPLICATION_NAME,
+        version: APPLICATION_VERSION,
+      },
+      health: buildHealthPayload({ dbOk }),
+    };
   }),
 
   llmModels: adminProcedure.query(async () => {
