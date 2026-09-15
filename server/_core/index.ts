@@ -142,6 +142,13 @@ export async function createApp() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      // La stack et la cause restent dans les logs serveur ; `data.stack` n'est
+      // jamais renvoyé (voir `isDev` dans _core/trpc.ts).
+      onError({ error, path, type }) {
+        if (error.code === "INTERNAL_SERVER_ERROR") {
+          console.error(`[trpc] ${type} ${path ?? "inconnu"} en échec:`, error.cause ?? error);
+        }
+      },
     })
   );
   return { app, server };

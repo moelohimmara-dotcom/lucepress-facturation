@@ -1,3 +1,4 @@
+import { documentStatusLabel } from "./billing";
 import type { ClientActivityType } from "./clientActivityTypes";
 
 export type ClientActivityRecord = { id: number; clientId: number; documentId: number | null; type: ClientActivityType; title: string; description: string | null; createdAt: Date };
@@ -11,7 +12,7 @@ export function buildClientActivityTimeline(clientId: number, documents: ClientD
     documentId: document.id,
     type: "document_genere" as const,
     title: `${document.kind === "facture" ? "Facture" : "Devis"} ${document.number} généré`,
-    description: `Document ${document.status.replaceAll("_", " ")} · ${document.total.toLocaleString("fr-GN")} GNF`,
+    description: `Document ${documentStatusLabel(document.status).toLowerCase()} · ${document.total.toLocaleString("fr-GN")} GNF`,
     createdAt: document.createdAt,
   }));
   const reminderEvents = activities.map(activity => ({ ...activity, id: `activity-${activity.id}` }));

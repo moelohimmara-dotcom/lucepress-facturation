@@ -14,6 +14,27 @@ export const DOCUMENT_STATUSES = [
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
+/**
+ * Libellés d'affichage des statuts. Purement cosmétique : les codes persistés
+ * (`DOCUMENT_STATUSES`) ne changent jamais, seuls les accents et la casse.
+ */
+export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
+  brouillon: "Brouillon",
+  a_envoyer: "À envoyer",
+  envoye: "Envoyé",
+  accepte: "Accepté",
+  refuse: "Refusé",
+  partiellement_paye: "Partiellement payé",
+  paye: "Payé",
+  en_retard: "En retard",
+  annule: "Annulé",
+};
+
+/** Statut inconnu (valeur héritée) : on retombe sur le code lisible. */
+export function documentStatusLabel(status: string): string {
+  return (DOCUMENT_STATUS_LABELS as Record<string, string>)[status] ?? status.replaceAll("_", " ");
+}
+
 type DashboardDocument = {
   kind: DocumentKind;
   status: DocumentStatus;

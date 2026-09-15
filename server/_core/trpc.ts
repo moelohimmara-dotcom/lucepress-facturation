@@ -6,7 +6,14 @@ import { runWithTenant } from "./tenantContext";
 
 // NOTE: superjson retiré car incompatible avec body parser global
 // Les dates doivent être sérialisées manuellement si nécessaire
-const t = initTRPC.context<TrpcContext>().create({});
+//
+// `isDev` pilote l'exposition de `data.stack` dans les réponses d'erreur.
+// Le défaut tRPC (`NODE_ENV !== "production"`) laissait fuiter la stack en
+// production : le runtime serverless Netlify ne définit pas forcément
+// NODE_ENV=production. On n'active donc le verbeux que sur un dev explicite
+// (`NODE_ENV=development`, script `pnpm dev`).
+const isDev = process.env.NODE_ENV === "development";
+const t = initTRPC.context<TrpcContext>().create({ isDev });
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

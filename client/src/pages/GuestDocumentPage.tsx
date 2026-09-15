@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
-import { formatGnf } from "@shared/billing";
+import { documentStatusLabel, formatGnf } from "@shared/billing";
 import { formatCompanyBankLine, formatCompanyDocumentFooter, formatCompanyLegalLine, formatCompanyRegistrationLine, LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { calculateQuotePaymentSchedule } from "@shared/paymentSchedule";
 import { CheckCircle2, Download, FileText, Loader2, ShieldCheck, XCircle } from "lucide-react";
@@ -110,7 +110,7 @@ export default function GuestDocumentPage() {
 
         {!document.canRespond && document.kind === "devis" && (
           <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${document.status === "accepte" ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200" : document.status === "refuse" ? "border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/70 text-rose-900 dark:text-rose-200" : "border-border bg-muted/40 text-muted-foreground"}`}>
-            Statut actuel : {document.status === "accepte" ? "Accepté" : document.status === "refuse" ? "Refusé" : document.status.replaceAll("_", " ")}
+            Statut actuel : {documentStatusLabel(document.status)}
           </div>
         )}
 

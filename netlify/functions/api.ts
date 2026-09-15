@@ -8,8 +8,8 @@ if (!(globalThis as any).crypto) {
 
 import serverlessHttp from "serverless-http";
 import { createApp } from "../../server/_core/index.ts";
+import { internalErrorResponse, requestToEvent, v1ToWebResponse } from "../../server/_core/serverlessHttpAdapter.ts";
 
-const BUILD_ID = "build-2026-09-14-delete-routes";
 let handlerPromise = null;
 
 async function getHandler() {
@@ -18,47 +18,6 @@ async function getHandler() {
     handlerPromise = serverlessHttp(app);
   }
   return handlerPromise;
-}
-
-/**
- * Le runtime Netlify Functions moderne (bootstrap v2) appelle le handler
- * avec une `Request` Web API. serverless-http attend un event API Gateway
- * v1 ({ path, httpMethod, headers, body, isBase64Encoded, ... }) et retourne
- * l'ancien format v1 ({ statusCode, headers, body, isBase64Encoded }).
- * On assure les deux conversions.
- */
-async function requestToEvent(req: Request): Promise<any> {
-  const url = new URL(req.url);
-  const headers: Record<string, string> = {};
-  req.headers.forEach((value, key) => {
-    headers[key] = value;
-  });
-  const body = req.method === "GET" || req.method === "HEAD" ? null : await req.text();
-  return {
-    path: url.pathname,
-    httpMethod: req.method,
-    headers,
-    queryStringParameters: Object.fromEntries(url.searchParams),
-    body: body ?? null,
-    isBase64Encoded: false,
-  };
-}
-
-function v1ToWebResponse(result: any): Response {
-  if (result instanceof Response) return result;
-  const status = result?.statusCode ?? 200;
-  const headers = result?.headers ?? {};
-  const isBase64 = result?.isBase64Encoded === true;
-  const body = result?.body ?? "";
-  const init: ResponseInit = {
-    status,
-    headers: new Headers(headers as Record<string, string>),
-  };
-  if (isBase64) {
-    const bin = Buffer.from(String(body), "base64");
-    return new Response(new Uint8Array(bin), init);
-  }
-  return new Response(body == null ? "" : String(body), init);
 }
 
 export default async (event: any, context: any) => {
@@ -80,11 +39,9 @@ export default async (event: any, context: any) => {
     const result = await handler(out, context);
     return v1ToWebResponse(result);
   } catch (err) {
-    const message = err && err.stack ? err.stack : String(err);
-    return v1ToWebResponse({
-      statusCode: 500,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ diag: `${BUILD_ID}:api-handler-throw`, message }),
-    });
+    // Le détail (stack, chemins internes, identifiant de build) reste dans les
+    // logs serveur : la réponse HTTP ne doit rien divulguer.
+    console.error("[api] handler serverless en échec:", err);
+    return internalErrorResponse();
   }
 };
