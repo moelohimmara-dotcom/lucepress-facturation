@@ -295,7 +295,7 @@ describe("Tableau de bord système — rendu", () => {
       "Tableau de bord",
       "Santé &amp; supervision",
       "Base &amp; sauvegardes",
-      "Accès &amp; sessions",
+      "Accès &amp; comptes",
       "Rôles &amp; permissions",
       "Environnement",
       "Intégrations",

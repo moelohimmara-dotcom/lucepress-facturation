@@ -40,6 +40,7 @@ import {
   ChevronDown,
   FileText,
   FolderKanban,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -101,6 +102,8 @@ const navigationGroups = [
   { label: "Exploitation", items: [
     { icon: SquareTerminal, label: "Console d’exploitation", path: "/console" },
     { icon: ShieldCheck, label: "Santé & supervision", path: "/console/sante" },
+    { icon: KeyRound, label: "Accès & comptes", path: "/console/acces" },
+    { icon: UsersRound, label: "Rôles & permissions", path: "/console/permissions" },
   ] },
 ];
 

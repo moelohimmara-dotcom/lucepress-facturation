@@ -146,13 +146,13 @@ describe("Écran Santé & supervision — rendu statique", () => {
 });
 
 describe("Console — navigation des modules livrés", () => {
-  it("rend navigables les deux écrans livrés et laisse les autres annotés", () => {
+  it("rend navigables les écrans livrés et laisse les autres annotés", () => {
     const html = renderToStaticMarkup(createElement(ConsoleModuleRail, { activePath: "/console/sante" }));
 
     expect(html).toContain('href="/console"');
     expect(html).toContain('href="/console/sante"');
-    // Dix modules : deux livrés (liens), huit encore annotés d’une phase.
-    expect((html.match(/aria-disabled="true"/g) ?? []).length).toBe(8);
+    // Dix modules : quatre livrés (liens), six encore annotés d’une phase.
+    expect((html.match(/aria-disabled="true"/g) ?? []).length).toBe(6);
     expect((html.match(/aria-current="page"/g) ?? []).length).toBe(1);
     expect(html).toMatch(/href="\/console\/sante"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/console\/sante"/);
   });
@@ -167,6 +167,8 @@ describe("Console — navigation des modules livrés", () => {
     expect(html).toContain("Accès rapides");
     expect(html).toContain('href="/console"');
     expect(html).toContain('href="/console/sante"');
+    expect(html).toContain('href="/console/acces"');
+    expect(html).toContain('href="/console/permissions"');
   });
 
   it("affiche l’état global et les accès rapides sur le tableau de bord", () => {

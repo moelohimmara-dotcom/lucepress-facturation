@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { pingDatabase } from "../db";
+import { collectSystemAccess } from "../systemAccess";
 import { collectSystemMetrics } from "../systemMetrics";
 import { buildHealthPayload } from "./health";
 import { notifyOwner } from "./notification";
@@ -42,6 +43,14 @@ export const systemRouter = router({
    * procédure ne remonte ni exception, ni message d’erreur, ni secret.
    */
   metrics: systemProcedure.query(async () => collectSystemMetrics()),
+
+  /**
+   * Accès et comptes de l’instance (Phase 3 — module 4, étape A « lecture seule »).
+   * Lecture seule : comptes (staff et portail client), répartition par rôle,
+   * invitations en attente, moyens d’accès et politique de mot de passe.
+   * Aucun secret, aucun jeton : voir `server/systemAccess.ts`.
+   */
+  access: systemProcedure.query(async ({ ctx }) => collectSystemAccess({ tenantId: ctx.tenantId ?? undefined })),
 
   llmModels: adminProcedure.query(async () => {
     try {
