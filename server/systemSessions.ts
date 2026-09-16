@@ -234,9 +234,9 @@ async function loadTotals(
 ): Promise<SystemSessionsTotals> {
   const rows = await runQuery(sql`
     select count(*) as "total",
-           count(*) filter (where s."revokedAt" is null and s."expiresAt" > ${now}) as "active",
+           count(*) filter (where s."revokedAt" is null and s."expiresAt" > ${now.toISOString()}) as "active",
            count(*) filter (where s."revokedAt" is not null) as "revoked",
-           count(*) filter (where s."revokedAt" is null and s."expiresAt" <= ${now}) as "expired"
+           count(*) filter (where s."revokedAt" is null and s."expiresAt" <= ${now.toISOString()}) as "expired"
       from sessions s
      where s."tenantId" = ${tenantId}
   `);

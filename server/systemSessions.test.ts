@@ -219,11 +219,16 @@ describe("Registre de sessions — enregistrement à la connexion", () => {
 
     expect(result.ok).toBe(true);
     const { params } = sqlOf(mocks.execute.mock.calls[0][0] as SQL);
-    const expiresAt = params.find(value => value instanceof Date) as Date;
-    expect(expiresAt).toBeInstanceOf(Date);
+    const expiresAt = params.find(
+      (value): value is string =>
+        typeof value === "string" && !Number.isNaN(Date.parse(value)),
+    );
+    expect(expiresAt).toBeTruthy();
+    const expiresAtMs = new Date(expiresAt as string).getTime();
+    // Le pilote refuse un objet Date : l echeance est desormais une chaine ISO.
     // Une seule constante gouverne le cookie, le JWT et la ligne `sessions`.
-    expect(expiresAt.getTime()).toBeGreaterThanOrEqual(avant + SESSION_TTL_MS - 1_000);
-    expect(expiresAt.getTime()).toBeLessThanOrEqual(apres + SESSION_TTL_MS + 1_000);
+    expect(expiresAtMs).toBeGreaterThanOrEqual(avant + SESSION_TTL_MS - 1_000);
+    expect(expiresAtMs).toBeLessThanOrEqual(apres + SESSION_TTL_MS + 1_000);
   });
 
   it("ne lève jamais, quelle que soit la panne, et rend compte de l’échec", async () => {

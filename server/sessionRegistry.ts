@@ -174,7 +174,7 @@ export async function recordSession(
         ${input.tenantId},
         ${input.userId},
         ${hashSessionToken(input.token)},
-        ${expiresAt},
+        ${new Date(expiresAt).toISOString()},
         ${userAgent},
         ${ip}
       )
