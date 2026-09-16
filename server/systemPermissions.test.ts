@@ -339,7 +339,9 @@ describe("Isolation de l’écran Rôles & permissions", () => {
   });
 
   it("garde la route /console/permissions derrière SystemGate", () => {
-    expect(app).toContain('withSystemGate(SystemPermissionsPage, "Rôles & permissions")');
+    // Depuis l’étape B2, le garde ne reçoit plus d’intitulé : il refuse
+    // muettement, donc il n’a plus de message de refus à composer.
+    expect(app).toContain("withSystemGate(SystemPermissionsPage)");
     expect(app).toContain('<Route path={"/console/permissions"} component={SystemPermissionsRoute} />');
   });
 

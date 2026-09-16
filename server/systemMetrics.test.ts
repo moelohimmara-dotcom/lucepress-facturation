@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MEASURED_TABLES, collectSystemMetrics, type RawQueryRunner } from "./systemMetrics";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
@@ -11,6 +11,19 @@ import type { TrpcContext } from "./_core/context";
  * exception ne doit remonter) et l’absence de secret dans le relevé.
  */
 const readSource = (relativePath: string) => readFileSync(resolve(process.cwd(), relativePath), "utf8");
+
+/**
+ * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ *
+ * `systemProcedure` exige désormais le rôle ET une double authentification
+ * active ; sans ce double, les appels ci-dessous recevraient 403. Les deux sens
+ * du verrou sont vérifiés dans `server/systemConsoleMfa.test.ts` — ici, on isole
+ * les règles de supervision.
+ */
+vi.mock("./mfa", async importOriginal => {
+  const actual = await importOriginal<typeof import("./mfa")>();
+  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
+});
 
 function contextFor(role: string): TrpcContext {
   return {

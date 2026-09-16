@@ -203,7 +203,9 @@ describe("Isolation de l’écran Santé & supervision", () => {
   });
 
   it("garde la route /console/sante derrière SystemGate", () => {
-    expect(app).toContain('withSystemGate(SystemSupervisionPage, "Santé & supervision")');
+    // Depuis l’étape B2, le garde ne reçoit plus d’intitulé : il refuse
+    // muettement, donc il n’a plus de message de refus à composer.
+    expect(app).toContain("withSystemGate(SystemSupervisionPage)");
     expect(app).toContain('<Route path={"/console/sante"} component={SystemSupervisionRoute} />');
   });
 

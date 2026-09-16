@@ -114,7 +114,7 @@ l'essai de mots de passe en masse coûteux pour un attaquant.
 
 Toutes vivent dans `server/routers.ts`, sous `auth`.
 
-### 4.1 `auth.login`
+### 4.1 `auth.login` — et son second temps, `auth.mfaLogin`
 
 1. Résolution de l'IP appelante (`_core/clientIp.ts`).
 2. **Réservation** d'une tentative auprès du limiteur → si refus, `429
@@ -122,12 +122,47 @@ Toutes vivent dans `server/routers.ts`, sous `auth`.
 3. Recherche du compte par e-mail.
 4. Vérification du mot de passe (scrypt).
 5. En cas d'échec : l'échec est confirmé au limiteur, réponse `401 UNAUTHORIZED`.
-6. En cas de succès : compteur du compte purgé, `lastSignedIn` mis à jour, jeton
-   JWT signé et déposé en cookie.
+6. **Compte sans MFA** (le cas courant, inchangé) : compteur du compte purgé,
+   `lastSignedIn` mis à jour, jeton JWT signé et déposé en cookie. Réponse
+   `{ success: true }`.
+7. **Compte avec MFA active** : **aucune session n'est délivrée** — ni cookie, ni
+   ligne `sessions`, ni `lastSignedIn`. La réponse est
+   `{ mfaRequired: true, challengeToken, expiresInSeconds: 300 }`.
 
 Le message d'erreur est **identique** que l'e-mail soit inconnu ou que le mot de
 passe soit faux (« E-mail ou mot de passe incorrect »). C'est délibéré : un
 message distinct permettrait de deviner quelles adresses possèdent un compte.
+
+#### Le second temps : `auth.mfaLogin({ challengeToken, code })`
+
+Le `challengeToken` n'est **pas** une session. Il est signé avec une clé
+**dérivée distincte** de celle des sessions (`_core/mfaChallenge.ts`, HKDF depuis
+`JWT_SECRET`), ne porte ni `email` ni `name`, et vit **5 minutes**. Un jeton de
+défi présenté comme cookie de session est refusé, et réciproquement.
+
+| Étape | Effet |
+| --- | --- |
+| 1. Réservation auprès du limiteur | Indexée sur le **compte**, comme à la connexion |
+| 2. Vérification du défi | Expiré, fabriqué ou d'un autre usage → `401` |
+| 3. Vérification du code | Code TOTP (6 chiffres, ±1 pas) **ou** code de secours |
+| 4. Anti-rejeu | Le pas consommé est écrit en base par une condition SQL atomique |
+| 5. Succès | Session délivrée **exactement** comme au chemin direct |
+
+**Point de sécurité à ne pas casser** : `auth.login` ne purge **pas** le
+compteur du compte lorsqu'il répond `mfaRequired`. La réservation prise à
+l'étape 2 reste comptée jusqu'à ce qu'une authentification soit **complète**.
+Sinon, un attaquant connaissant le mot de passe purgerait son compteur à chaque
+essai et pourrait deviner le code sans frein. Le non-respect de cette règle est
+détecté par `server/mfaLoginRateLimit.test.ts`, qui utilise le vrai limiteur.
+
+#### Où la MFA est exigée
+
+Elle est **facultative** partout, sauf pour la console d'exploitation
+(`/console`) : `systemProcedure` exige le rôle `systeme` **et** une MFA active.
+Un compte système sans MFA reçoit `403` sur toutes les procédures de la console,
+mais conserve l'accès à `mfa.enrollStart` / `mfa.enrollConfirm` (sous
+`protectedProcedure`) — c'est ainsi qu'il se met en règle. Un compte système
+sans MFA ne peut donc pas ouvrir la console : il doit d'abord s'enrôler.
 
 ### 4.2 `auth.register` — amorçage du premier compte uniquement
 
@@ -289,6 +324,10 @@ pnpm vitest run server/authLoginRateLimit.test.ts \
 | `_core/authContextSecurity.test.ts` | Aucun accès privilégié sans session ; le repli `local-admin` ne peut pas revenir. |
 | `authLoginRateLimit.test.ts` | Quotas, blocage progressif, normalisation, **résistance à l'attaque par lot**, plafond mémoire. |
 | `authLoginRoute.test.ts` | Le garde-fou est réellement branché sur `auth.login` ; l'amorçage du premier compte fonctionne. |
+| `mfa.test.ts` | Calcul TOTP (vecteurs RFC 6238), secret jamais en clair, jeton de défi qui n'est pas une session, anti-rejeu, codes de secours consommés. |
+| `mfaLogin.test.ts` | **Connexion inchangée pour un compte sans MFA**, `mfaRequired` sans session, défis expirés ou fabriqués, code de secours. |
+| `mfaLoginRateLimit.test.ts` | Un mot de passe connu **ne purge pas** le compteur du compte : le second facteur reste protégé de la force brute. |
+| `systemConsoleMfa.test.ts` | `403` pour un compte système sans MFA, enrôlement toujours atteignable, refus muet et **journalisé**. |
 
 ### Contrôles manuels sur le serveur
 
@@ -313,6 +352,10 @@ curl -s -X POST https://<domaine>/api/trpc/auth.register \
 | --- | --- |
 | `server/_core/password.ts` | Hachage et vérification scrypt. |
 | `server/_core/localAuth.ts` | Signature et vérification du JWT de session. |
+| `server/_core/totp.ts` | Calcul et vérification TOTP (RFC 4226/6238), sans dépendance. |
+| `server/_core/mfaSecret.ts` | Chiffrement du secret TOTP au repos (AES-256-GCM, clé HKDF depuis `JWT_SECRET`). |
+| `server/_core/mfaChallenge.ts` | Jeton de défi du second facteur (clé dérivée distincte de celle des sessions). |
+| `server/mfa.ts` | Persistance et règles MFA : enrôlement, vérification, anti-rejeu, codes de secours, désactivation. |
 | `server/_core/context.ts` | Résolution de l'utilisateur par requête. **Aucun repli.** |
 | `server/_core/loginRateLimit.ts` | Garde-fou anti-brute-force (réservation atomique). |
 | `server/_core/clientIp.ts` | Résolution de l'IP derrière le proxy. |
@@ -325,6 +368,6 @@ curl -s -X POST https://<domaine>/api/trpc/auth.register \
 
 | Variable | Rôle |
 | --- | --- |
-| `JWT_SECRET` | Clé de signature des sessions. **Obligatoire en production.** |
+| `JWT_SECRET` | Clé de signature des sessions. **Obligatoire en production.** En dérive aussi, par HKDF, la clé qui chiffre les secrets TOTP et celle qui signe les jetons de défi MFA. **La faire tourner rend les secrets TOTP existants illisibles** : remettre à zéro les colonnes `users.mfa%` avant, sinon les comptes enrôlés ne peuvent plus présenter de code valide. |
 | `TRUST_PROXY` | À définir (`1`) uniquement si un reverse proxy est en place. |
 | `DATABASE_URL` | Connexion MySQL. |

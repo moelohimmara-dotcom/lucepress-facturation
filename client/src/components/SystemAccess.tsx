@@ -24,9 +24,14 @@ import {
  * Purement présentationnel : tout provient de la procédure `system.access` (voir
  * `server/systemAccess.ts`). CET écran n’offre aucune action : l’édition des
  * comptes, des rôles et des mots de passe reste dans le back-office (admin), et
- * la MFA attend l’étape B2. La révocation de session, elle, existe désormais —
- * mais sur l’écran voisin « Sessions actives », pas ici : deux responsabilités,
- * deux écrans.
+ * la MFA se gère depuis le tableau de bord de la console (panneau « Ma double
+ * authentification »), chacun pour son propre compte. La révocation de session,
+ * elle, vit sur l’écran voisin « Sessions actives » : deux responsabilités, deux
+ * écrans.
+ *
+ * La colonne « second facteur » est un BOOLÉEN : elle dit si la MFA est active
+ * sur le compte, jamais quel en est le secret ni combien de codes de secours
+ * restent — ces informations n’existent pas dans la réponse de `system.access`.
  *
  * Aucune valeur n’est inventée : un compte non lisible affiche un état vide
  * explicite, et un moyen d’accès indisponible est annoncé comme tel avec sa
@@ -39,6 +44,8 @@ export type ConsoleAccessAccount = {
   name: string | null;
   email: string | null;
   role: string;
+  /** MFA active sur ce compte. Booléen seul : aucun secret ne circule. */
+  mfaEnabled: boolean;
   lastSignedIn: string | null;
   createdAt: string | null;
 };
@@ -332,6 +339,7 @@ export function SystemAccessPanel({ access, failed, isLoading }: SystemAccessPan
                   <th scope="col" className="py-2 pr-3">Nom</th>
                   <th scope="col" className="py-2 pr-3">E-mail</th>
                   <th scope="col" className="py-2 pr-3">Rôle</th>
+                  <th scope="col" className="py-2 pr-3">Second facteur</th>
                   <th scope="col" className="py-2 pr-3">Dernière connexion</th>
                   <th scope="col" className="py-2">Créé le</th>
                 </tr>
@@ -347,6 +355,25 @@ export function SystemAccessPanel({ access, failed, isLoading }: SystemAccessPan
                         label={roleCounts.find(entry => entry.role === account.role)?.label ?? account.role}
                       />
                     </td>
+                    <td className="py-2.5 pr-3">
+                      {/*
+                        Un BOOLÉEN, et rien d’autre : ni le secret TOTP, ni les
+                        empreintes des codes de secours ne quittent le serveur.
+                        Un enrôlement inachevé affiche « non » — c’est exact, la
+                        MFA n’est pas active tant qu’un premier code ne l’a pas
+                        confirmée.
+                      */}
+                      <span
+                        data-testid={`access-mfa-${account.id}`}
+                        className={
+                          account.mfaEnabled
+                            ? "inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200"
+                            : "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground"
+                        }
+                      >
+                        {account.mfaEnabled ? "MFA active" : "MFA inactive"}
+                      </span>
+                    </td>
                     <td className="py-2.5 pr-3 font-mono text-xs text-muted-foreground">{formatAccessDate(account.lastSignedIn)}</td>
                     <td className="py-2.5 font-mono text-xs text-muted-foreground">{formatAccessDate(account.createdAt)}</td>
                   </tr>
@@ -357,8 +384,9 @@ export function SystemAccessPanel({ access, failed, isLoading }: SystemAccessPan
         )}
 
         <p className="mt-4 text-[11px] leading-4 text-muted-foreground">
-          Aucun mot de passe, aucune empreinte de mot de passe et aucun jeton ne sont lus par cette console. La date de
-          « dernière connexion » est initialisée à la création du compte : elle ne prouve pas une connexion réelle.
+          Aucun mot de passe, aucune empreinte de mot de passe, aucun jeton et aucun secret TOTP ne sont lus par cette
+          console : la colonne « second facteur » n’est qu’un booléen. La date de « dernière connexion » est initialisée
+          à la création du compte : elle ne prouve pas une connexion réelle.
         </p>
       </section>
     </div>

@@ -28,7 +28,53 @@ import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
 import { buildDocumentShareDocxBuffer } from "./documentShareDocx";
 import { buildDocumentPdfBuffer, renderHtmlToPdfBuffer } from "./pdfService";
 import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
+import { signMfaChallenge, verifyMfaChallenge } from "./_core/mfaChallenge";
+import {
+  confirmEnrollment,
+  disableMfa,
+  readMfaState,
+  startEnrollment,
+  verifySecondFactor,
+  type MfaRefusalReason,
+} from "./mfa";
 import { recordSession, revokeSessionByToken } from "./sessionRegistry";
+import { logConsoleAttempt } from "./systemAccessLog";
+
+/**
+ * Message affiché pour chaque motif de refus MFA.
+ *
+ * Un motif technique (`MfaRefusalReason`) n’est jamais montré tel quel : il est
+ * traduit ici, une fois, en une phrase qui dit à l’utilisateur CE QU’IL PEUT
+ * FAIRE. Aucune de ces phrases ne contient de secret, de code, ni d’empreinte.
+ */
+const MFA_REFUSAL_MESSAGES: Record<MfaRefusalReason, string> = {
+  indisponible:
+    "L’authentification à deux facteurs est momentanément indisponible : la base de données n’a pas répondu. Aucune modification n’a été enregistrée.",
+  aucun_enrolement: "Aucun enrôlement en cours pour ce compte. Générez d’abord un secret.",
+  deja_active: "L’authentification à deux facteurs est déjà active sur ce compte.",
+  non_active: "L’authentification à deux facteurs n’est pas active sur ce compte.",
+  code_incorrect:
+    "Code refusé. Saisissez le code affiché par votre application d’authentification, ou un code de secours.",
+  code_deja_utilise:
+    "Ce code a déjà servi. Attendez le code suivant, ou présentez un code de secours qui n’a pas encore été utilisé.",
+  echec_ecriture: "L’enregistrement n’a pas abouti : rien n’a été modifié. Réessayez.",
+};
+
+/**
+ * Traduit un motif de refus MFA en erreur tRPC.
+ *
+ * `indisponible` et `echec_ecriture` sont des pannes (500) ; un code refusé est
+ * un refus d’authentification (401) ; le reste est une demande mal formée (400).
+ */
+function mfaError(reason: MfaRefusalReason): TRPCError {
+  const code =
+    reason === "indisponible" || reason === "echec_ecriture"
+      ? "INTERNAL_SERVER_ERROR"
+      : reason === "code_incorrect" || reason === "code_deja_utilise"
+        ? "UNAUTHORIZED"
+        : "BAD_REQUEST";
+  return new TRPCError({ code, message: MFA_REFUSAL_MESSAGES[reason] });
+}
 
 /** Reconstruit l'origine publique (https://...) pour les liens e-mail. */
 function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
@@ -577,6 +623,67 @@ export const appRouter = router({
           loginRateLimiter.recordFailure({ email: input.email, ip });
           throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou mot de passe incorrect." });
         }
+
+        // ---------------------------------------------------------------
+        // SECOND FACTEUR — le mot de passe seul ne suffit plus si le compte
+        // porte une MFA.
+        // ---------------------------------------------------------------
+        //
+        // Le mot de passe est correct. Reste à savoir s’il suffit.
+        //
+        // POURQUOI UNE LECTURE IMPOSSIBLE VAUT « PAS DE MFA » ICI
+        // -------------------------------------------------------
+        // Le défaut sûr d’un contrôle d’accès est le refus. Ici, pourtant, on
+        // choisit l’inverse — et c’est délibéré : la quasi-totalité des comptes
+        // n’a PAS de MFA, et une colonne illisible ou une base momentanément
+        // muette ne doit pas fermer la connexion de tout le monde. Un compte
+        // sans MFA se connecte donc exactement comme avant, y compris quand la
+        // lecture échoue.
+        //
+        // Ce fail-open est sans danger parce que le seul espace où la MFA est
+        // OBLIGATOIRE — la console d’exploitation — ne dépend pas de cette
+        // décision : `systemProcedure` revérifie l’état MFA à CHAQUE appel, et
+        // cette vérification-là échoue FERMÉ (`isMfaActiveForUser`). Une session
+        // ouverte sans second facteur n’ouvre donc rien de sensible.
+        const mfa = await readMfaState(user.id);
+        if (mfa.readable && mfa.enabled) {
+          // PAS DE `recordSuccess` ICI — C’EST VOLONTAIRE, ET C’EST IMPORTANT.
+          //
+          // `check()` a RÉSERVÉ la tentative (voir `_core/loginRateLimit.ts`) :
+          // tant que `recordSuccess` n’est pas appelée, elle reste comptée pour
+          // ce compte. Or l’authentification n’est PAS terminée — il manque le
+          // second facteur.
+          //
+          // Libérer le compteur ici ouvrirait exactement la faille que la MFA
+          // est censée fermer : un attaquant qui connaît le mot de passe (c’est
+          // l’hypothèse de travail) ferait, en boucle,
+          //   1. `auth.login` — mot de passe juste → compteur purgé ;
+          //   2. `auth.mfaLogin` — code deviné → une seule tentative comptée.
+          // Il ne resterait que le quota par IP, contournable en répartissant la
+          // source. Le verrou par COMPTE — la défense principale, et la seule
+          // qui ne dépende pas de l’adresse — serait neutralisé.
+          //
+          // Le compteur est donc libéré au seul endroit qui atteste d’une
+          // authentification COMPLÈTE : la fin de `auth.mfaLogin`. Conséquence
+          // assumée : une tentative de connexion interrompue au second facteur
+          // coûte DEUX réservations (mot de passe puis code) — c’est le prix de
+          // ne pas rendre un mot de passe connu suffisant pour repartir à zéro.
+          //
+          // Et AUCUNE SESSION N’EST DÉLIVRÉE ICI : ni cookie, ni ligne
+          // `sessions`. Le jeton rendu n’ouvre qu’une chose — présenter le
+          // second facteur — et il est signé d’une clé DIFFÉRENTE de celle des
+          // sessions (`_core/mfaChallenge.ts`).
+          const challenge = await signMfaChallenge({
+            openId: user.openId,
+            tenantId: user.tenantId ?? 1,
+          });
+          return {
+            mfaRequired: true as const,
+            challengeToken: challenge.token,
+            expiresInSeconds: challenge.expiresInSeconds,
+          };
+        }
+
         loginRateLimiter.recordSuccess({ email: input.email });
         await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
         const { signLocalSession, SESSION_TTL_MS } = await import("./_core/localAuth");
@@ -610,6 +717,105 @@ export const appRouter = router({
           ip: resolveClientIp(ctx.req),
         });
         return { success: true };
+      }),
+    /**
+     * SECOND TEMPS DE LA CONNEXION — présentation du second facteur.
+     *
+     * Reçoit le défi ouvert par `auth.login` et un code : code TOTP à six
+     * chiffres, ou code de secours. En cas de succès, la session est délivrée
+     * EXACTEMENT comme au chemin direct — même cookie, même durée de vie, même
+     * ligne `sessions` —, si bien que la révocation à distance, l’écran
+     * « Sessions actives » et le contrôle de `_core/context.ts` s’appliquent
+     * sans rien savoir de la MFA.
+     *
+     * ANTI-FORCE BRUTE : un code à six chiffres n’a qu’un million de valeurs, et
+     * la fenêtre ±1 en rend trois acceptables. C’est peu, mais c’est
+     * exactement le même verrou que pour les mots de passe qui compte :
+     * `loginRateLimiter`, compté par compte ET par IP, alimenté aussi bien par
+     * les échecs de ce chemin que par ceux de `auth.login`.
+     */
+    mfaLogin: publicProcedure
+      .input(z.object({
+        challengeToken: z.string().min(20).max(4096),
+        code: z.string().trim().min(1).max(64),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { loginRateLimiter } = await import("./_core/loginRateLimit");
+        const { resolveClientIp } = await import("./_core/clientIp");
+        const ip = resolveClientIp(ctx.req);
+
+        const challenge = await verifyMfaChallenge(input.challengeToken);
+        if (!challenge) {
+          // Expiré, signé d’une autre clé, ou fabriqué : les trois se valent du
+          // point de vue de l’appelant, qui doit simplement recommencer.
+          logConsoleAttempt({ outcome: "defi_refuse", target: "auth.mfaLogin" });
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Ce défi a expiré ou n’est plus valable. Reconnectez-vous.",
+          });
+        }
+
+        const user = await db.getUserByOpenId(challenge.openId);
+        if (!user) {
+          logConsoleAttempt({
+            outcome: "defi_refuse",
+            target: "auth.mfaLogin",
+            tenantId: challenge.tenantId,
+          });
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Ce défi a expiré ou n’est plus valable. Reconnectez-vous.",
+          });
+        }
+
+        // Le compteur est indexé sur le compte, pas sur le défi : rouvrir un
+        // défi ne remet pas le compteur à zéro.
+        const email = user.email ?? user.openId;
+        const verdict = loginRateLimiter.check({ email, ip });
+        if (!verdict.allowed) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Trop de tentatives de connexion. Réessayez dans ${verdict.retryAfterSeconds} seconde(s).`,
+          });
+        }
+
+        const verified = await verifySecondFactor(user.id, input.code);
+        if (!verified.ok) {
+          loginRateLimiter.recordFailure({ email, ip });
+          logConsoleAttempt({
+            outcome: "defi_refuse",
+            target: "auth.mfaLogin",
+            role: user.role,
+            actor: user.email ?? user.openId,
+            actorId: user.id,
+            tenantId: user.tenantId ?? null,
+          });
+          throw mfaError(verified.reason);
+        }
+
+        loginRateLimiter.recordSuccess({ email });
+        await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+        const { signLocalSession, SESSION_TTL_MS } = await import("./_core/localAuth");
+        const token = await signLocalSession({
+          openId: user.openId,
+          email: user.email ?? "",
+          name: user.name ?? "",
+          tenantId: user.tenantId ?? 1,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: SESSION_TTL_MS });
+
+        // Même enregistrement que le chemin direct, au même titre : la MFA ne
+        // change rien à la façon dont la session vit ensuite.
+        await recordSession({
+          userId: user.id,
+          tenantId: user.tenantId ?? null,
+          token,
+          userAgent: ctx.req.headers?.["user-agent"] ?? null,
+          ip,
+        });
+
+        return { success: true as const, method: verified.value.method };
       }),
     me: publicProcedure.query(({ ctx }) => {
       if (!ctx.user) return null;
@@ -734,6 +940,184 @@ export const appRouter = router({
         // Marquer le reset comme utilisé (à usage unique)
         await db.markPasswordResetUsed(reset.id);
         return { success: true };
+      }),
+  }),
+  /**
+   * AUTHENTIFICATION À DEUX FACTEURS (TOTP) — gestion du compte CONNECTÉ.
+   *
+   * PÉRIMÈTRE VOLONTAIREMENT ÉTROIT : chacun ne gère QUE sa propre MFA. Aucune
+   * de ces procédures ne prend d’identifiant de compte en entrée — il n’y a donc
+   * pas de paramètre à falsifier pour toucher la MFA d’un autre. Un
+   * administrateur système qui voudrait réenrôler un collègue ne le peut pas
+   * d’ici : ce serait un pouvoir de prise de contrôle, et il n’est pas ouvert.
+   *
+   * POURQUOI `protectedProcedure` ET NON `systemProcedure` : le second verrou de
+   * la console exige une MFA ACTIVE. Si l’enrôlement passait par ce garde, un
+   * compte système sans MFA serait enfermé dehors — il ne pourrait pas s’enrôler
+   * puisqu’il n’est pas enrôlé. Ces quatre procédures sont donc exactement ce
+   * qui lui reste ouvert, et c’est ce qui lui permet de se mettre en règle.
+   *
+   * MFA FACULTATIVE AILLEURS : rien ici n’impose la MFA à un compte métier. Tout
+   * utilisateur authentifié PEUT l’activer ; personne n’y est forcé, sauf pour
+   * franchir la porte de la console.
+   */
+  mfa: router({
+    /**
+     * État de sa propre MFA. Ne lève jamais : une base injoignable rend
+     * `readable: false`, ce que l’interface affiche comme « état inconnu » au
+     * lieu de prétendre que la MFA est absente.
+     */
+    status: protectedProcedure.query(async ({ ctx }) => {
+      const state = await readMfaState(ctx.user!.id);
+      return {
+        readable: state.readable,
+        enabled: state.enabled,
+        pending: state.pending,
+        enrolledAt: state.enrolledAt ? state.enrolledAt.toISOString() : null,
+        recoveryCodesRemaining: state.recoveryCodesRemaining,
+      };
+    }),
+
+    /**
+     * Ouvre (ou rouvre) un enrôlement : tire un secret, le CHIFFRE et
+     * l’enregistre, SANS activer la MFA.
+     *
+     * Le secret n’est rendu QU’ICI, une seule fois. Il n’est jamais relu depuis
+     * la base par une procédure : la colonne ne contient qu’une enveloppe
+     * chiffrée, et aucune interface ne la déchiffre pour l’afficher.
+     */
+    enrollStart: protectedProcedure.mutation(async ({ ctx }) => {
+      const user = ctx.user!;
+      const account = user.email ?? user.name ?? user.openId;
+      const result = await startEnrollment(user.id, account);
+      if (!result.ok) throw mfaError(result.reason);
+
+      logConsoleAttempt({
+        outcome: "enrolement_demarre",
+        target: "mfa.enrollStart",
+        role: user.role,
+        actor: user.email ?? user.openId,
+        actorId: user.id,
+        tenantId: user.tenantId ?? null,
+      });
+
+      // Ni le secret ni l’URI ne sont journalisés : le journal nomme l’acteur et
+      // l’étape, jamais de quoi fabriquer un code.
+      return {
+        secret: result.value.secret,
+        otpauthUri: result.value.otpauthUri,
+        issuer: result.value.issuer,
+        account: result.value.account,
+        digits: result.value.digits,
+        periodSeconds: result.value.periodSeconds,
+        algorithm: result.value.algorithm,
+      };
+    }),
+
+    /**
+     * Confirme l’enrôlement avec un PREMIER code, puis active la MFA et remet
+     * les dix codes de secours — une seule fois, en clair, jamais relisibles.
+     */
+    enrollConfirm: protectedProcedure
+      .input(z.object({ code: z.string().trim().min(1).max(64) }))
+      .mutation(async ({ ctx, input }) => {
+        const user = ctx.user!;
+        const result = await confirmEnrollment(user.id, input.code);
+        if (!result.ok) throw mfaError(result.reason);
+
+        logConsoleAttempt({
+          outcome: "enrolement_confirme",
+          target: "mfa.enrollConfirm",
+          role: user.role,
+          actor: user.email ?? user.openId,
+          actorId: user.id,
+          tenantId: user.tenantId ?? null,
+        });
+
+        const { formatRecoveryCode } = await import("../shared/mfa");
+        return {
+          success: true as const,
+          // Présentés groupés pour être recopiables sans erreur. La base n’en
+          // garde que les empreintes scrypt : ces codes ne seront plus affichés.
+          recoveryCodes: result.value.recoveryCodes.map(formatRecoveryCode),
+          enrolledAt: result.value.enrolledAt.toISOString(),
+        };
+      }),
+
+    /**
+     * Désactive la MFA. EXIGE un code valide — TOTP ou code de secours.
+     *
+     * Sans cette exigence, une session volée suffirait à retirer le second
+     * facteur, c’est-à-dire à annuler la protection qu’il apporte.
+     *
+     * ANTI-FORCE BRUTE, COMME À LA CONNEXION. Ce point a failli manquer : une
+     * session volée (sans le téléphone, sans le mot de passe) pourrait sinon
+     * faire défiler des codes à six chiffres sans autre frein que le quota HTTP
+     * global — lequel ne compte pas PAR COMPTE et se contourne en répartissant
+     * la source. UN MILLION de codes, trois acceptables à tout instant : sans
+     * verrou, c’est une question d’heures. Le même limiteur que `auth.login` est
+     * donc appliqué ici, indexé sur le compte, et l’échec est journalisé — une
+     * tentative de retrait du second facteur est un signal que l’administrateur
+     * système doit voir.
+     *
+     * CONSÉQUENCE ASSUMÉE DU COMPTEUR PARTAGÉ : cinq codes faux ici retardent
+     * aussi la prochaine CONNEXION du compte (repli exponentiel, une minute).
+     * C’est voulu — un compte qu’on attaque doit se défendre, et la personne qui
+     * subit ce retard est celle dont la session est déjà entre d’autres mains.
+     */
+    disable: protectedProcedure
+      .input(z.object({ code: z.string().trim().min(1).max(64) }))
+      .mutation(async ({ ctx, input }) => {
+        const user = ctx.user!;
+        const { loginRateLimiter } = await import("./_core/loginRateLimit");
+        const { resolveClientIp } = await import("./_core/clientIp");
+        const ip = resolveClientIp(ctx.req);
+        const email = user.email ?? user.openId;
+
+        const verdict = loginRateLimiter.check({ email, ip });
+        if (!verdict.allowed) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Trop de tentatives. Réessayez dans ${verdict.retryAfterSeconds} seconde(s).`,
+          });
+        }
+
+        const result = await disableMfa(user.id, input.code);
+        if (!result.ok) {
+          loginRateLimiter.recordFailure({ email, ip });
+          // On ne journalise QUE le refus d’un code. Une panne de base ou une
+          // MFA déjà inactive n’est pas une tentative d’attaque : les confondre
+          // enverrait l’administrateur système sur une fausse piste.
+          if (result.reason === "code_incorrect" || result.reason === "code_deja_utilise") {
+            logConsoleAttempt({
+              outcome: "defi_refuse",
+              target: "mfa.disable",
+              role: user.role,
+              actor: email,
+              actorId: user.id,
+              tenantId: user.tenantId ?? null,
+            });
+          }
+          throw mfaError(result.reason);
+        }
+
+        // La réservation prise par `check()` est libérée : la désactivation a
+        // abouti, l’opération n’a pas échoué. Sans cette libération, chaque
+        // désactivation réussie laisserait un cran de plus dans le compteur du
+        // compte — et referait, par un autre chemin, ce que l’on vient
+        // précisément d’interdire à la connexion.
+        loginRateLimiter.recordSuccess({ email });
+
+        logConsoleAttempt({
+          outcome: "mfa_desactivee",
+          target: "mfa.disable",
+          role: user.role,
+          actor: email,
+          actorId: user.id,
+          tenantId: user.tenantId ?? null,
+        });
+
+        return { success: true as const, disabledAt: result.value.disabledAt.toISOString() };
       }),
   }),
   /**

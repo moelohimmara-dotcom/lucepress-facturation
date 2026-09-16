@@ -30,6 +30,16 @@ export type SystemAccessAccount = {
   email: string | null;
   /** Valeur brute de `users.role` (énumération `role_admin_directeur`). */
   role: string;
+  /**
+   * Authentification à deux facteurs ACTIVE sur ce compte (`users.mfaEnabled`).
+   *
+   * Booléen SEUL, jamais le secret ni les codes de secours : c’est la question
+   * que pose une revue d’accès — « ce compte a-t-il un second facteur ? » — et
+   * rien de plus. Le fait est lu dans la même requête que le compte ; il n’est
+   * pas déduit de la présence d’une colonne, qui peut être renseignée par un
+   * enrôlement inachevé.
+   */
+  mfaEnabled: boolean;
   /** Horodatage ISO 8601, ou `null` si la colonne est vide. */
   lastSignedIn: string | null;
   createdAt: string | null;
@@ -145,10 +155,10 @@ export const PASSWORD_POLICY: SystemAccessPasswordPolicy = {
  *
  * - Mot de passe local : disponible (c’est le seul chemin qui ouvre une session,
  *   voir `server/_core/context.ts`).
- * - MFA : TOUJOURS non implémentée à cette étape. La migration a bien créé les
- *   colonnes `users.mfa%`, mais aucune procédure ne les lit ni ne les écrit :
- *   l’enrôlement TOTP est l’étape B2, hors périmètre de la présente livraison.
- *   Annoncer la MFA « disponible » parce que les colonnes existent serait faux.
+ * - MFA : DISPONIBLE depuis l’étape B2. TOTP à six chiffres, pas de 30 secondes,
+ *   tolérance ±1, secret CHIFFRÉ en base (AES-256-GCM) et codes de secours
+ *   stockés en empreintes scrypt. Obligatoire pour ouvrir la console
+ *   d’exploitation ; facultative pour tous les autres comptes.
  * - SSO : aucun fournisseur d’identité externe n’est câblé à la connexion ; le
  *   service OAuth historique n’est plus appelé pour authentifier une requête.
  * - Sessions : LISTABLES et RÉVOCABLES depuis l’étape B1. Chaque connexion
@@ -167,9 +177,9 @@ export const ACCESS_MEANS: SystemAccessMean[] = [
   {
     key: "mfa",
     label: "MFA / TOTP",
-    available: false,
+    available: true,
     detail:
-      "Non implémentée — les colonnes MFA existent en base, mais aucune procédure ne les lit ni ne les écrit. L’enrôlement (étape B2) reste à livrer.",
+      "Disponible : code TOTP à 6 chiffres (pas de 30 s, tolérance ±1) ou code de secours à usage unique. Secret chiffré en base, codes de secours hachés. Exigée pour ouvrir la console, facultative ailleurs.",
   },
   {
     key: "sso",
@@ -249,14 +259,17 @@ async function resolveRunQuery(deps: SystemAccessDeps): Promise<RawQueryRunner> 
  * Comptes du tenant courant : staff ET portail client.
  *
  * La liste des colonnes est volontairement écrite à la main — `passwordHash` ne
- * peut pas s’y glisser par inadvertance, contrairement à un `select *`. Le
- * filtre `"tenantId"` reproduit celui de `db.listUsers()` : les comptes sans
+ * peut pas s’y glisser par inadvertance, contrairement à un `select *`. Y figure
+ * `"mfaEnabled"`, un BOOLÉEN : `"mfaSecretCipher"` (l’enveloppe du secret TOTP)
+ * et `"mfaRecoveryCodes"` (les empreintes des codes de secours) sont
+ * délibérément absents de cette requête et de tout ce module. Le filtre
+ * `"tenantId"` reproduit celui de `db.listUsers()` : les comptes sans
  * tenant (lignes héritées, sans session possible) restent hors périmètre, comme
  * partout ailleurs dans l’application.
  */
 async function loadAccounts(runQuery: RawQueryRunner, tenantId: number): Promise<SystemAccessAccount[]> {
   const rows = await runQuery(sql`
-    select id, name, email, role, "lastSignedIn", "createdAt"
+    select id, name, email, role, "mfaEnabled", "lastSignedIn", "createdAt"
     from users
     where "tenantId" = ${tenantId}
     order by coalesce(name, email, '') asc
@@ -266,6 +279,7 @@ async function loadAccounts(runQuery: RawQueryRunner, tenantId: number): Promise
     name: asText(row.name),
     email: asText(row.email),
     role: typeof row.role === "string" ? row.role : String(row.role ?? ""),
+    mfaEnabled: row.mfaEnabled === true || row.mfaEnabled === "true" || row.mfaEnabled === 1,
     lastSignedIn: asIsoString(row.lastSignedIn),
     createdAt: asIsoString(row.createdAt),
   }));

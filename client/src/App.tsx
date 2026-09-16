@@ -86,21 +86,44 @@ function withDirectionGate<P extends object>(Page: ComponentType<P>, title: stri
 
 const DirectionStaffAuditPage = withDirectionGate(StaffAuditPage, "Journal d’audit");
 
-function withSystemGate<P extends object>(Page: ComponentType<P>, title: string) {
+/**
+ * Garde de la console — AUCUN INTITULÉ PASSÉ ICI, ET C’EST VOULU.
+ *
+ * Les autres gardes reçoivent un titre parce qu’elles affichent un message de
+ * refus (« Accès réservé — Centre d’intégrations »). La console, elle, refuse
+ * MUETTEMENT : un rôle non habilité reçoit la page « introuvable » de
+ * l’application, sans un mot sur l’espace qu’il a tenté d’ouvrir. Un titre
+ * n’aurait donc rien à alimenter — et le porter reviendrait à garder sous la
+ * main le texte qu’on a justement décidé de ne plus écrire.
+ *
+ * LA FRONTIÈRE DE CHARGEMENT EST À L’INTÉRIEUR DU GARDE, ET C’EST IMPORTANT.
+ *
+ * Le `Suspense` qui attend le morceau de code de l’écran est placé SOUS le
+ * garde, pas au-dessus. Deux conséquences, toutes deux voulues :
+ *   - un visiteur non habilité voit la 404 IMMÉDIATEMENT, sans l’écran
+ *     d’attente de l’application qui clignoterait d’abord — c’est-à-dire sans le
+ *     moindre signe visuel distinguant ce chemin d’une adresse inconnue ;
+ *   - le morceau de code de la console n’est JAMAIS TÉLÉCHARGÉ pour lui : le
+ *     garde refuse avant que React n’ait à monter l’écran, donc avant tout
+ *     chargement du chunk (cahier des charges § 7, isolation du bundle).
+ */
+function withSystemGate<P extends object>(Page: ComponentType<P>) {
   return function GatedPage(props: P) {
     return (
-      <SystemGate title={title}>
-        <Page {...props} />
+      <SystemGate>
+        <Suspense fallback={<DashboardLayoutSkeleton />}>
+          <Page {...props} />
+        </Suspense>
       </SystemGate>
     );
   };
 }
 
-const SystemConsoleRoute = withSystemGate(SystemConsolePage, "Console d’exploitation");
-const SystemSupervisionRoute = withSystemGate(SystemSupervisionPage, "Santé & supervision");
-const SystemAccessRoute = withSystemGate(SystemAccessPage, "Accès & comptes");
-const SystemSessionsRoute = withSystemGate(SystemSessionsPage, "Sessions actives");
-const SystemPermissionsRoute = withSystemGate(SystemPermissionsPage, "Rôles & permissions");
+const SystemConsoleRoute = withSystemGate(SystemConsolePage);
+const SystemSupervisionRoute = withSystemGate(SystemSupervisionPage);
+const SystemAccessRoute = withSystemGate(SystemAccessPage);
+const SystemSessionsRoute = withSystemGate(SystemSessionsPage);
+const SystemPermissionsRoute = withSystemGate(SystemPermissionsPage);
 
 function Router() {
   return (

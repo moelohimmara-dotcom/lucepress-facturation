@@ -48,6 +48,20 @@ export function useAuth(options?: UseAuthOptions) {
     },
   });
 
+  /**
+   * Second temps de la connexion (comptes portant une MFA).
+   *
+   * Le serveur ne délivre de session qu’ici : `auth.login` a seulement ouvert un
+   * défi. On invalide donc `auth.me` SEULEMENT en cas de succès — pendant le
+   * défi, l’utilisateur n’est pas authentifié, et le prétendre afficherait un
+   * espace vide plutôt que l’écran de code.
+   */
+  const mfaLoginMutation = trpc.auth.mfaLogin.useMutation({
+    onSuccess: async () => {
+      await utils.auth.me.invalidate();
+    },
+  });
+
   const registerMutation = trpc.auth.register.useMutation({
     onSuccess: async () => {
       await utils.auth.me.invalidate();
@@ -115,6 +129,8 @@ export function useAuth(options?: UseAuthOptions) {
   return {
     ...state,
     login: loginMutation.mutateAsync,
+    /** Présentation du second facteur : rend la session en cas de succès. */
+    mfaLogin: mfaLoginMutation.mutateAsync,
     register: registerMutation.mutateAsync,
     changePassword: changePasswordMutation.mutateAsync,
     logout,

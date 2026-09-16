@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   SystemAccessPanel,
   accountDisplayName,
@@ -18,6 +18,19 @@ import type { TrpcContext } from "./_core/context";
 
 /** Lecture directe des sources : prouve l’absence de secret et l’absence de DDL. */
 const readSource = (relativePath: string) => readFileSync(resolve(process.cwd(), relativePath), "utf8");
+
+/**
+ * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ *
+ * `systemProcedure` exige désormais le rôle `systeme` ET une double
+ * authentification active ; sans ce double, `system.access` recevrait 403. Les
+ * deux sens du verrou sont prouvés dans `server/systemConsoleMfa.test.ts` ; ici,
+ * on isole la lecture des accès, qui est le sujet de ce fichier.
+ */
+vi.mock("./mfa", async importOriginal => {
+  const actual = await importOriginal<typeof import("./mfa")>();
+  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
+});
 
 /** Tous les fichiers `.ts` du serveur, pour prouver une absence par balayage. */
 function listServerSources(dossier = "server"): string[] {
@@ -75,11 +88,12 @@ function collectKeys(value: unknown, chemin = "", cumul = new Set<string>()): Se
 /** Relevé type d’une instance peuplée : sert aux rendus statiques. */
 function accessFixture(overrides: Partial<ConsoleAccess> = {}): ConsoleAccess {
   const accounts: ConsoleAccess["accounts"] = [
-    { id: 1, name: "Aïssatou Bah", email: "a.bah@lucepres.gn", role: "admin", lastSignedIn: "2026-09-15T19:30:00.000Z", createdAt: "2026-01-05T08:00:00.000Z" },
-    { id: 2, name: "Mamadou Diallo", email: "m.diallo@lucepres.gn", role: "cadre", lastSignedIn: "2026-09-14T07:10:00.000Z", createdAt: "2026-02-11T09:00:00.000Z" },
-    { id: 3, name: null, email: "direction@lucepres.gn", role: "directeur", lastSignedIn: "2026-09-12T16:45:00.000Z", createdAt: "2026-03-02T10:20:00.000Z" },
-    { id: 4, name: null, email: "systeme@lucepres.gn", role: "systeme", lastSignedIn: "2026-09-16T06:00:00.000Z", createdAt: "2026-04-01T11:00:00.000Z" },
-    { id: 5, name: "Chantier Kamsar", email: "travaux@kamsar.gn", role: "client", lastSignedIn: "2026-09-10T12:00:00.000Z", createdAt: "2026-05-20T13:30:00.000Z" },
+    { id: 1, name: "Aïssatou Bah", email: "a.bah@lucepres.gn", role: "admin", mfaEnabled: false, lastSignedIn: "2026-09-15T19:30:00.000Z", createdAt: "2026-01-05T08:00:00.000Z" },
+    { id: 2, name: "Mamadou Diallo", email: "m.diallo@lucepres.gn", role: "cadre", mfaEnabled: false, lastSignedIn: "2026-09-14T07:10:00.000Z", createdAt: "2026-02-11T09:00:00.000Z" },
+    { id: 3, name: null, email: "direction@lucepres.gn", role: "directeur", mfaEnabled: false, lastSignedIn: "2026-09-12T16:45:00.000Z", createdAt: "2026-03-02T10:20:00.000Z" },
+    // Le compte système porte la MFA : c’est l’exigence de la console (§ 6).
+    { id: 4, name: null, email: "systeme@lucepres.gn", role: "systeme", mfaEnabled: true, lastSignedIn: "2026-09-16T06:00:00.000Z", createdAt: "2026-04-01T11:00:00.000Z" },
+    { id: 5, name: "Chantier Kamsar", email: "travaux@kamsar.gn", role: "client", mfaEnabled: false, lastSignedIn: "2026-09-10T12:00:00.000Z", createdAt: "2026-05-20T13:30:00.000Z" },
   ];
   const roleCounts = APP_ROLES.map(role => ({
     role,
@@ -157,6 +171,11 @@ describe("system.access — contrôle serveur de la console", () => {
     // 1. Aucune clé hors de celles annoncées : `passwordHash`, `tokenHash`,
     //    `mfaSecret`… ne peuvent pas se glisser dans une réponse dont la forme
     //    est épinglée ici.
+    //
+    //    Sans base joignable, la liste des comptes est VIDE : la forme d’un
+    //    compte (dont `mfaEnabled`, ajouté à l’étape B2) est épinglée par le
+    //    test de projection des lignes, plus bas. Ici, on épingle la forme de la
+    //    RÉPONSE — et l’absence de tout nom de colonne sensible.
     expect([...collectKeys(payload)].sort()).toEqual(
       [
         "accessMeans",
@@ -277,8 +296,8 @@ describe("collectSystemAccess — lecture des lignes", () => {
 
   it("convertit les lignes lues en comptes et en décomptes exploitables", async () => {
     const accountRows = [
-      { id: 1, name: "Aïssatou Bah", email: "a@lucepres.gn", role: "admin", lastSignedIn: "2026-09-15T19:30:00.000Z", createdAt: "2026-01-05T08:00:00.000Z" },
-      { id: 2, name: null, email: null, role: "client", lastSignedIn: null, createdAt: new Date("2026-05-20T13:30:00.000Z") },
+      { id: 1, name: "Aïssatou Bah", email: "a@lucepres.gn", role: "admin", mfaEnabled: true, lastSignedIn: "2026-09-15T19:30:00.000Z", createdAt: "2026-01-05T08:00:00.000Z" },
+      { id: 2, name: null, email: null, role: "client", mfaEnabled: false, lastSignedIn: null, createdAt: new Date("2026-05-20T13:30:00.000Z") },
     ];
     const invitationRows = [{ role: "cadre", count: "3" }];
     const queries: string[] = [];
@@ -301,6 +320,8 @@ describe("collectSystemAccess — lecture des lignes", () => {
       name: "Aïssatou Bah",
       email: "a@lucepres.gn",
       role: "admin",
+      // ÉTAPE B2 — booléen lu dans la même requête que le compte.
+      mfaEnabled: true,
       lastSignedIn: "2026-09-15T19:30:00.000Z",
       createdAt: "2026-01-05T08:00:00.000Z",
     });
@@ -310,6 +331,7 @@ describe("collectSystemAccess — lecture des lignes", () => {
       name: null,
       email: null,
       role: "client",
+      mfaEnabled: false,
       lastSignedIn: null,
       createdAt: "2026-05-20T13:30:00.000Z",
     });
@@ -389,17 +411,20 @@ describe("Politique de mot de passe — alignement avec le code réel", () => {
 });
 
 describe("Moyens d’accès — état réel, jamais supposé", () => {
-  it("annonce le mot de passe disponible, la MFA indisponible et les sessions révocables", () => {
+  it("annonce le mot de passe, la MFA et la révocation de session comme disponibles", () => {
     const parCle = new Map(ACCESS_MEANS.map(mean => [mean.key, mean]));
 
     expect(parCle.get("password")?.available).toBe(true);
-    expect(parCle.get("mfa")?.available).toBe(false);
-    // La raison doit dire pourquoi ET ce qu’il faut faire. Depuis l’étape B1, la
-    // migration a créé les colonnes MFA : annoncer « migration requise » serait
-    // faux. Ce qui manque, c’est le CODE — l’énoncé doit donc le dire ainsi.
-    expect(parCle.get("mfa")?.detail).toContain("Non implémentée");
-    expect(parCle.get("mfa")?.detail).not.toContain("migration requise");
-    expect(parCle.get("mfa")?.detail).toContain("colonnes MFA");
+    // ÉTAPE B2 — la MFA n’est plus « à livrer » : elle est en service. Le
+    // descripteur devait suivre, sous peine d’annoncer au propriétaire de
+    // l’instance une protection qui existe déjà.
+    expect(parCle.get("mfa")?.available).toBe(true);
+    expect(parCle.get("mfa")?.detail).toContain("TOTP");
+    expect(parCle.get("mfa")?.detail).toContain("Exigée pour ouvrir la console");
+    // La formulation doit rester honnête sur le périmètre : exigée pour la
+    // console, facultative ailleurs.
+    expect(parCle.get("mfa")?.detail).toContain("facultative");
+    expect(parCle.get("mfa")?.detail).not.toContain("Non implémentée");
     expect(parCle.get("sso")?.available).toBe(false);
     // Étape B1 : les sessions sont désormais listables et révocables.
     expect(parCle.get("sessions")?.available).toBe(true);
@@ -493,14 +518,16 @@ describe("Rendu statique — écran Accès & comptes", () => {
     expect(html).toContain('data-testid="access-account-5"');
   });
 
-  it("annonce honnêtement l’absence de MFA et la révocation de session désormais offerte", () => {
+  it("annonce l’état réel des moyens d’accès, MFA et révocation comprises", () => {
     const html = renderToStaticMarkup(
       createElement(SystemAccessPanel, { access: accessFixture(), failed: false, isLoading: false }),
     );
 
     expect(html).toContain("Moyens d’accès &amp; de session");
     expect(html).toContain("MFA / TOTP");
-    expect(html).toContain("Non implémentée");
+    // ÉTAPE B2 — la MFA est en service : l’écran ne peut plus dire l’inverse.
+    expect(html).not.toContain("Non implémentée");
+    expect(html).toContain("Exigée pour ouvrir la console");
     expect(html).toContain("Non disponible");
     expect(html).toContain("Disponible");
     // Étape B1 : l’écran ne prétend plus que les sessions sont irrévocables ; il
@@ -508,10 +535,26 @@ describe("Rendu statique — écran Accès & comptes", () => {
     expect(html).toContain("révocables");
     expect(html).toContain("Sessions actives");
     expect(html).not.toContain("aucune session ne peut être révoquée");
-    // Deux moyens indisponibles (MFA, SSO) + deux disponibles (mot de passe,
+    // Un seul moyen indisponible (SSO) + trois disponibles (mot de passe, MFA,
     // sessions) : le décompte doit tomber juste.
-    expect((html.match(/Non disponible/g) ?? []).length).toBe(2);
-    expect((html.match(/>Disponible</g) ?? []).length).toBe(2);
+    expect((html.match(/Non disponible/g) ?? []).length).toBe(1);
+    expect((html.match(/>Disponible</g) ?? []).length).toBe(3);
+  });
+
+  it("affiche l’état MFA de chaque compte, en booléen et sans secret", () => {
+    const html = renderToStaticMarkup(
+      createElement(SystemAccessPanel, { access: accessFixture(), failed: false, isLoading: false }),
+    );
+
+    expect(html).toContain("Second facteur");
+    // Le compte système du relevé porte la MFA ; les autres non.
+    expect(html).toContain('data-testid="access-mfa-4"');
+    expect(html).toContain("MFA active");
+    expect(html).toContain("MFA inactive");
+    expect((html.match(/MFA active/g) ?? []).length).toBe(1);
+    // Ni secret, ni empreinte de code de secours dans le rendu.
+    expect(html).not.toMatch(/[A-Z2-7]{16,}/);
+    expect(html).not.toMatch(/[a-f0-9]{32}:[a-f0-9]{64}/);
   });
 
   it("affiche la politique de mot de passe réellement appliquée", () => {
@@ -630,7 +673,9 @@ describe("Isolation de l’écran Accès & comptes", () => {
   });
 
   it("garde la route /console/acces derrière SystemGate", () => {
-    expect(app).toContain('withSystemGate(SystemAccessPage, "Accès & comptes")');
+    // Le garde ne reçoit plus d’intitulé depuis l’étape B2 : il refuse
+    // muettement, donc il n’a plus de message de refus à composer.
+    expect(app).toContain("withSystemGate(SystemAccessPage)");
     expect(app).toContain('<Route path={"/console/acces"} component={SystemAccessRoute} />');
   });
 

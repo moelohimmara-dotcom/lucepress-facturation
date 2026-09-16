@@ -77,6 +77,22 @@ vi.mock("./_core/password", () => ({
   verifyPassword: mocks.verifyPassword,
   hashPassword: mocks.hashPassword,
 }));
+/**
+ * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ *
+ * Depuis l’étape B2, `systemProcedure` exige le rôle `systeme` ET une double
+ * authentification active : sans ce double, `system.sessions.list` recevrait
+ * 403 et ces tests ne parleraient plus de révocation du tout. Seule la lecture
+ * d’état MFA est remplacée ; le reste du module reste réel, si bien que
+ * `auth.login` continue de traverser le VRAI `readMfaState` (qui, la base
+ * n’étant pas configurée, rend un état illisible — donc « pas de MFA », le
+ * chemin de connexion ordinaire). Les deux sens du verrou sont prouvés dans
+ * `server/systemConsoleMfa.test.ts`.
+ */
+vi.mock("./mfa", async importOriginal => {
+  const actual = await importOriginal<typeof import("./mfa")>();
+  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
+});
 
 /** Texte SQL final et paramètres liés, pour inspecter ce qui part réellement en base. */
 function sqlOf(query: SQL) {
@@ -162,6 +178,9 @@ describe("Registre de sessions — enregistrement à la connexion", () => {
     tenantId: 1,
   };
 
+  /** Toutes les requêtes SQL émises, dans l’ordre — le texte final, pas l’appel. */
+  const requetesEmises = () => mocks.execute.mock.calls.map(call => sqlOf(call[0] as SQL).sql);
+
   it("délivre la session MÊME SI l’enregistrement échoue (table absente)", async () => {
     mocks.getUserByEmail.mockResolvedValue(compte);
     mocks.execute.mockRejectedValue(new Error('relation "sessions" does not exist'));
@@ -176,10 +195,16 @@ describe("Registre de sessions — enregistrement à la connexion", () => {
     // Impératif de disponibilité : la connexion aboutit et le cookie est posé.
     expect(result).toEqual({ success: true });
     expect(cookieCalls).toHaveLength(1);
-    // L’échec a bien été rencontré puis absorbé — pas contourné.
-    expect(mocks.execute).toHaveBeenCalledTimes(1);
-    const texte = sqlOf(mocks.execute.mock.calls[0][0] as SQL).sql;
-    expect(texte).toContain("insert into sessions");
+
+    // ÉTAPE B2 — `auth.login` lit désormais l’état MFA du compte avant de
+    // délivrer sa session (une lecture sur la clé primaire). Ici, TOUTES les
+    // requêtes échouent : l’état MFA est donc illisible, ce qui vaut « pas de
+    // MFA », et la connexion aboutit quand même. C’est précisément la propriété
+    // que ce test défend : la base peut être en panne, la connexion passe.
+    const requetes = requetesEmises();
+    expect(requetes.some(texte => texte.includes('select "mfaSecretCipher"'))).toBe(true);
+    // L’échec de l’enregistrement a bien été rencontré puis absorbé — pas contourné.
+    expect(requetes.filter(texte => texte.includes("insert into sessions"))).toHaveLength(1);
   });
 
   it("délivre la session même si la base n’est pas configurée (getDb → null)", async () => {
@@ -203,8 +228,11 @@ describe("Registre de sessions — enregistrement à la connexion", () => {
     const jeton = cookieCalls[0];
     expect(jeton).toBeTruthy();
 
-    const insert = mocks.execute.mock.calls[0][0] as SQL;
-    const { sql: texte, params } = sqlOf(insert);
+    // ÉTAPE B2 — la première requête de `auth.login` est désormais la lecture de
+    // l’état MFA ; on cible l’enregistrement de session par son texte.
+    const insert = mocks.execute.mock.calls.map(call => call[0] as SQL).find(query => sqlOf(query).sql.includes("insert into sessions"));
+    expect(insert).toBeTruthy();
+    const { sql: texte, params } = sqlOf(insert as SQL);
     expect(texte).toContain("insert into sessions");
     // Le jeton en clair ne figure NI dans la requête, NI dans les paramètres liés.
     expect(texte).not.toContain(jeton);
@@ -1046,7 +1074,9 @@ describe("Isolation de l’écran Sessions actives", () => {
   });
 
   it("garde la route /console/sessions derrière SystemGate", () => {
-    expect(app).toContain('withSystemGate(SystemSessionsPage, "Sessions actives")');
+    // Depuis l’étape B2, le garde ne reçoit plus d’intitulé : il refuse
+    // muettement, donc il n’a plus de message de refus à composer.
+    expect(app).toContain("withSystemGate(SystemSessionsPage)");
     expect(app).toContain('<Route path={"/console/sessions"} component={SystemSessionsRoute} />');
   });
 

@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { PageHeader } from "@/components/PageHeader";
+import { ConsoleMfaManager } from "@/components/SystemMfa";
 import {
   ConsoleModuleRail,
   SystemDashboard,
@@ -16,6 +17,12 @@ import { useLocation } from "wouter";
  * Coquille : rail des modules (Phases 2 à 5) + page d’accueil
  * « Tableau de bord système » alimentée par `/api/health` et `system.overview`.
  * Lecture seule : la console n’écrit jamais dans les données commerciales.
+ *
+ * ÉTAPE B2 — le panneau « Ma double authentification » complète le tableau de
+ * bord. Il n’apparaît QUE si l’on est arrivé jusqu’ici, c’est-à-dire après que
+ * `SystemGate` a constaté auprès du serveur que la MFA est active : il sert à
+ * gérer son propre second facteur (état, codes de secours restants,
+ * désactivation), pas à en ouvrir l’accès.
  */
 export default function SystemConsolePage() {
   const [, setLocation] = useLocation();
@@ -71,16 +78,19 @@ export default function SystemConsolePage() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
           <ConsoleModuleRail activePath="/console" onNavigate={path => setLocation(path)} />
-          <SystemDashboard
-            health={health}
-            healthError={healthError}
-            isLoadingHealth={isLoadingHealth}
-            overview={overview.data}
-            isLoadingOverview={overview.isLoading}
-            overviewFailed={Boolean(overview.error)}
-            now={now}
-            onNavigate={path => setLocation(path)}
-          />
+          <div className="space-y-6">
+            <SystemDashboard
+              health={health}
+              healthError={healthError}
+              isLoadingHealth={isLoadingHealth}
+              overview={overview.data}
+              isLoadingOverview={overview.isLoading}
+              overviewFailed={Boolean(overview.error)}
+              now={now}
+              onNavigate={path => setLocation(path)}
+            />
+            <ConsoleMfaManager />
+          </div>
         </div>
       </div>
     </DashboardLayout>

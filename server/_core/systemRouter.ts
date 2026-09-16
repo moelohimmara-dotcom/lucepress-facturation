@@ -1,8 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { hasSystemAccess } from "@shared/roles";
 import { pingDatabase } from "../db";
 import { hashSessionToken } from "../sessionRegistry";
 import { collectSystemAccess } from "../systemAccess";
+import { logConsoleAttempt } from "../systemAccessLog";
 import { collectSystemMetrics } from "../systemMetrics";
 import { collectSystemSessions, revokeSessionById } from "../systemSessions";
 import { readRequestSessionToken } from "./context";
@@ -22,6 +24,53 @@ export const systemRouter = router({
   health: publicProcedure.query(async () => {
     const dbOk = await pingDatabase();
     return buildHealthPayload({ dbOk });
+  }),
+
+  /**
+   * TÉMOIN DE REFUS — pourquoi une procédure PUBLIQUE, et pourquoi elle existe.
+   *
+   * Le refus d’accès à la console est MUET côté interface : `SystemGate` rend la
+   * 404 de l’application sans nommer l’espace protégé (voir
+   * `client/src/components/SystemGate.tsx`). Ce silence a une contrepartie : la
+   * tentative doit être écrite dans le journal du serveur, sinon l’administrateur
+   * système ne voit rien de ce qui se passe.
+   *
+   * Or un refus rendu par l’interface n’émet AUCUNE requête : le geste le plus
+   * réaliste — taper un chemin réservé dans la barre d’adresse — était donc le
+   * seul à ne laisser aucune trace. Cette procédure est là pour combler ce trou :
+   * le navigateur SIGNALE son refus, le serveur l’inscrit.
+   *
+   * ELLE N’ACCEPTE AUCUNE ENTRÉE, ET C’EST DÉLIBÉRÉ. L’acteur, son rôle et son
+   * tenant viennent de la session RÉSOLUE par le serveur (`_core/context.ts`),
+   * jamais de la requête : un appelant ne peut donc pas fabriquer une ligne
+   * accusant quelqu’un d’autre. Il ne peut que dire « moi, ici, j’ai été refusé ».
+   *
+   * ELLE NE MENT PAS NON PLUS SUR ELLE-MÊME : un compte RÉELLEMENT habilité (le
+   * rôle système, avec sa MFA active) n’a pas été refusé, et son appel ne
+   * produit donc aucune ligne. Sans ce garde-fou, n’importe qui pourrait
+   * fabriquer de fausses traces à son propre sujet en appelant la procédure à la
+   * main — la ligne cesserait d’être une preuve.
+   *
+   * CE QU’ELLE N’EST PAS : une seconde porte. Elle ne rend aucune donnée, ne
+   * vérifie aucun droit, et n’a d’autre effet qu’une ligne de journal —
+   * dédupliquée (une par motif, cible et acteur, par fenêtre de cinq minutes :
+   * voir `server/systemAccessLog.ts`), ce qui borne à une ligne l’acharnement
+   * d’un client qui boucle.
+   */
+  reportRefusal: publicProcedure.mutation(({ ctx }) => {
+    // Un rôle habilité n’a rien à signaler : la tentative n’a pas été refusée.
+    // On rend tout de même un succès — cette procédure informe, elle ne juge pas.
+    if (!hasSystemAccess(ctx.user?.role)) {
+      logConsoleAttempt({
+        outcome: ctx.user ? "role_refuse" : "anonyme",
+        target: "/console",
+        role: ctx.user?.role ?? null,
+        actor: ctx.user?.email ?? ctx.user?.openId ?? null,
+        actorId: ctx.user?.id ?? null,
+        tenantId: ctx.tenantId,
+      });
+    }
+    return { success: true as const };
   }),
 
   /**

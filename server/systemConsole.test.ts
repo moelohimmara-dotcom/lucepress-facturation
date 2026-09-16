@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ConsoleModuleRail,
   SystemDashboard,
@@ -33,6 +33,21 @@ import {
 
 /** Lecture directe des sources : prouve le chargement paresseux et le filtrage de navigation. */
 const readSource = (relativePath: string) => readFileSync(resolve(process.cwd(), relativePath), "utf8");
+
+/**
+ * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ *
+ * Depuis l’étape B2, `systemProcedure` exige DEUX conditions : le rôle `systeme`
+ * ET une double authentification active. Sans ce double, les appels ci-dessous
+ * recevraient 403 — ce que `server/systemConsoleMfa.test.ts` vérifie
+ * explicitement, dans les deux sens. Ici, on isole le reste des règles de la
+ * console ; on remplace donc la seule lecture d’état MFA, en gardant le reste du
+ * module réel (aucun autre comportement n’est touché).
+ */
+vi.mock("./mfa", async importOriginal => {
+  const actual = await importOriginal<typeof import("./mfa")>();
+  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
+});
 
 function contextFor(role: string): TrpcContext {
   return {
@@ -314,16 +329,20 @@ describe("Isolation du bundle et de la navigation", () => {
   });
 
   it("garde la route /console derrière SystemGate", () => {
-    expect(app).toContain('withSystemGate(SystemConsolePage, "Console d’exploitation")');
+    // Le garde ne reçoit plus d’intitulé : il n’y a plus de message de refus à
+    // composer, puisqu’il refuse MUETTEMENT (voir `systemMfaScreens.ui.test.ts`).
+    expect(app).toContain("withSystemGate(SystemConsolePage)");
     // Les CINQ routes de la console portent le garde : aucune porte de côté.
     for (const page of ["SystemConsolePage", "SystemSupervisionPage", "SystemAccessPage", "SystemSessionsPage", "SystemPermissionsPage"]) {
-      expect({ page, garde: app.includes(`withSystemGate(${page}, `) }).toEqual({ page, garde: true });
+      expect({ page, garde: app.includes(`withSystemGate(${page})`) }).toEqual({ page, garde: true });
     }
     expect(gate).toContain("hasSystemAccess");
     // Défaut sûr : le garde refuse AVANT de rendre, sur la négation de la règle.
     expect(gate.replace(/\s+/g, " ")).toContain("if (!hasSystemAccess(user?.role)) {");
-    expect(gate).toContain("Accès réservé");
-    expect(gate).toContain("réservée à l’administration système");
+    // Le refus rend l’écran « introuvable » de l’application — celui de la 404 —
+    // et ne nomme rien.
+    expect(gate).toContain("IntrouvableScreen");
+    expect(gate).not.toContain("réservée à l’administration système");
   });
 
   it("n’affiche l’entrée de navigation que pour les rôles habilités", () => {
