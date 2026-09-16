@@ -75,7 +75,7 @@ describe("Matrice de référence — alignement avec canAccessPath", () => {
   it("accorde la console au seul couple système + admin", () => {
     const consoleCapabilities = PERMISSION_CAPABILITIES.filter(capability => capability.path.startsWith("/console"));
 
-    expect(consoleCapabilities).toHaveLength(4);
+    expect(consoleCapabilities).toHaveLength(5);
     for (const capability of consoleCapabilities) {
       expect(PERMISSION_MATRIX_ROLES.filter(role => permissionFor(role, capability))).toEqual(["admin", "systeme"]);
       for (const role of ["directeur", "cadre", "client"] as AppRole[]) {
@@ -200,7 +200,7 @@ describe("Rendu statique — écran Rôles & permissions", () => {
         expect(html).toContain(`data-testid="perm-${capability.key}-${role}"`);
       }
     }
-    expect(PERMISSION_CAPABILITIES.length).toBe(18);
+    expect(PERMISSION_CAPABILITIES.length).toBe(19);
   });
 
   it("rend exactement le droit calculé par canAccessPath, pour chaque cellule", () => {
@@ -303,8 +303,9 @@ describe("Isolation de l’écran Rôles & permissions", () => {
   });
 
   it("rend le module navigable dans le rail de la console", () => {
-    // Quatre modules livrés : les quatre portent une route.
-    expect(PERMISSION_CAPABILITIES.filter(capability => capability.path.startsWith("/console"))).toHaveLength(4);
+    // Cinq modules livrés : les cinq portent une route (Accès & comptes et
+    // Sessions actives inclus, livrés en Phase 3).
+    expect(PERMISSION_CAPABILITIES.filter(capability => capability.path.startsWith("/console"))).toHaveLength(5);
     expect(page).toContain("/console/permissions");
     expect(page).toContain("ConsoleModuleRail");
     expect(page).toContain("SystemPermissionsPanel");

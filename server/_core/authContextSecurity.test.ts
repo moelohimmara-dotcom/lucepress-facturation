@@ -14,6 +14,12 @@ const mocks = vi.hoisted(() => {
   return {
     getUserByOpenId: vi.fn(),
     getUserByEmail: vi.fn(),
+    // Depuis la Phase 3 (étape B1), `createContext` consulte AUSSI le registre des
+    // sessions pour savoir si la session présentée a été révoquée. On déclare donc
+    // une base ABSENTE : le contrôle de révocation se replie en « non révoquée »
+    // (voir `server/sessionRegistry.ts`), ce qui laisse ces tests porter sur leur
+    // vrai sujet — l’absence de tout accès privilégié sans session.
+    getDb: vi.fn(async () => null),
   };
 });
 

@@ -237,6 +237,13 @@ export const PERMISSION_CAPABILITIES: readonly PermissionCapability[] = [
     guards: ["systemProcedure"],
   },
   {
+    key: "console.sessions",
+    label: "Sessions actives",
+    detail: "Sessions ouvertes de l’instance, révocation à distance.",
+    path: "/console/sessions",
+    guards: ["systemProcedure"],
+  },
+  {
     key: "console.permissions",
     label: "Rôles & permissions",
     detail: "La présente matrice, en lecture seule.",

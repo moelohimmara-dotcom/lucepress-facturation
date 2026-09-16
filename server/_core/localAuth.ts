@@ -1,7 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { ENV } from "./env";
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+/**
+ * Durée de vie d’une session, en millisecondes.
+ *
+ * SOURCE UNIQUE : le JWT (`exp`), le cookie (`maxAge`) et la ligne `sessions`
+ * (`expiresAt`) doivent décrire la MÊME échéance. Trois constantes séparées
+ * finiraient par diverger — et une session révoquée mais encore valide, ou
+ * l’inverse, serait alors un bogue silencieux. Exportée pour être lue par
+ * `server/routers.ts` (cookie) et `server/sessionRegistry.ts` (`expiresAt`).
+ */
+export const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
 export type LocalSessionPayload = {
   openId: string;
@@ -16,7 +26,7 @@ function getSecret(): Uint8Array {
 
 export async function signLocalSession(
   payload: LocalSessionPayload,
-  expiresInMs: number = ONE_YEAR_MS
+  expiresInMs: number = SESSION_TTL_MS
 ): Promise<string> {
   const expirationSeconds = Math.floor((Date.now() + expiresInMs) / 1000);
   return new SignJWT({
@@ -26,6 +36,12 @@ export async function signLocalSession(
     tenantId: payload.tenantId,
   })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    // `jti` aléatoire : sans lui, deux connexions du même compte dans la même
+    // seconde produisent un jeton IDENTIQUE (mêmes revendications, même `exp`
+    // arrondi à la seconde). Le hachage serait alors identique, l’index unique
+    // `sessions_tokenHash_unique` refuserait la seconde ligne et l’écran
+    // « Sessions actives » confondrait deux ouvertures distinctes en une seule.
+    .setJti(randomUUID())
     .setExpirationTime(expirationSeconds)
     .sign(getSecret());
 }

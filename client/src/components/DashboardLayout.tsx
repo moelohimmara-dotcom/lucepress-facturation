@@ -44,6 +44,7 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  MonitorSmartphone,
   ScrollText,
   Search,
   ShieldCheck,
@@ -103,6 +104,7 @@ const navigationGroups = [
     { icon: SquareTerminal, label: "Console d’exploitation", path: "/console" },
     { icon: ShieldCheck, label: "Santé & supervision", path: "/console/sante" },
     { icon: KeyRound, label: "Accès & comptes", path: "/console/acces" },
+    { icon: MonitorSmartphone, label: "Sessions actives", path: "/console/sessions" },
     { icon: UsersRound, label: "Rôles & permissions", path: "/console/permissions" },
   ] },
 ];

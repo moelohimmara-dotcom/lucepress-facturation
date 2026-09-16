@@ -11,6 +11,7 @@ import {
   KeyRound,
   ListChecks,
   Loader2,
+  MonitorSmartphone,
   ScrollText,
   Server,
   ShieldCheck,
@@ -78,6 +79,13 @@ export const CONSOLE_MODULES: ConsoleModule[] = [
     icon: KeyRound,
     path: "/console/acces",
     summary: "Comptes staff et portail, invitations, moyens d’accès.",
+    phase: "Phase 3",
+  },
+  {
+    label: "Sessions actives",
+    icon: MonitorSmartphone,
+    path: "/console/sessions",
+    summary: "Sessions ouvertes de l’instance, révocation à distance.",
     phase: "Phase 3",
   },
   {

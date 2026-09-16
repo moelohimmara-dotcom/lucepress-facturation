@@ -22,9 +22,11 @@ import {
  * module 4 — étape A, lecture seule).
  *
  * Purement présentationnel : tout provient de la procédure `system.access` (voir
- * `server/systemAccess.ts`). Cet écran n’offre AUCUNE action — il n’existe côté
- * serveur que des lectures ; l’édition des comptes, des rôles et des mots de
- * passe reste dans le back-office (admin), et la MFA attend une migration.
+ * `server/systemAccess.ts`). CET écran n’offre aucune action : l’édition des
+ * comptes, des rôles et des mots de passe reste dans le back-office (admin), et
+ * la MFA attend l’étape B2. La révocation de session, elle, existe désormais —
+ * mais sur l’écran voisin « Sessions actives », pas ici : deux responsabilités,
+ * deux écrans.
  *
  * Aucune valeur n’est inventée : un compte non lisible affiche un état vide
  * explicite, et un moyen d’accès indisponible est annoncé comme tel avec sa
@@ -184,10 +186,12 @@ export function SystemAccessPanel({ access, failed, isLoading }: SystemAccessPan
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div>
-          <p className="text-sm font-extrabold">Consultation seule</p>
+          <p className="text-sm font-extrabold">Consultation seule — sauf la révocation de session</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Cet écran ne crée, ne modifie et ne supprime aucun compte : il n’existe côté serveur que des lectures.
-            La gestion des comptes reste dans « Comptes collaborateurs », et aucune session ne peut être révoquée ici.
+            Cet écran ne crée, ne modifie et ne supprime aucun compte : côté serveur, il n’existe ici que des lectures.
+            La gestion des comptes reste dans « Comptes collaborateurs ». Les sessions, elles, sont désormais listables
+            et révocables — depuis l’écran « Sessions actives », où la révocation est journalisée et où la session qui
+            vous authentifie est protégée contre une révocation accidentelle.
           </p>
         </div>
       </div>

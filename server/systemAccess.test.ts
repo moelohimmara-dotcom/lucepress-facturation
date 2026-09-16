@@ -387,16 +387,22 @@ describe("Politique de mot de passe — alignement avec le code réel", () => {
 });
 
 describe("Moyens d’accès — état réel, jamais supposé", () => {
-  it("annonce le mot de passe local disponible et la MFA indisponible", () => {
+  it("annonce le mot de passe disponible, la MFA indisponible et les sessions révocables", () => {
     const parCle = new Map(ACCESS_MEANS.map(mean => [mean.key, mean]));
 
     expect(parCle.get("password")?.available).toBe(true);
     expect(parCle.get("mfa")?.available).toBe(false);
-    // La raison doit dire pourquoi ET ce qu’il faut faire.
-    expect(parCle.get("mfa")?.detail).toContain("migration requise");
+    // La raison doit dire pourquoi ET ce qu’il faut faire. Depuis l’étape B1, la
+    // migration a créé les colonnes MFA : annoncer « migration requise » serait
+    // faux. Ce qui manque, c’est le CODE — l’énoncé doit donc le dire ainsi.
+    expect(parCle.get("mfa")?.detail).toContain("Non implémentée");
+    expect(parCle.get("mfa")?.detail).not.toContain("migration requise");
+    expect(parCle.get("mfa")?.detail).toContain("colonnes MFA");
     expect(parCle.get("sso")?.available).toBe(false);
-    expect(parCle.get("sessions")?.available).toBe(false);
-    expect(parCle.get("sessions")?.detail).toContain("migration requise");
+    // Étape B1 : les sessions sont désormais listables et révocables.
+    expect(parCle.get("sessions")?.available).toBe(true);
+    expect(parCle.get("sessions")?.detail).toContain("Sessions actives");
+    expect(parCle.get("sessions")?.detail).not.toContain("migration requise");
   });
 
   it("prouve l’absence de SSO par le code de connexion, pas par une déclaration", () => {
@@ -406,7 +412,10 @@ describe("Moyens d’accès — état réel, jamais supposé", () => {
     //    relu en base avant d’être accordé.
     expect(context).toContain('import { verifyLocalSession } from "./localAuth";');
     expect(context).toContain("let user: User | null = null;");
-    expect(context).toContain("await db.getUserByOpenId(session.openId)");
+    // Le compte est toujours relu en base ; depuis l’étape B1 cette lecture est
+    // menée EN PARALLÈLE du contrôle de révocation (`Promise.all`), d’où
+    // l’absence du mot-clé `await` juste devant l’appel.
+    expect(context).toContain("db.getUserByOpenId(session.openId)");
     expect(context).not.toContain("authenticateRequest");
     expect(context).not.toContain("oauthService");
     expect(context).not.toContain('from "./sdk"');
@@ -482,18 +491,25 @@ describe("Rendu statique — écran Accès & comptes", () => {
     expect(html).toContain('data-testid="access-account-5"');
   });
 
-  it("annonce honnêtement l’absence de MFA et de révocation de session", () => {
+  it("annonce honnêtement l’absence de MFA et la révocation de session désormais offerte", () => {
     const html = renderToStaticMarkup(
       createElement(SystemAccessPanel, { access: accessFixture(), failed: false, isLoading: false }),
     );
 
     expect(html).toContain("Moyens d’accès &amp; de session");
     expect(html).toContain("MFA / TOTP");
-    expect(html).toContain("Non implémentée — migration requise");
+    expect(html).toContain("Non implémentée");
     expect(html).toContain("Non disponible");
     expect(html).toContain("Disponible");
-    // Deux moyens indisponibles + un disponible : le compte doit tomber juste.
-    expect((html.match(/Non disponible/g) ?? []).length).toBe(3);
+    // Étape B1 : l’écran ne prétend plus que les sessions sont irrévocables ; il
+    // renvoie vers l’écran qui les révoque, et il le fait sans mentir sur le sien.
+    expect(html).toContain("révocables");
+    expect(html).toContain("Sessions actives");
+    expect(html).not.toContain("aucune session ne peut être révoquée");
+    // Deux moyens indisponibles (MFA, SSO) + deux disponibles (mot de passe,
+    // sessions) : le décompte doit tomber juste.
+    expect((html.match(/Non disponible/g) ?? []).length).toBe(2);
+    expect((html.match(/>Disponible</g) ?? []).length).toBe(2);
   });
 
   it("affiche la politique de mot de passe réellement appliquée", () => {

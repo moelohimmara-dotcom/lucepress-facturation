@@ -28,6 +28,7 @@ import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
 import { buildDocumentShareDocxBuffer } from "./documentShareDocx";
 import { buildDocumentPdfBuffer, renderHtmlToPdfBuffer } from "./pdfService";
 import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
+import { recordSession, revokeSessionByToken } from "./sessionRegistry";
 
 /** Reconstruit l'origine publique (https://...) pour les liens e-mail. */
 function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
@@ -517,7 +518,7 @@ export const appRouter = router({
         }
         loginRateLimiter.recordSuccess({ email: input.email });
         await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
-        const { signLocalSession } = await import("./_core/localAuth");
+        const { signLocalSession, SESSION_TTL_MS } = await import("./_core/localAuth");
         const token = await signLocalSession({
           openId: user.openId,
           email: user.email ?? "",
@@ -525,7 +526,28 @@ export const appRouter = router({
           tenantId: user.tenantId ?? 1,
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: SESSION_TTL_MS });
+
+        // Enregistrement de la session (Phase 3, étape B1) — MEILLEUR EFFORT.
+        //
+        // L’ÉCHEC EST POSSIBLE ET SANS CONSÉQUENCE POUR L’UTILISATEUR : la table
+        // vient d’être posée sur une application en production, et la connexion
+        // doit aboutir même si elle est absente, si la base est momentanément
+        // injoignable ou si le rôle applicatif n’a pas les droits d’écriture.
+        // `recordSession` ne lève jamais : elle journalise et rend compte. On
+        // n’attend d’elle qu’une chose — ne pas faire échouer ce `login`.
+        //
+        // Une session non enregistrée reste une session valable (voir
+        // `readSessionState` : absence de ligne = non révoquée). Elle n’apparaîtra
+        // simplement pas dans l’écran « Sessions actives » et ne sera pas
+        // révocable à distance — c’est le compromis assumé de la disponibilité.
+        await recordSession({
+          userId: user.id,
+          tenantId: user.tenantId ?? null,
+          token,
+          userAgent: ctx.req.headers?.["user-agent"] ?? null,
+          ip: resolveClientIp(ctx.req),
+        });
         return { success: true };
       }),
     me: publicProcedure.query(({ ctx }) => {
@@ -577,7 +599,13 @@ export const appRouter = router({
         await db.setUserPasswordHash(db_user.id, passwordHash);
         return { success: true } as const;
       }),
-    logout: publicProcedure.mutation(({ ctx }) => {
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      // Révocation côté base AVANT l’effacement du cookie : c’est le seul moment
+      // où l’on dispose encore du jeton. Meilleur effort — se déconnecter doit
+      // réussir même si la base ne répond pas, le cookie part de toute façon.
+      const presented = readSessionToken(ctx.req.headers?.cookie);
+      if (presented) await revokeSessionByToken(presented);
+
       const cookieOptions = getSessionCookieOptions(ctx.req);
       // Effacer le cookie en définissant maxAge à 0 (expiration immédiate)
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: 0 });

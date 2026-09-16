@@ -145,11 +145,17 @@ export const PASSWORD_POLICY: SystemAccessPasswordPolicy = {
  *
  * - Mot de passe local : disponible (c’est le seul chemin qui ouvre une session,
  *   voir `server/_core/context.ts`).
- * - MFA : non implémentée ; elle exige des colonnes qui n’existent pas encore en
- *   base — migration à appliquer par le propriétaire de la base (étape B).
+ * - MFA : TOUJOURS non implémentée à cette étape. La migration a bien créé les
+ *   colonnes `users.mfa%`, mais aucune procédure ne les lit ni ne les écrit :
+ *   l’enrôlement TOTP est l’étape B2, hors périmètre de la présente livraison.
+ *   Annoncer la MFA « disponible » parce que les colonnes existent serait faux.
  * - SSO : aucun fournisseur d’identité externe n’est câblé à la connexion ; le
  *   service OAuth historique n’est plus appelé pour authentifier une requête.
- * - Sessions : non listables et non révocables ; le jeton est un JWT autoporteur.
+ * - Sessions : LISTABLES et RÉVOCABLES depuis l’étape B1. Chaque connexion
+ *   réussie écrit une ligne `sessions` (empreinte du jeton seulement, jamais le
+ *   jeton) ; `_core/context.ts` consulte ce registre à chaque requête, si bien
+ *   qu’une révocation prend effet dès la requête suivante. L’écran
+ *   « Sessions actives » de la console liste ces sessions et les révoque.
  */
 export const ACCESS_MEANS: SystemAccessMean[] = [
   {
@@ -162,7 +168,8 @@ export const ACCESS_MEANS: SystemAccessMean[] = [
     key: "mfa",
     label: "MFA / TOTP",
     available: false,
-    detail: "Non implémentée — migration requise (colonnes MFA absentes de la base).",
+    detail:
+      "Non implémentée — les colonnes MFA existent en base, mais aucune procédure ne les lit ni ne les écrit. L’enrôlement (étape B2) reste à livrer.",
   },
   {
     key: "sso",
@@ -173,8 +180,9 @@ export const ACCESS_MEANS: SystemAccessMean[] = [
   {
     key: "sessions",
     label: "Sessions actives & révocation à distance",
-    available: false,
-    detail: "Non implémenté — migration requise (table des sessions absente). Les sessions en cours ne peuvent être ni listées ni révoquées.",
+    available: true,
+    detail:
+      "Disponible : chaque connexion est enregistrée (empreinte du jeton uniquement) et listée par l’écran « Sessions actives » de la console, qui peut révoquer une session. La révocation s’applique dès la requête suivante.",
   },
 ];
 

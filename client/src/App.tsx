@@ -44,6 +44,7 @@ const GuestDocumentPage = lazy(() => import("./pages/GuestDocumentPage"));
 const SystemConsolePage = lazy(() => import("./pages/SystemConsolePage"));
 const SystemSupervisionPage = lazy(() => import("./pages/SystemSupervisionPage"));
 const SystemAccessPage = lazy(() => import("./pages/SystemAccessPage"));
+const SystemSessionsPage = lazy(() => import("./pages/SystemSessionsPage"));
 const SystemPermissionsPage = lazy(() => import("./pages/SystemPermissionsPage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
@@ -98,6 +99,7 @@ function withSystemGate<P extends object>(Page: ComponentType<P>, title: string)
 const SystemConsoleRoute = withSystemGate(SystemConsolePage, "Console d’exploitation");
 const SystemSupervisionRoute = withSystemGate(SystemSupervisionPage, "Santé & supervision");
 const SystemAccessRoute = withSystemGate(SystemAccessPage, "Accès & comptes");
+const SystemSessionsRoute = withSystemGate(SystemSessionsPage, "Sessions actives");
 const SystemPermissionsRoute = withSystemGate(SystemPermissionsPage, "Rôles & permissions");
 
 function Router() {
@@ -142,6 +144,7 @@ function Router() {
             <Route path={"/journal-audit"} component={DirectionStaffAuditPage} />
             <Route path={"/console/sante"} component={SystemSupervisionRoute} />
             <Route path={"/console/acces"} component={SystemAccessRoute} />
+            <Route path={"/console/sessions"} component={SystemSessionsRoute} />
             <Route path={"/console/permissions"} component={SystemPermissionsRoute} />
             <Route path={"/console"} component={SystemConsoleRoute} />
             <Route path={"/login"} component={LoginPage} />

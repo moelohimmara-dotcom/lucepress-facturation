@@ -30,6 +30,12 @@ const mocks = vi.hoisted(() => {
     createLocalUser: vi.fn(async () => ({ id: 9, openId: "local_test" })),
     verifyPassword: vi.fn(async (plain: string, stored: string) => stored === `hash:${plain}`),
     hashPassword: vi.fn(async (plain: string) => `hash:${plain}`),
+    // Depuis la Phase 3 (étape B1), `auth.login` enregistre la session ouverte.
+    // On déclare ici une base ABSENTE : la connexion doit aboutir malgré tout
+    // (impératif de disponibilité — voir `server/sessionRegistry.ts` et les tests
+    // dédiés de `server/systemSessions.test.ts`). Le sujet de CE fichier reste le
+    // garde-fou anti-brute-force.
+    getDb: vi.fn(async () => null),
   };
 });
 
