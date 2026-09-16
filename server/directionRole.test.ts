@@ -9,9 +9,17 @@ describe("P1.2 — distinction directeur", () => {
     expect(isDirectionRole("client")).toBe(false);
   });
 
-  it("fait cycler les rôles assignables cadre → directeur → admin → cadre", () => {
+  it("fait cycler les rôles assignables cadre → directeur → admin → systeme → cadre", () => {
     expect(nextAssignableStaffRole("cadre")).toBe("directeur");
     expect(nextAssignableStaffRole("directeur")).toBe("admin");
-    expect(nextAssignableStaffRole("admin")).toBe("cadre");
+    expect(nextAssignableStaffRole("admin")).toBe("systeme");
+    expect(nextAssignableStaffRole("systeme")).toBe("cadre");
+  });
+
+  it("garde la distinction direction intacte pour le rôle système", () => {
+    // Le rôle système administre le système, pas le commerce : il n’est pas
+    // « direction » et n’hérite donc pas des écrans de pilotage.
+    expect(isDirectionRole("systeme")).toBe(false);
+    expect(isDirectionRole("directeur")).toBe(true);
   });
 });

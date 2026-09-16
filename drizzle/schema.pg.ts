@@ -16,7 +16,13 @@ import {
 export const planEnum = pgEnum("plan", ["trial", "pro", "enterprise"]);
 export const status_active_trialEnum = pgEnum("status_active_trial", ["active", "trial", "suspended", "cancelled"]);
 export const role_admin_memberEnum = pgEnum("role_admin_member", ["admin", "member", "viewer"]);
-export const role_admin_directeurEnum = pgEnum("role_admin_directeur", ["admin", "directeur", "cadre", "client"]);
+/**
+ * Rôles portés par la colonne `users.role` et `invitations.role`.
+ * `systeme` est ajouté EN FIN de liste : un `ALTER TYPE … ADD VALUE` (sans
+ * `BEFORE`/`AFTER`) place la nouvelle valeur à la fin, l’ordre doit donc
+ * coïncider avec la base pour que les comparaisons d’énumération restent justes.
+ */
+export const role_admin_directeurEnum = pgEnum("role_admin_directeur", ["admin", "directeur", "cadre", "client", "systeme"]);
 export const status_pending_acceptedEnum = pgEnum("status_pending_accepted", ["pending", "accepted", "revoked"]);
 export const identityKindEnum = pgEnum("identityKind", ["immatriculee", "en_immatriculation", "personne_physique", "sans_immatriculation", "autre"]);
 export const type_btp_forageEnum = pgEnum("type_btp_forage", ["btp", "forage", "mixte"]);

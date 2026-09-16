@@ -171,7 +171,8 @@ export async function createLocalUser(input: {
    * Rôle explicite. Volontairement OBLIGATOIRE côté appelant : cette fonction
    * forçait auparavant `role: "admin"` en dur, ce qui donnait les pleins droits
    * à tout compte créé via `auth.register` (procédure publique).
-   * Type « persistable » : l’énumération `users.role` ne porte pas encore `systeme`.
+   * Type « persistable » : `PersistedAppRole` couvre exactement les valeurs de
+   * l’énumération `users.role` (`systeme` compris depuis la Phase 1bis).
    */
   role: PersistedAppRole;
   tenantId?: number;
@@ -288,7 +289,7 @@ export const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
 export type NewInvitation = {
   tokenHash: string;
   email: string;
-  /** Type « persistable » : l’énumération `invitations.role` ne porte pas encore `systeme`. */
+  /** Type « persistable » : `PersistedAppRole` couvre exactement l’énumération `invitations.role`. */
   role: PersistedAppRole;
   invitedBy: number;
   tenantId?: number;

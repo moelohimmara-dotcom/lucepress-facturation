@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => {
     setUserRole: vi.fn(async () => undefined),
     resetUserPassword: vi.fn(async () => undefined),
     deleteUser: vi.fn(async () => ({ deleted: true })),
+    listInvitations: vi.fn(async () => []),
+    createInvitation: vi.fn(async () => ({ id: 7 })),
+    revokeInvitation: vi.fn(async () => undefined),
+    INVITATION_TTL_MS: 72 * 60 * 60 * 1000,
     hashPassword: vi.fn(async (plain: string) => `hash:${plain}`),
     verifyPassword: vi.fn(async (plain: string, stored: string) => stored === `hash:${plain}`),
   };
@@ -26,6 +30,14 @@ vi.mock("./db", () => mocks);
 vi.mock("./_core/password", () => ({
   verifyPassword: mocks.verifyPassword,
   hashPassword: mocks.hashPassword,
+}));
+// SMTP neutralisé : les tests d’invitation ne doivent produire aucun appel réseau,
+// quel que soit l’environnement d’exécution.
+vi.mock("./_core/mailer", () => ({
+  sendMail: vi.fn(async () => undefined),
+  isMailConfigured: () => false,
+  getSmtpUser: () => undefined,
+  getDefaultFrom: () => "Lucepres <noreply@lucepress.local>",
 }));
 
 import { appRouter } from "./routers";
@@ -86,6 +98,26 @@ describe("users.create", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(mocks.createLocalUser).not.toHaveBeenCalled();
   });
+
+  it("crée un compte d’administration système", async () => {
+    mocks.getUserByEmail.mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
+    await expect(
+      caller.users.create({ email: "sys@x.com", name: "Système", password: "MotDePasse123", role: "systeme" })
+    ).resolves.toMatchObject({ success: true });
+    expect(mocks.createLocalUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "sys@x.com", role: "systeme" })
+    );
+  });
+
+  it("refuse toujours la création d’un accès portail client", async () => {
+    mocks.getUserByEmail.mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
+    await expect(
+      caller.users.create({ email: "cli@x.com", password: "MotDePasse123", role: "client" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(mocks.createLocalUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("users.setRole", () => {
@@ -97,12 +129,57 @@ describe("users.setRole", () => {
     expect(mocks.setUserRole).not.toHaveBeenCalled();
   });
 
+  it("refuse aussi qu'un admin se retire son rôle au profit du rôle système", async () => {
+    // Même garde-fou : l’instance ne doit pas se retrouver sans administrateur.
+    const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
+    await expect(
+      caller.users.setRole({ userId: 1, role: "systeme" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(mocks.setUserRole).not.toHaveBeenCalled();
+  });
+
   it("autorise la promotion d'un membre en admin", async () => {
     const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
     await expect(
       caller.users.setRole({ userId: 2, role: "admin" })
     ).resolves.toMatchObject({ success: true });
     expect(mocks.setUserRole).toHaveBeenCalledWith(2, "admin");
+  });
+
+  it("accepte le rôle système (Phase 1bis : l’énumération le porte)", async () => {
+    const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
+    await expect(
+      caller.users.setRole({ userId: 2, role: "systeme" })
+    ).resolves.toMatchObject({ success: true });
+    expect(mocks.setUserRole).toHaveBeenCalledWith(2, "systeme");
+  });
+
+  it("refuse le rôle portail client (il s’attribue depuis la fiche client)", async () => {
+    const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
+    await expect(
+      caller.users.setRole({ userId: 2, role: "client" as never })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(mocks.setUserRole).not.toHaveBeenCalled();
+  });
+});
+
+describe("users.invite", () => {
+  it("invite avec le rôle système", async () => {
+    mocks.getUserByEmail.mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
+    const result = await caller.users.invite({ email: "sys@x.com", role: "systeme" });
+    expect(result).toMatchObject({ success: true, role: "systeme", email: "sys@x.com" });
+    expect(mocks.createInvitation).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "sys@x.com", role: "systeme" })
+    );
+  });
+
+  it("refuse toujours l’invitation d’un accès portail client", async () => {
+    const caller = appRouter.createCaller(ctxFor("local_a", "admin", 1));
+    await expect(
+      caller.users.invite({ email: "cli@x.com", role: "client" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(mocks.createInvitation).not.toHaveBeenCalled();
   });
 });
 

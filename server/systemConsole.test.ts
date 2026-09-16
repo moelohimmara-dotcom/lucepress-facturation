@@ -13,15 +13,22 @@ import type { TrpcContext } from "./_core/context";
 import {
   APP_ROLE_LABELS,
   APP_ROLES,
+  PERSISTED_APP_ROLES,
   STAFF_ASSIGNABLE_ROLES,
   STAFF_ROLES,
   SYSTEM_ONLY_PATHS,
   SYSTEM_PATHS,
   canAccessPath,
   hasSystemAccess,
+  isAdminRole,
   isAppRole,
+  isClientRole,
+  isDirectionRole,
+  isPersistedAppRole,
+  isStaffRole,
   isSystemRole,
   nextAssignableStaffRole,
+  nextAssignableStaffRoleLabel,
 } from "../shared/roles";
 
 /** Lecture directe des sources : prouve le chargement paresseux et le filtrage de navigation. */
@@ -121,12 +128,84 @@ describe("Console d’exploitation — rôle systeme", () => {
     expect(canAccessPath("client", "/devis")).toBe(false);
   });
 
-  it("ne rend pas le rôle système attribuable depuis la page Utilisateurs", () => {
-    expect(STAFF_ASSIGNABLE_ROLES).not.toContain("systeme");
+  it("rend le rôle système réellement persistable et attribuable", () => {
+    // Phase 1bis : l’énumération PostgreSQL porte `systeme`, le rôle n’est donc
+    // plus seulement un vocabulaire applicatif.
+    expect(PERSISTED_APP_ROLES).toContain("systeme");
+    expect(isPersistedAppRole("systeme")).toBe(true);
+    // Aucun rôle applicatif ne reste hors de l’énumération : plus de décalage
+    // entre le vocabulaire et ce que la colonne `users.role` accepte.
+    expect([...PERSISTED_APP_ROLES].sort()).toEqual([...APP_ROLES].sort());
+
+    expect(STAFF_ASSIGNABLE_ROLES).toContain("systeme");
+    expect(STAFF_ASSIGNABLE_ROLES).not.toContain("client");
     expect(nextAssignableStaffRole("cadre")).toBe("directeur");
     expect(nextAssignableStaffRole("directeur")).toBe("admin");
-    expect(nextAssignableStaffRole("admin")).toBe("cadre");
+    expect(nextAssignableStaffRole("admin")).toBe("systeme");
     expect(nextAssignableStaffRole("systeme")).toBe("cadre");
+    // Un rôle inconnu retombe sur la valeur par défaut de la colonne.
+    expect(nextAssignableStaffRole("guest")).toBe("cadre");
+    expect(nextAssignableStaffRole(undefined)).toBe("cadre");
+  });
+
+  it("annonce toujours le rôle qu’il attribue réellement", () => {
+    expect(nextAssignableStaffRoleLabel("cadre")).toBe("Passer directeur");
+    expect(nextAssignableStaffRoleLabel("directeur")).toBe("Passer admin");
+    expect(nextAssignableStaffRoleLabel("admin")).toBe("Passer administrateur système");
+    expect(nextAssignableStaffRoleLabel("systeme")).toBe("Passer cadre");
+    // Garde-fou d’affichage : le libellé ne doit jamais être vide ni figé.
+    for (const role of APP_ROLES) {
+      expect(nextAssignableStaffRoleLabel(role)).toMatch(/^Passer .+/);
+    }
+  });
+
+  it("ne rouvre aucun accès métier au rôle système", () => {
+    // Séparation des devoirs : ces prédicats commandent `staffProcedure`,
+    // `directionProcedure` et les gardes UI métier — `systeme` doit en rester exclu.
+    expect(isStaffRole("systeme")).toBe(false);
+    expect(isDirectionRole("systeme")).toBe(false);
+    expect(isAdminRole("systeme")).toBe(false);
+    expect(isClientRole("systeme")).toBe(false);
+    // Non-régression : les rôles existants ne changent pas de nature.
+    expect(isStaffRole("admin")).toBe(true);
+    expect(isStaffRole("directeur")).toBe(true);
+    expect(isStaffRole("cadre")).toBe(true);
+    expect(isStaffRole("client")).toBe(false);
+    expect(isDirectionRole("admin")).toBe(true);
+    expect(isDirectionRole("directeur")).toBe(true);
+    expect(isDirectionRole("cadre")).toBe(false);
+    expect(isAdminRole("admin")).toBe(true);
+    expect(isAdminRole("directeur")).toBe(false);
+    expect(isClientRole("client")).toBe(true);
+  });
+});
+
+describe("Énumération role_admin_directeur — alignement du schéma", () => {
+  // Aucune base n’est sollicitée : on prouve par lecture de source que les deux
+  // déclarations du schéma portent la même énumération. `schema.pg.ts` est la
+  // source de vérité (config drizzle PostgreSQL) ; `schema.ts` est le miroir
+  // importé par le runtime (`server/db.ts`), les deux doivent rester identiques.
+  const attendu = 'pgEnum("role_admin_directeur", ["admin", "directeur", "cadre", "client", "systeme"])';
+
+  it("déclare systeme en fin de liste, dans les deux fichiers de schéma", () => {
+    expect(readSource("drizzle/schema.pg.ts")).toContain(attendu);
+    expect(readSource("drizzle/schema.ts")).toContain(attendu);
+  });
+
+  it("garde les deux fichiers de schéma strictement identiques", () => {
+    expect(readSource("drizzle/schema.ts")).toBe(readSource("drizzle/schema.pg.ts"));
+  });
+
+  it("n’utilise ni BEFORE ni AFTER : ADD VALUE place la valeur en fin de liste", () => {
+    // L’ordre déclaré doit correspondre à ce que produira le futur
+    // `ALTER TYPE … ADD VALUE 'systeme'` (sans BEFORE/AFTER) en base.
+    for (const file of ["drizzle/schema.pg.ts", "drizzle/schema.ts"]) {
+      const ligne = readSource(file)
+        .split("\n")
+        .find(l => l.includes('pgEnum("role_admin_directeur"'));
+      expect(ligne).toBeDefined();
+      expect(ligne!.trimEnd().endsWith('"systeme"]);')).toBe(true);
+    }
   });
 });
 

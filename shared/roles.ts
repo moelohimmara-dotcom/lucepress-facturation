@@ -17,11 +17,10 @@ export function isAppRole(value: string): value is AppRole {
 
 /**
  * Rôles acceptés par la colonne `users.role` (énumération `role_admin_directeur`).
- * `systeme` en est volontairement exclu : l’ajouter exige une migration de
- * l’énumération, hors périmètre de la Phase 1 (socle, sans changement de schéma).
- * À élargir le jour où le rôle système devient persistable.
+ * `systeme` en fait partie : depuis la Phase 1bis l’énumération PostgreSQL le
+ * porte, le rôle système est donc un vrai rôle persistable, pas un drapeau.
  */
-export const PERSISTED_APP_ROLES = ["admin", "directeur", "cadre", "client"] as const;
+export const PERSISTED_APP_ROLES = ["admin", "directeur", "cadre", "client", "systeme"] as const;
 export type PersistedAppRole = (typeof PERSISTED_APP_ROLES)[number];
 
 export function isPersistedAppRole(value: string): value is PersistedAppRole {
@@ -114,14 +113,29 @@ export function hasSystemAccess(role: AppRole | string | undefined): boolean {
 
 /**
  * Rôles internes assignables depuis la page Utilisateurs (jamais `client`).
- * `systeme` en est exclu : le compte d’exploitation n’est pas un compte
- * commercial, il se provisionne hors de cet écran.
+ * `systeme` en fait partie depuis la Phase 1bis : l’administrateur système mène
+ * une séparation des devoirs, mais un administrateur doit pouvoir le nommer.
  */
-export const STAFF_ASSIGNABLE_ROLES = ["cadre", "directeur", "admin"] as const;
+export const STAFF_ASSIGNABLE_ROLES = ["cadre", "directeur", "admin", "systeme"] as const;
 export type StaffAssignableRole = (typeof STAFF_ASSIGNABLE_ROLES)[number];
 
+/**
+ * Cycle du raccourci « Passer … » de la page Utilisateurs :
+ * cadre → directeur → admin → systeme → cadre.
+ * Un rôle inconnu (ou absent) retombe sur `cadre`, valeur par défaut de la colonne.
+ */
 export function nextAssignableStaffRole(role: AppRole | string | undefined): StaffAssignableRole {
   if (role === "cadre") return "directeur";
   if (role === "directeur") return "admin";
+  if (role === "admin") return "systeme";
   return "cadre";
+}
+
+/**
+ * Libellé du bouton d’attribution d’un rôle (« Passer cadre », « Passer
+ * administrateur système », …). Dérivé du cycle ci-dessus : le libellé ne peut
+ * pas annoncer autre chose que le rôle réellement écrit par `users.setRole`.
+ */
+export function nextAssignableStaffRoleLabel(role: AppRole | string | undefined): string {
+  return `Passer ${APP_ROLE_LABELS[nextAssignableStaffRole(role)].toLowerCase()}`;
 }

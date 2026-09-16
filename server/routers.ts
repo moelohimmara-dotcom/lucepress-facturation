@@ -14,7 +14,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { IDENTITY_KINDS, omitOptionalPaperworkMissingFields } from "../shared/identityPaperwork";
 import { CLIENT_ACTIVITY_TYPES } from "../shared/clientActivityTypes";
-import { APP_ROLES, isStaffRole, STAFF_ASSIGNABLE_ROLES, type PersistedAppRole } from "../shared/roles";
+import { APP_ROLES, isClientRole, STAFF_ASSIGNABLE_ROLES, type PersistedAppRole } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
@@ -650,7 +650,7 @@ export const appRouter = router({
   /**
    * Gestion des collaborateurs (réservée aux administrateurs).
    * Dans l'architecture mono-tenant actuelle, un « collaborateur » est un compte
-   * `users` avec un rôle `admin`, `directeur` ou `cadre`. Les procédures ci-dessous permettent à un admin
+   * `users` avec un rôle `admin`, `directeur`, `cadre` ou `systeme`. Les procédures ci-dessous permettent à un admin
    * de lister, créer, promouvoir/rétrograder, réinitialiser le mot de passe et
    * révoquer ces comptes — sans jamais exposer le hash des mots de passe.
    */
@@ -670,12 +670,6 @@ export const appRouter = router({
             message: "Les accès portail client s’invitent depuis la fiche client.",
           });
         }
-        if (input.role === "systeme") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Le rôle système ne s’attribue pas depuis les comptes collaborateurs : la base ne le porte pas encore (migration hors Phase 1).",
-          });
-        }
         const existant = await db.getUserByEmail(input.email);
         if (existant) {
           throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
@@ -691,9 +685,9 @@ export const appRouter = router({
         return { success: true, openId: user.openId, id: user.id } as const;
       }),
     setRole: adminProcedure
-      // `STAFF_ASSIGNABLE_ROLES` (admin/directeur/cadre) : même ensemble que
-      // `STAFF_ROLES` avant l’ajout du rôle système, qui n’est pas persistable
-      // dans l’énumération `role_admin_directeur` (Phase 1 sans migration).
+      // `STAFF_ASSIGNABLE_ROLES` (cadre/directeur/admin/systeme) : tous les rôles
+      // internes persistables. `client` reste exclu — il s’attribue depuis la
+      // fiche client, pas depuis la gestion des collaborateurs.
       .input(z.object({ userId: z.number().int().positive(), role: z.enum(STAFF_ASSIGNABLE_ROLES) }))
       .mutation(async ({ ctx, input }) => {
         // Garde-fou : un admin ne peut pas se rétrograder lui-même et laisser
@@ -751,12 +745,6 @@ export const appRouter = router({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Les accès portail client s’invitent depuis la fiche client, pas depuis les comptes internes.",
-          });
-        }
-        if (input.role === "systeme") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Le rôle système ne s’invite pas depuis les comptes collaborateurs : la base ne le porte pas encore (migration hors Phase 1).",
           });
         }
         return issueInvitation({
@@ -1052,7 +1040,12 @@ export const appRouter = router({
             });
           }
           const existant = await db.getUserByEmail(email);
-          if (existant && isStaffRole(existant.role)) {
+          // Tout compte existant qui n’est PAS un compte portail est un compte
+          // interne (`admin`, `directeur`, `cadre`, `systeme`) : on refuse.
+          // Le filtre inverse (`isStaffRole`) ne suffirait plus depuis que
+          // `systeme` est persistable — le rôle système n’est pas un compte
+          // commercial, mais reste un compte interne.
+          if (existant && !isClientRole(existant.role)) {
             throw new TRPCError({
               code: "CONFLICT",
               message: "Cet e-mail appartient déjà à un compte interne Lucepres. Utilisez une autre adresse sur la fiche client.",

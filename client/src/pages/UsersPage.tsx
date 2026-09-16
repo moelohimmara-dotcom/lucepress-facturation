@@ -17,7 +17,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { ShieldCheck, Trash2, UserCog, UserPlus, KeyRound, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { APP_ROLE_LABELS, nextAssignableStaffRole, type AppRole } from "@shared/roles";
+import { APP_ROLE_LABELS, nextAssignableStaffRole, nextAssignableStaffRoleLabel, type AppRole } from "@shared/roles";
 
 type UserRow = {
   id: number;
@@ -210,7 +210,7 @@ export default function UsersPage() {
                           disabled={setRoleMutation.isPending}
                         >
                           <UserCog className="mr-1 h-4 w-4" />
-                          {u.role === "admin" ? "Passer cadre" : u.role === "directeur" ? "Passer admin" : "Passer directeur"}
+                          {nextAssignableStaffRoleLabel(u.role)}
                         </Button>
                       )}
                       <Button
