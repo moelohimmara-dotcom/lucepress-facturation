@@ -10,10 +10,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * qu’une :
  *
  *  1. QUI A LE DROIT ? Les huit nouvelles procédures sont sous
- *     `systemProcedure` : rôle `systeme` ET double authentification active. On
- *     le prouve DANS LES DEUX SENS — refus pour `admin`, `directeur`, `cadre`,
- *     `client` et anonyme, refus pour un compte `systeme` sans MFA, acceptation
- *     pour un compte `systeme` avec MFA.
+ *     `systemProcedure` : rôle `systeme`, et RIEN d’autre. On le prouve DANS
+ *     LES DEUX SENS — refus pour `admin`, `directeur`, `cadre`, `client` et
+ *     anonyme, acceptation pour un compte `systeme` sans MFA COMME avec MFA.
+ *     La double authentification a été exigée pour ouvrir la console (étape
+ *     B2) ; le propriétaire de l’instance a demandé à garder le choix, la
+ *     condition a donc été retirée du garde. Le double `mfaActive` reste piloté
+ *     par les tests — à `false` — précisément pour prouver que plus rien n’en
+ *     dépend.
  *  2. QUELS GARDE-FOUS TIENNENT ? Le dernier compte système ne peut être ni
  *     rétrogradé ni supprimé, on ne se retire pas soi-même, et on ne se
  *     rétrograde pas soi-même.
@@ -29,7 +33,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || "secret-de-test-uniquement-32-caracteres-mini";
   return {
-    /** État de la MFA du compte système qui appelle. Piloté par les tests. */
+    /**
+     * État de la MFA du compte qui appelle. SANS EFFET sur l’accès à la
+     * console depuis le retrait de l’obligation : les tests le laissent à
+     * `false` pour le prouver, et le passent à `true` pour vérifier que rien ne
+     * change non plus dans l’autre sens.
+     */
     mfaActive: true,
     /** SMTP : faux par défaut (aucun appel réseau), vrai pour le renvoi d’invitation. */
     mailConfigured: false,
@@ -70,7 +79,7 @@ vi.mock("./_core/mailer", () => ({
 
 import { appRouter } from "./routers";
 import { TRPCError } from "@trpc/server";
-import { CONSOLE_MFA_REQUIRED_ERR_MSG, CONSOLE_REFUSED_ERR_MSG } from "./_core/trpc";
+import { CONSOLE_REFUSED_ERR_MSG } from "./_core/trpc";
 import type { TrpcContext } from "./_core/context";
 import {
   TEMPORARY_PASSWORD_ALPHABET,
@@ -252,23 +261,44 @@ describe("Console — les écritures sont réservées au rôle système", () => 
     expect(mocks.revokeInvitation).not.toHaveBeenCalled();
   });
 
-  it("refuse un compte système SANS MFA, sur les huit écritures", async () => {
+  it("accepte un compte système SANS MFA, sur les huit écritures", async () => {
+    // RETOURNÉ — ces huit écritures étaient refusées en 403 quand le compte
+    // `systeme` n’avait pas de second facteur. La MFA n’est plus exigée pour
+    // ouvrir la console : le rôle suffit, et le compte qui n’en veut pas garde
+    // la totalité de ses droits.
     mocks.mfaActive = false;
+    mocks.mailConfigured = true;
+    mocks.listUsers.mockResolvedValue(twoSystemAccounts());
+    mocks.listPendingInvitations.mockResolvedValue([
+      { id: 7, email: "invite@x.com", role: "cadre", expiresAt: new Date("2026-09-19T10:00:00.000Z"), createdAt: new Date("2026-09-16T10:00:00.000Z") },
+    ]);
+    mocks.rotateInvitationToken.mockResolvedValue({
+      token: "jeton-renvoye",
+      email: "invite@x.com",
+      role: "cadre",
+      expiresAt: new Date("2026-09-19T10:00:00.000Z"),
+    });
 
-    for (const ecriture of ECRITURES) {
-      await expect(ecriture.appeler("systeme")).rejects.toMatchObject({
-        code: "FORBIDDEN",
-        message: CONSOLE_MFA_REQUIRED_ERR_MSG,
-      });
-    }
-    expect(mocks.createLocalUser).not.toHaveBeenCalled();
-    expect(mocks.setUserRole).not.toHaveBeenCalled();
-    expect(mocks.deleteUser).not.toHaveBeenCalled();
+    const call = caller("systeme");
+    await expect(call.system.accounts.create({ email: "n@x.com", password: "MotDePasse123", role: "cadre" })).resolves.toMatchObject({ id: 99 });
+    await expect(call.system.accounts.rename({ userId: 2, name: "Nouveau nom" })).resolves.toEqual({ userId: 2 });
+    await expect(call.system.accounts.setRole({ userId: 2, role: "directeur" })).resolves.toEqual({ userId: 2, role: "directeur" });
+    await expect(call.system.accounts.resetPassword({ userId: 2 })).resolves.toMatchObject({ userId: 2 });
+    await expect(call.system.accounts.remove({ userId: 2 })).resolves.toMatchObject({ userId: 2 });
+    await expect(call.system.invitations.issue({ email: "invite@x.com", role: "cadre" })).resolves.toMatchObject({ success: true });
+    await expect(call.system.invitations.resend({ id: 7 })).resolves.toMatchObject({ success: true, email: "invite@x.com" });
+    await expect(call.system.invitations.revoke({ id: 7 })).resolves.toEqual({ id: 7, email: "invite@x.com" });
+
+    // Et l’écriture a bien EU LIEU : l’ouverture n’est pas un faux succès.
+    expect(mocks.createLocalUser).toHaveBeenCalled();
+    expect(mocks.setUserRole).toHaveBeenCalled();
+    expect(mocks.deleteUser).toHaveBeenCalled();
   });
 
-  it("refuse aussi la lecture des invitations sans MFA", async () => {
+  it("ouvre aussi la lecture des invitations sans MFA", async () => {
+    // RETOURNÉ — cette lecture était refusée elle aussi (403).
     mocks.mfaActive = false;
-    await expect(caller("systeme").system.invitations.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller("systeme").system.invitations.list()).resolves.toEqual([]);
   });
 
   it("ne nomme rien dans le message de refus", async () => {

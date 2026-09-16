@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   SystemAccessPanel,
   accountDisplayName,
@@ -20,17 +20,15 @@ import type { TrpcContext } from "./_core/context";
 const readSource = (relativePath: string) => readFileSync(resolve(process.cwd(), relativePath), "utf8");
 
 /**
- * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ * LA MFA N’EST PLUS UN VERROU DE LA CONSOLE.
  *
- * `systemProcedure` exige désormais le rôle `systeme` ET une double
- * authentification active ; sans ce double, `system.access` recevrait 403. Les
- * deux sens du verrou sont prouvés dans `server/systemConsoleMfa.test.ts` ; ici,
- * on isole la lecture des accès, qui est le sujet de ce fichier.
+ * `systemProcedure` a exigé, à l’étape B2, le rôle `systeme` ET une double
+ * authentification active : un double remplaçait alors la lecture de cet état.
+ * Le propriétaire de l’instance a demandé à garder le choix, le garde ne
+ * vérifie donc plus que le rôle — et ne lit plus l’état MFA du tout. Le double
+ * devient sans objet et disparaît : ce fichier isole la lecture des accès, qui
+ * est son sujet.
  */
-vi.mock("./mfa", async importOriginal => {
-  const actual = await importOriginal<typeof import("./mfa")>();
-  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
-});
 
 /** Tous les fichiers `.ts` du serveur, pour prouver une absence par balayage. */
 function listServerSources(dossier = "server"): string[] {

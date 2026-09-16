@@ -1,7 +1,6 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { AppRole } from "@shared/roles";
-import { isMfaActiveForUser } from "../mfa";
 import { logConsoleAttempt } from "../systemAccessLog";
 import type { TrpcContext } from "./context";
 import { runWithTenant } from "./tenantContext";
@@ -67,13 +66,6 @@ const requireUser = t.middleware(async opts => {
  * (voir `server/systemAccessLog.ts`).
  */
 export const CONSOLE_REFUSED_ERR_MSG = "Accès refusé.";
-
-/**
- * Refus pour MFA absente : neutre lui aussi. Le compte système qui n’a pas
- * encore activé sa MFA n’a pas besoin de ce message pour s’orienter — son
- * interface interroge `mfa.status` et affiche l’écran d’enrôlement.
- */
-export const CONSOLE_MFA_REQUIRED_ERR_MSG = "Authentification à deux facteurs requise pour cette opération.";
 
 /** Ce qu’un refus de rôle transmet au journal. Aucun contenu de requête. */
 type RefusalInfo = {
@@ -190,55 +182,26 @@ export const usersProcedure = t.procedure.use(
 );
 
 /**
- * Second verrou de la console : la MFA doit être ACTIVE sur le compte.
- *
- * PLACÉ APRÈS `requireRoles` : la question « qui es-tu ? » se tranche avant
- * « as-tu ton second facteur ? », et un compte non habilité n’a pas à faire
- * interroger la base sur son état MFA.
- *
- * ÉCHOUE FERMÉ : `isMfaActiveForUser` rend `false` quand la lecture est
- * impossible (base injoignable, colonne absente). Une panne ne peut donc pas
- * ouvrir la console — au pire elle la ferme, ce qui est le bon côté de l’erreur
- * pour un espace d’administration système.
- *
- * Le refus est journalisé, et le message ne nomme rien : voir
- * `CONSOLE_MFA_REQUIRED_ERR_MSG`.
- */
-const requireConsoleMfa = t.middleware(async opts => {
-  const { ctx, next } = opts;
-  const user = ctx.user;
-  const active = user ? await isMfaActiveForUser(user.id) : false;
-  if (!active) {
-    logConsoleAttempt({
-      outcome: "mfa_absente",
-      target: procedurePath(opts as { path?: unknown }),
-      role: user?.role ?? null,
-      actor: user?.email ?? user?.openId ?? null,
-      actorId: user?.id ?? null,
-      tenantId: ctx.tenantId,
-    });
-    throw new TRPCError({ code: "FORBIDDEN", message: CONSOLE_MFA_REQUIRED_ERR_MSG });
-  }
-  return next();
-});
-
-/**
- * Console d’exploitation : rôle `systeme` UNIQUEMENT, **et** MFA active.
+ * Console d’exploitation : rôle `systeme` UNIQUEMENT.
  *
  * L’accès partagé avec `admin` (Phases 1 → 3B1) était un compromis d’essai, il
  * est retiré. Le contrôle ne repose jamais sur l’interface — chaque procédure de
  * la console repasse par ce middleware, et l’admin reçoit un 403 comme tout
  * autre rôle.
  *
- * DEUX VERROUS, DANS CET ORDRE :
- *   1. le RÔLE (`requireRoles`) — un compte non habilité est refusé ici, et la
- *      tentative est journalisée sans que l’intéressé en sache rien ;
- *   2. la MFA ACTIVE (`requireConsoleMfa`) — le cahier des charges § 6 exige
- *      l’authentification à deux facteurs pour ouvrir la console. Un compte
- *      `systeme` sans MFA n’obtient donc AUCUNE procédure de console (403),
- *      mais conserve l’accès aux procédures d’enrôlement (`mfa.*`), qui sont
- *      sous `protectedProcedure` : c’est ainsi qu’il se met en règle.
+ * UN SEUL VERROU : LE RÔLE, ET C’EST UNE DÉCISION DU PROPRIÉTAIRE.
+ * Le cahier des charges § 6 prévoyait une MFA OBLIGATOIRE pour ouvrir la
+ * console ; le propriétaire de l’instance a demandé l’inverse — « je dois
+ * toujours avoir le choix de décider ». La MFA reste donc ENTIÈREMENT
+ * DISPONIBLE (`mfa.*`, `server/routers.ts`) et RECOMMANDÉE pour un compte
+ * d’administration, mais elle n’est plus EXIGÉE pour entrer : un compte
+ * `systeme` sans second facteur ouvre la console comme les autres, et l’active
+ * — ou non — depuis la console elle-même.
+ *
+ * Ce qui n’a pas changé : le refus de rôle reste muet et journalisé (voir
+ * `CONSOLE_REFUSED_ERR_MSG`), et aucun autre rôle n’obtient la moindre
+ * procédure de console.
  */
 export const systemProcedure = t.procedure.use(
   requireRoles(["systeme"], CONSOLE_REFUSED_ERR_MSG, onConsoleAccessRefused),
-).use(requireConsoleMfa);
+);

@@ -18,11 +18,12 @@ import { useLocation } from "wouter";
  * « Tableau de bord système » alimentée par `/api/health` et `system.overview`.
  * Lecture seule : la console n’écrit jamais dans les données commerciales.
  *
- * ÉTAPE B2 — le panneau « Ma double authentification » complète le tableau de
- * bord. Il n’apparaît QUE si l’on est arrivé jusqu’ici, c’est-à-dire après que
- * `SystemGate` a constaté auprès du serveur que la MFA est active : il sert à
- * gérer son propre second facteur (état, codes de secours restants,
- * désactivation), pas à en ouvrir l’accès.
+ * ÉTAPE B2, PUIS DÉCISION DU PROPRIÉTAIRE — le panneau « Ma double
+ * authentification » vit sur ce tableau de bord, et il y est le SEUL endroit où
+ * la MFA du compte se gère : état, activation, désactivation. Il n’ouvre plus
+ * l’accès aux modules — la console est accessible au seul rôle `systeme`,
+ * second facteur ou non — et il ne le ferme pas non plus : l’activer est une
+ * proposition, la désactiver une décision, prise ici.
  */
 export default function SystemConsolePage() {
   const [, setLocation] = useLocation();

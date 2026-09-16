@@ -15,21 +15,22 @@ import {
   mfaStatusSummary,
   type ConsoleMfaStatus,
 } from "../client/src/components/SystemMfaPanels";
-import { CONSOLE_MFA_REQUIRED_ERR_MSG, CONSOLE_REFUSED_ERR_MSG } from "./_core/trpc";
+import { CONSOLE_REFUSED_ERR_MSG } from "./_core/trpc";
 
 /**
- * ÉTAPE B2 — LES ÉCRANS, RENDUS POUR DE VRAI.
+ * LA CONSOLE, RENDUE POUR DE VRAI — ET LA MFA PROPOSÉE.
  *
- * Deux exigences de cette livraison ne se prouvent qu’en regardant ce qui
- * s’affiche :
+ * Deux exigences ne se prouvent qu’en regardant ce qui s’affiche :
  *
  *  1. LE REFUS EST MUET. L’écran que reçoit un rôle non habilité ne doit
  *     contenir AUCUNE occurrence de « console », « exploitation » ou
  *     « administration système » — pas même en commentaire HTML. Un mot suffit
  *     à confirmer l’existence d’un espace qu’on prétend cacher.
- *  2. LES ÉCRANS DE MFA EXISTENT ET DISENT CE QU’IL FAUT. Enrôlement, second
- *     temps de connexion, codes de secours montrés une fois, gestion depuis la
- *     console.
+ *  2. LES ÉCRANS DE MFA EXISTENT ET DISENT CE QU’IL FAUT — sans promettre une
+ *     obligation qui n’existe plus. L’enrôlement, le second temps de connexion,
+ *     les codes de secours montrés une fois et la gestion depuis la console
+ *     (activer, désactiver) sont épinglés ici, textes compris : une interface
+ *     qui annoncerait encore « requise » mentirait sur la règle.
  *
  * Le rendu passe par `renderToStaticMarkup` : pas de navigateur, pas de réseau,
  * pas de contexte React. Ce fichier porte le suffixe `.ui.test.ts`, donc tourne
@@ -89,7 +90,9 @@ describe("Écran de refus — MUET, et identique à la page introuvable", () => 
     // pouvoir l’expliquer. Ce qui compte est que son REFUS ne le rende jamais :
     // le refus EST l’écran 404, ci-dessus, et rien d’autre.
     expect(notFound.includes("/console")).toBe(false);
-    const brancheRefus = gate.slice(gate.indexOf("if (!hasSystemAccess(user?.role)) {"), gate.indexOf("return <ConsoleMfaGate>"));
+    // La branche de refus va du test d’habilitation au rendu des enfants : ce
+    // qu’elle contient est EXACTEMENT ce que reçoit un rôle non habilité.
+    const brancheRefus = gate.slice(gate.indexOf("if (!hasSystemAccess(user?.role)) {"), gate.indexOf("return <>{children}</>"));
     expect(brancheRefus).toContain("<IntrouvableScreen />");
     expect(brancheRefus).not.toMatch(/[«"]\s*(console|exploitation)/i);
 
@@ -121,13 +124,21 @@ describe("Écran de refus — MUET, et identique à la page introuvable", () => 
   });
 
   it("n’expose aucun message d’erreur nommant l’espace protégé", () => {
-    // Les messages que le serveur oppose à un non-habilité, et ceux que
-    // l’interface pourrait relayer, sont muets eux aussi.
-    for (const message of [CONSOLE_REFUSED_ERR_MSG, CONSOLE_MFA_REQUIRED_ERR_MSG]) {
-      const minuscules = message.toLowerCase();
-      for (const mot of MOTS_INTERDITS) {
-        expect({ message, mot, present: minuscules.includes(mot) }).toEqual({ message, mot, present: false });
-      }
+    // Le seul refus que la console oppose encore, et ceux que l’interface
+    // pourrait relayer, sont muets eux aussi.
+    const minuscules = CONSOLE_REFUSED_ERR_MSG.toLowerCase();
+    for (const mot of MOTS_INTERDITS) {
+      expect({ mot, present: minuscules.includes(mot) }).toEqual({ mot, present: false });
+    }
+    // RETOURNÉ — un second message existait, « Authentification à deux facteurs
+    // requise… », pour le refus d’un compte sans MFA. Ce refus n’existe plus :
+    // le message est retiré, et le dépôt ne doit pas en garder la promesse.
+    expect(readSource("server/_core/trpc.ts")).not.toContain("deux facteurs requise");
+    for (const source of ["client/src/components/SystemGate.tsx", "client/src/components/SystemMfaPanels.tsx"]) {
+      expect({ source, texte: readSource(source).includes("Authentification à deux facteurs requise") }).toEqual({
+        source,
+        texte: false,
+      });
     }
   });
 });
@@ -136,29 +147,46 @@ describe("Écran de refus — MUET, et identique à la page introuvable", () => 
 /* 2. Le garde de la console                                           */
 /* ------------------------------------------------------------------ */
 
-describe("Garde de la console — deux verrous, et le chargement paresseux", () => {
+describe("Garde de la console — le rôle suffit, et le chargement reste paresseux", () => {
   const app = readSource("client/src/App.tsx");
   const gate = readSource("client/src/components/SystemGate.tsx");
 
-  it("interroge le serveur avant d’ouvrir, et n’ouvre que sur un « oui » explicite", () => {
-    expect(gate).toContain("trpc.mfa.status.useQuery");
-    expect(gate.replace(/\s+/g, " ")).toContain("if (!status.data?.enabled) {");
-    // L’enrôlement remplace les modules ; il ne s’y ajoute pas.
-    expect(gate).toContain("ConsoleMfaEnrollment");
+  it("n’ouvre plus sur un second facteur : le rôle habilité suffit", () => {
+    // RETOURNÉ — ce garde interrogeait `mfa.status` et n’ouvrait que sur
+    // `enabled === true`. Il ne demande plus rien au serveur que le rôle.
+    expect(gate).not.toContain("trpc.mfa.status");
+    expect(gate).not.toContain("ConsoleMfaEnrollment");
+    expect(gate).toContain("hasSystemAccess");
+    // Et il rend les modules dès que la règle de rôle est satisfaite.
+    expect(gate).toContain("return <>{children}</>;");
   });
 
-  it("ÉCHOUE FERMÉ : une vérification impossible n’est pas une autorisation", () => {
-    // Sur erreur de la requête d’état, l’écran de reprise s’affiche — sans
-    // aucun contenu — et non les modules.
-    expect(gate.replace(/\s+/g, " ")).toContain("if (status.error) {");
-    expect(gate).toContain("Vérification impossible");
-    expect(gate).toContain("une vérification impossible n’est pas une autorisation");
-    expect(gate).toContain("children");
+  it("n’a plus d’écran d’échec qui ferme : une vérification impossible n’a plus lieu d’être", () => {
+    // RETOURNÉ — l’écran « Vérification impossible » tenait lieu de défaut sûr
+    // quand l’état MFA décidait de l’accès. Ne restant que le rôle — connu
+    // localement par la session — il n’y a plus rien à vérifier auprès du
+    // serveur avant d’afficher, donc plus d’écran de reprise à opposer.
+    expect(gate).not.toContain("Vérification impossible");
+    expect(gate).not.toContain("status.error");
+    expect(gate).not.toContain("mfa.status.useQuery");
+    // Le seul défaut sûr qui subsiste est celui du rôle : on refuse AVANT de rendre.
+    expect(gate.replace(/\s+/g, " ")).toContain("if (!hasSystemAccess(user?.role)) {");
+    // L’attente de session, elle, reste : elle ne bloque personne au-delà du
+    // temps de la réponse du serveur.
+    expect(gate).toContain("GateSpinner");
   });
 
-  it("recharge l’état auprès du serveur après activation, sans drapeau local", () => {
-    expect(gate).toContain("utils.mfa.status.invalidate()");
-    expect(gate).toContain("utils.mfa.status.refetch()");
+  it("garde le rafraîchissement de l’état MFA là où il sert : dans le panneau de gestion", () => {
+    // RETOURNÉ — le garde rechargeait `mfa.status` après activation, puisque
+    // c’est cette relecture qui rouvrait la console. C’est désormais le panneau
+    // du tableau de bord qui en a besoin, et lui seul : il affiche l’état.
+    const manager = readSource("client/src/components/SystemMfa.tsx");
+    expect(gate).not.toContain("utils.mfa.status.invalidate()");
+    expect(manager).toContain("utils.mfa.status.invalidate()");
+    expect(manager).toContain("utils.mfa.status.refetch()");
+    // Aucun drapeau local ne tient lieu d’état : c’est la relecture serveur qui
+    // décide de ce que le panneau affiche.
+    expect(manager).toContain("trpc.mfa.status.useQuery");
   });
 
   it("garde les cinq routes de console, toujours en chargement paresseux", () => {
@@ -251,17 +279,27 @@ describe("Connexion — écran du second facteur", () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* 4. L’enrôlement depuis la console                                   */
+/* 4. L’enrôlement depuis la console — PROPOSÉ, jamais imposé          */
 /* ------------------------------------------------------------------ */
 
-describe("Console — enrôlement obligatoire", () => {
-  it("explique pourquoi l’accès est fermé AVANT de demander quoi que ce soit", () => {
+describe("Console — enrôlement proposé", () => {
+  it("annonce le compromis — recommandée, jamais imposée — AVANT de demander quoi que ce soit", () => {
+    // RETOURNÉ — cet écran annonçait « Authentification à deux facteurs
+    // requise » et « les modules restent fermés — y compris pour vous ». Depuis
+    // que la console s’ouvre sans second facteur, ces deux phrases sont
+    // fausses : le test épingle désormais ce qui est vrai, et vérifie que la
+    // promesse d’obligation a disparu du rendu.
     const html = renderToStaticMarkup(createElement(MfaEnrollIntro, { onStart: () => undefined, pending: false, error: null }));
 
     expect(html).toContain('data-testid="mfa-enroll-intro"');
-    expect(html).toContain("Authentification à deux facteurs requise");
-    expect(html).toContain("les modules restent fermés — y compris pour vous");
+    expect(html).toContain("Double authentification — recommandée, jamais imposée");
+    expect(html).toContain("la console reste ouverte sans elle");
+    expect(html).toContain("codes de secours");
+    expect(html).toContain("la désactiver");
     expect(html).toContain("Générer mon secret");
+    // Aucune trace de l’obligation retirée, ni dans le texte, ni en balisage.
+    expect(html).not.toContain("requise");
+    expect(html).not.toContain("les modules restent fermés");
     // Les trois étapes annoncées, dans l’ordre : installer, enregistrer, confirmer.
     expect(html.indexOf("Installez une application")).toBeLessThan(html.indexOf("Enregistrez le compte"));
     expect(html.indexOf("Enregistrez le compte")).toBeLessThan(html.indexOf("Saisissez le code"));
@@ -338,6 +376,8 @@ describe("Console — panneau « Ma double authentification »", () => {
         status: etat,
         disableOpen: false,
         onToggleDisable: () => undefined,
+        onStartEnroll: () => undefined,
+        onRetry: () => undefined,
         code: "",
         onCodeChange: () => undefined,
         onDisable: () => undefined,
@@ -353,11 +393,50 @@ describe("Console — panneau « Ma double authentification »", () => {
     const html = rendre();
     expect(html).toContain('data-testid="console-mfa-panel"');
     expect(html).toContain("Ma double authentification");
-    expect(html).toContain("Facteur exigé pour ouvrir cette console");
-    expect(html).toContain("Il reste facultatif pour les autres comptes");
-    expect(html).toContain("Active");
+    // RETOURNÉ — le panneau disait « Facteur exigé pour ouvrir cette console ».
+    // Il dit maintenant l’inverse, et c’est la règle : recommandée, jamais
+    // imposée, la console restant ouverte sans elle.
+    expect(html).toContain("Recommandée pour un compte d’administration — jamais imposée");
+    expect(html).toContain("La console reste ouverte sans elle");
+    expect(html).not.toContain("Facteur exigé");
+    expect(html).toContain("MFA : activée");
     expect(html).toContain("TOTP · 6 chiffres · 30 s");
     expect(html).toContain("7 restant(s)");
+  });
+
+  it("propose l’activation quand la MFA n’est PAS active, sans rien imposer", () => {
+    const html = rendre({ status: { ...etat, enabled: false, pending: false, enrolledAt: null, recoveryCodesRemaining: 0 } });
+    expect(html).toContain("MFA : non activée");
+    expect(html).toContain("Aucun second facteur n’est actif sur ce compte");
+    expect(html).toContain("Activer la double authentification");
+    expect(html).toContain("Rien n’est imposé");
+    // Aucune désactivation possible tant que rien n’est actif, et aucun texte
+    // ne promet une fermeture de la console.
+    expect(html).not.toContain("Désactiver la double authentification");
+    expect(html).not.toContain("ferme immédiatement");
+  });
+
+  it("ne propose ni activation ni désactivation quand l’état est illisible", () => {
+    // « Je ne sais pas » n’est pas « absente » : on ne lance ni un enrôlement
+    // qui serait refusé (`deja_active`), ni une désactivation à l’aveugle.
+    const html = rendre({ status: { ...etat, readable: false } });
+    expect(html).toContain("MFA : état inconnu");
+    expect(html).toContain("Réessayer");
+    expect(html).not.toContain("Activer la double authentification");
+    expect(html).not.toContain("Désactiver la double authentification");
+
+    // Même chose quand la requête a échoué : il n’y a AUCUNE donnée, et c’est
+    // exactement le cas où une proposition d’activation serait la plus
+    // trompeuse — elle s’adresserait peut-être à un compte déjà enrôlé.
+    const enEchec = rendre({ status: undefined, isLoading: false });
+    expect(enEchec).toContain("MFA : état inconnu");
+    expect(enEchec).not.toContain("Activer la double authentification");
+
+    // Et pendant la lecture, aucune action n’est proposée non plus.
+    const enCours = rendre({ status: undefined, isLoading: true });
+    expect(enCours).toContain("Vérification…");
+    expect(enCours).not.toContain("Activer la double authentification");
+    expect(enCours).not.toContain("Réessayer");
   });
 
   it("n’affiche jamais de secret ni de code : seulement un décompte", () => {
@@ -382,21 +461,25 @@ describe("Console — panneau « Ma double authentification »", () => {
     expect(ouvert).toContain("Confirmer la désactivation");
     expect(ouvert).toContain("Annuler");
     expect(ouvert).toContain('id="mfa-disable-code"');
-    // L’écran annonce la conséquence réelle : la console se referme.
-    expect(ouvert).toContain("La désactivation ferme immédiatement l’accès à cette console");
+    // RETOURNÉ — l’écran annonçait que la console se refermait aussitôt. Elle
+    // ne se referme plus : le texte dit la conséquence RÉELLE, qui porte
+    // désormais sur la connexion suivante.
+    expect(ouvert).not.toContain("La désactivation ferme immédiatement l’accès à cette console");
+    expect(ouvert).toContain("la console reste ouverte");
+    expect(ouvert).toContain("ne demandera plus qu’un mot de passe");
   });
 
   it("distingue les quatre états possibles, sans jamais prétendre savoir", () => {
-    expect(mfaStatusSummary(etat)).toEqual({ label: "Active", tone: "ok" });
-    expect(mfaStatusSummary({ ...etat, enabled: false, pending: true })).toEqual({ label: "Enrôlement inachevé", tone: "warn" });
-    expect(mfaStatusSummary({ ...etat, enabled: false, pending: false })).toEqual({ label: "Inactive", tone: "down" });
+    expect(mfaStatusSummary(etat)).toEqual({ label: "MFA : activée", tone: "ok" });
+    expect(mfaStatusSummary({ ...etat, enabled: false, pending: true })).toEqual({ label: "MFA : enrôlement inachevé", tone: "warn" });
+    expect(mfaStatusSummary({ ...etat, enabled: false, pending: false })).toEqual({ label: "MFA : non activée", tone: "down" });
     // « Je ne sais pas » n’est pas « inactive » : une base muette ne doit pas
     // être affichée comme une absence de MFA.
-    expect(mfaStatusSummary({ ...etat, readable: false })).toEqual({ label: "État inconnu", tone: "warn" });
-    expect(mfaStatusSummary(undefined)).toEqual({ label: "État inconnu", tone: "warn" });
+    expect(mfaStatusSummary({ ...etat, readable: false })).toEqual({ label: "MFA : état inconnu", tone: "warn" });
+    expect(mfaStatusSummary(undefined)).toEqual({ label: "MFA : état inconnu", tone: "warn" });
 
     const inconnu = rendre({ status: { ...etat, readable: false } });
-    expect(inconnu).toContain("État inconnu");
+    expect(inconnu).toContain("MFA : état inconnu");
   });
 
   it("affiche un refus de désactivation sans perdre le formulaire", () => {
@@ -406,9 +489,16 @@ describe("Console — panneau « Ma double authentification »", () => {
   });
 
   it("laisse le bouton de désactivation inactif tant que la MFA n’est pas active", () => {
+    // Retournement partiel : le bouton n’existe même plus quand la MFA est
+    // inactive — c’est l’activation qui prend sa place. Ce que le test garde,
+    // c’est l’impossibilité de désactiver ce qui n’est pas actif.
     const html = rendre({ status: { ...etat, enabled: false, pending: false } });
-    expect(html).toContain("Inactive");
-    expect(html).toContain("disabled");
+    expect(html).toContain("MFA : non activée");
+    expect(html).not.toContain("Désactiver la double authentification");
+    // Le formulaire de confirmation ne s’ouvre pas non plus, même si l’état
+    // `disableOpen` traîne : une désactivation sans MFA est un non-sens.
+    const ouvert = rendre({ status: { ...etat, enabled: false, pending: false }, disableOpen: true });
+    expect(ouvert).not.toContain("Confirmer la désactivation");
   });
 });
 
@@ -421,6 +511,22 @@ describe("Montage — les écrans sont branchés là où ils doivent l’être",
     const page = readSource("client/src/pages/SystemConsolePage.tsx");
     expect(page).toContain("ConsoleMfaManager");
     expect(page).toContain("<ConsoleMfaManager />");
+  });
+
+  it("branche les DEUX gestes — activer et désactiver — sur le conteneur du panneau", () => {
+    // Le panneau ne connaît ni tRPC ni routeur : ce qu’il reçoit par propriétés
+    // doit exister, et pointer sur les procédures réelles. C’est le seul endroit
+    // où une proposition sans effet pourrait se cacher.
+    const manager = readSource("client/src/components/SystemMfa.tsx");
+    expect(manager).toContain("onStartEnroll");
+    expect(manager).toContain("ConsoleMfaEnrollment");
+    expect(manager).toContain("trpc.mfa.enrollStart.useMutation");
+    expect(manager).toContain("trpc.mfa.enrollConfirm.useMutation");
+    expect(manager).toContain("trpc.mfa.disable.useMutation");
+    expect(manager).toContain("normalizeRecoveryCode");
+    // L’enrôlement est atteignable SANS condition : rien ne le subordonne à un
+    // état ou à un droit autre que la session — c’est la proposition.
+    expect(manager).not.toContain("if (!status.data?.enabled) return");
   });
 
   it("branche le second temps de connexion sur la page de connexion", () => {

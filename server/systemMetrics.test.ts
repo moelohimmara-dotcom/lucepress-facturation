@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { MEASURED_TABLES, collectSystemMetrics, type RawQueryRunner } from "./systemMetrics";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
@@ -13,17 +13,14 @@ import type { TrpcContext } from "./_core/context";
 const readSource = (relativePath: string) => readFileSync(resolve(process.cwd(), relativePath), "utf8");
 
 /**
- * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ * LA MFA N’EST PLUS UN VERROU DE LA CONSOLE.
  *
- * `systemProcedure` exige désormais le rôle ET une double authentification
- * active ; sans ce double, les appels ci-dessous recevraient 403. Les deux sens
- * du verrou sont vérifiés dans `server/systemConsoleMfa.test.ts` — ici, on isole
- * les règles de supervision.
+ * Ces appels étaient doublés sur la lecture d’état MFA, que `systemProcedure`
+ * exigeait (étape B2). Le garde ne vérifie plus que le rôle `systeme`, et ne
+ * lit plus cet état : le double disparaît. Les deux sens de la règle sont
+ * épinglés dans `server/systemConsoleMfa.test.ts` — ici, on isole les règles de
+ * supervision.
  */
-vi.mock("./mfa", async importOriginal => {
-  const actual = await importOriginal<typeof import("./mfa")>();
-  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
-});
 
 function contextFor(role: string): TrpcContext {
   return {

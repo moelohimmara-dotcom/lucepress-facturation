@@ -182,8 +182,10 @@ describe("Compte sans MFA — connexion inchangée", () => {
   it("conserve la connexion MÊME SI l’état MFA est illisible (colonnes absentes, base muette)", async () => {
     // C’est le compromis assumé et documenté : une lecture impossible vaut
     // « pas de MFA » pour la CONNEXION, parce qu’exiger le contraire fermerait
-    // l’application à tout le monde. L’espace sensible, lui, reste fermé par la
-    // garde de la console, qui échoue dans l’autre sens.
+    // l’application à tout le monde. Ce fail-open ne décide que d’une chose —
+    // demander ou non un second temps — et rien ne le compense ailleurs depuis
+    // que la console n’exige plus la MFA : c’est un résidu connu, borné à la
+    // fenêtre où l’état est illisible, et arbitré en faveur de la disponibilité.
     mocks.readMfaState.mockResolvedValue({ readable: false, enabled: false, pending: false, enrolledAt: null, recoveryCodesRemaining: 0 });
     const { ctx, cookies } = context();
 
@@ -223,6 +225,28 @@ describe("Compte avec MFA — le mot de passe ne suffit plus", () => {
     expect(mocks.upsertUser).not.toHaveBeenCalled();
     // Le jeton rendu n’est PAS une session : c’est le point du dispositif.
     expect(await verifyLocalSession((result as { challengeToken: string }).challengeToken)).toBeNull();
+  });
+
+  it("déclenche le défi pour un compte SYSTÈME enrôlé, comme pour tout autre compte", async () => {
+    // AJOUTÉ — la console n’exige plus la MFA (décision du propriétaire de
+    // l’instance), mais la CONNEXION continue de l’exiger de qui l’a activée.
+    // Sans cette moitié, l’enrôlement n’aurait plus aucun effet : le rôle ne
+    // doit rien changer ici, et c’est ce que ce test empêche de dériver.
+    mocks.getUserByEmail.mockResolvedValue({
+      ...COMPTE,
+      id: 9,
+      openId: "local_systeme",
+      email: "systeme@lucepres.gn",
+      role: "systeme",
+    });
+    mocks.readMfaState.mockResolvedValue(ETAT_AVEC_MFA);
+    const { ctx, cookies } = context();
+
+    const result = await appRouter.createCaller(ctx).auth.login({ email: "systeme@lucepres.gn", password: "bon-mot-de-passe" });
+
+    expect(result).toMatchObject({ mfaRequired: true, expiresInSeconds: 300 });
+    expect(cookies).toEqual([]);
+    expect(sessionInserts()).toBe(0);
   });
 
   it("NE LIBÈRE PAS le compteur anti-force brute avant le second facteur", async () => {

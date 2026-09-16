@@ -42,8 +42,17 @@ import { getDb } from "./db";
  * 2. SE CONNECTER sans MFA est le CHEMIN NORMAL de la quasi-totalité des
  *    comptes. Il ne doit jamais dépendre de ce module : `auth.login` traite une
  *    lecture impossible comme « pas de MFA » et la connexion reste identique à
- *    ce qu’elle était (voir `server/routers.ts`). L’espace protégé, lui, reste
- *    fermé par la garde de la console, qui échoue fermé (`isMfaActiveForUser`).
+ *    ce qu’elle était (voir `server/routers.ts`).
+ *
+ * LA MFA EST FACULTATIVE, Y COMPRIS POUR LA CONSOLE
+ * -------------------------------------------------
+ * Elle a été OBLIGATOIRE pour ouvrir la console (Phases 3B2), puis le
+ * propriétaire de l’instance a demandé le contraire — « je dois toujours avoir
+ * le choix de décider ». `systemProcedure` n’exige donc plus qu’un rôle
+ * (`server/_core/trpc.ts`), et un compte `systeme` active ou désactive son
+ * second facteur depuis la console, s’il le décide. Rien d’autre n’a changé :
+ * l’enrôlement, le défi de connexion, la vérification, l’anti-rejeu, les codes
+ * de secours et la désactivation sont intacts, et c’est CE module qui les porte.
  *
  * CE QUI N’EST JAMAIS ÉCRIT EN BASE
  * ---------------------------------
@@ -284,10 +293,17 @@ export async function readMfaState(userId: number, deps: MfaDeps = {}): Promise<
 }
 
 /**
- * GARDE DE LA CONSOLE — la MFA est-elle active, et le sait-on de source sûre ?
+ * La MFA est-elle active, et le sait-on de source sûre ?
  *
- * Échoue FERMÉ : toute lecture impossible rend `false`. Une panne de base ne
- * peut donc pas ouvrir la console d’exploitation.
+ * Échoue FERMÉ : toute lecture impossible rend `false`. C’est le bon côté de
+ * l’erreur pour un prédicat de sécurité — on ne suppose jamais qu’un second
+ * facteur est actif quand on n’a pas pu le lire.
+ *
+ * DÉPENDANCE : plus aucun garde serveur ne s’en sert depuis que la console
+ * n’exige plus la MFA (`server/_core/trpc.ts`). Elle reste le prédicat public
+ * « MFA active ? » du module — prouvé sur le vrai module dans
+ * `server/mfa.test.ts` — plutôt que d’être retirée avec la règle qu’elle
+ * servait : la MFA elle-même n’a pas été retirée.
  */
 export async function isMfaActiveForUser(userId: number, deps: MfaDeps = {}): Promise<boolean> {
   const record = await readMfaRecord(userId, deps);

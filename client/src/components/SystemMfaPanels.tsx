@@ -8,9 +8,10 @@ import {
   KeyRound,
   Loader2,
   LockKeyhole,
-  ShieldAlert,
+  RefreshCw,
   ShieldCheck,
   ShieldOff,
+  ShieldPlus,
   TriangleAlert,
 } from "lucide-react";
 
@@ -22,8 +23,18 @@ import {
  *   1. la CONNEXION (`MfaChallengePanel`) — le second temps de `auth.login`,
  *      quand le compte porte une MFA ;
  *   2. la CONSOLE (`MfaEnrollIntro`, `MfaEnrollSecret`, `MfaRecoveryCodes`,
- *      `ConsoleMfaPanel`) — l’enrôlement obligatoire avant d’ouvrir les modules,
- *      puis la gestion de sa propre MFA.
+ *      `ConsoleMfaPanel`) — l’enrôlement PROPOSÉ depuis le tableau de bord,
+ *      puis la gestion de sa propre MFA, activation comme désactivation.
+ *
+ * LA MFA EST FACULTATIVE ICI, ET LES TEXTES LE DISENT
+ * ---------------------------------------------------
+ * Ces panneaux ont d’abord porté une obligation (« requise », « les modules
+ * restent fermés »). Ce n’est plus vrai depuis que le propriétaire de
+ * l’instance a demandé à garder le choix : la console s’ouvre au seul rôle
+ * `systeme` (`SystemGate`), et ce qui est proposé ici ne bloque rien. Les
+ * libellés disent donc le compromis — RECOMMANDÉE pour un compte
+ * d’administration, JAMAIS imposée — au lieu de promettre une barrière qui
+ * n’existe plus.
  *
  * POURQUOI CE FICHIER NE CONNAÎT NI tRPC NI ROUTEUR
  * ------------------------------------------------
@@ -193,20 +204,29 @@ export function MfaChallengePanel({
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Enrôlement obligatoire de la console                             */
+/* 2. Enrôlement proposé depuis la console                             */
 /* ------------------------------------------------------------------ */
 
-/** Première étape : expliquer POURQUOI, puis générer un secret. */
+/**
+ * Première étape : DIRE LE COMPROMIS, puis générer un secret.
+ *
+ * Le ton a changé avec la règle. Cet écran annonçait « Authentification à deux
+ * facteurs requise » et « les modules restent fermés — y compris pour vous » :
+ * c’était vrai tant que la console était verrouillée par la MFA, et ce n’est
+ * plus le cas. Promettre une barrière qui n’existe plus serait un mensonge
+ * d’interface — et découragerait précisément le geste qu’on veut proposer.
+ */
 export function MfaEnrollIntro({ onStart, pending, error }: { onStart: () => void; pending: boolean; error: string | null }) {
   return (
     <div className="space-y-5" data-testid="mfa-enroll-intro">
-      <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-100">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+      <div className="flex items-start gap-3 rounded-2xl border border-border bg-secondary/50 p-4">
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div>
-          <p className="text-sm font-extrabold">Authentification à deux facteurs requise</p>
-          <p className="mt-1 text-xs leading-5">
-            Cette zone est réservée à l’administration système et exige un second facteur. Tant qu’il n’est pas actif,
-            les modules restent fermés — y compris pour vous.
+          <p className="text-sm font-extrabold">Double authentification — recommandée, jamais imposée</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Rien ne vous y oblige : la console reste ouverte sans elle. L’activer ajoute un code à 6 chiffres à chaque
+            connexion, et vous recevrez des codes de secours pour ne jamais rester bloqué. Vous pourrez la désactiver
+            plus tard, avec un code valide.
           </p>
         </div>
       </div>
@@ -368,26 +388,46 @@ export type ConsoleMfaStatus = {
   recoveryCodesRemaining: number;
 };
 
-/** État lisible d’un compte au regard de la MFA. */
+/**
+ * État lisible d’un compte au regard de la MFA.
+ *
+ * Le libellé NOMME le facteur (« MFA : … ») au lieu de laisser un « Active »
+ * flottant : c’est la formulation demandée pour la console, et elle évite
+ * qu’un état se lise comme celui d’autre chose.
+ */
 export function mfaStatusSummary(status: ConsoleMfaStatus | undefined): { label: string; tone: "ok" | "warn" | "down" } {
-  if (!status || !status.readable) return { label: "État inconnu", tone: "warn" };
-  if (status.enabled) return { label: "Active", tone: "ok" };
-  if (status.pending) return { label: "Enrôlement inachevé", tone: "warn" };
-  return { label: "Inactive", tone: "down" };
+  if (!status || !status.readable) return { label: "MFA : état inconnu", tone: "warn" };
+  if (status.enabled) return { label: "MFA : activée", tone: "ok" };
+  if (status.pending) return { label: "MFA : enrôlement inachevé", tone: "warn" };
+  return { label: "MFA : non activée", tone: "down" };
 }
 
 /**
- * Panneau « Ma MFA » de la console — état, codes restants, désactivation.
+ * Panneau « Ma double authentification » de la console — état, activation,
+ * codes restants, désactivation.
  *
- * La désactivation est en DEUX TEMPS : un premier clic ouvre le champ de code,
- * le second l’envoie. C’est le même principe que les actions destructives du
- * cahier des charges (§ 5) : on ne retire pas un second facteur sur un clic
- * malencontreux, d’autant que la console se referme immédiatement après.
+ * LA MFA N’EST PAS UN VERROU, ET LE PANNEAU LE DIT
+ * -----------------------------------------------
+ * Il a d’abord géré un second facteur DÉJÀ actif, l’activation étant imposée
+ * par la garde de la console. Ce n’est plus le cas : c’est donc ici, et nulle
+ * part ailleurs, que le compte système décide — « Activer la double
+ * authentification » quand elle ne l’est pas, « Désactiver » quand elle l’est.
+ * Les textes annoncent la recommandation sans jamais promettre d’obligation :
+ * la console s’ouvre sans second facteur, et rien n’est imposé.
+ *
+ * POURQUOI LA DÉSACTIVATION EST EN DEUX TEMPS
+ * -------------------------------------------
+ * Un premier clic ouvre le champ de code, le second l’envoie. C’est le principe
+ * des actions destructives du cahier des charges (§ 5) : on ne retire pas un
+ * second facteur sur un clic malencontreux — le serveur exige de toute façon un
+ * code valide, mais le geste mérite d’être confirmé avant d’être envoyé.
  */
 export function ConsoleMfaPanel({
   status,
   disableOpen,
   onToggleDisable,
+  onStartEnroll,
+  onRetry,
   code,
   onCodeChange,
   onDisable,
@@ -398,6 +438,10 @@ export function ConsoleMfaPanel({
   status: ConsoleMfaStatus | undefined;
   disableOpen: boolean;
   onToggleDisable: () => void;
+  /** Ouvre le flux d’enrôlement — proposé, jamais déclenché d’office. */
+  onStartEnroll: () => void;
+  /** Relit l’état auprès du serveur quand il n’a pas pu être lu. */
+  onRetry: () => void;
   code: string;
   onCodeChange: (value: string) => void;
   onDisable: () => void;
@@ -413,13 +457,24 @@ export function ConsoleMfaPanel({
         ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200"
         : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-200";
 
+  // TROIS ÉTATS, ET PAS DEUX. `known` est le seul qui autorise une action :
+  // l'état a été LU, et il dit ce qui est en place. « En cours de lecture »
+  // n'est pas « absent », et une requête en échec non plus — dans les deux cas
+  // on ne propose rien, parce qu'un enrôlement lancé sur un compte déjà enrôlé
+  // serait refusé (`deja_active`) et qu'une désactivation à l'aveugle n'a pas
+  // de sens.
+  const known = status?.readable === true;
+  const enabled = known && status.enabled;
+  const unknown = !isLoading && !known;
+
   return (
     <section className="lucepress-panel rounded-[1.35rem] p-5" data-testid="console-mfa-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="lucepress-kicker">Ma double authentification</h2>
           <p className="mt-2 max-w-xl text-xs leading-5 text-muted-foreground">
-            Facteur exigé pour ouvrir cette console. Il reste facultatif pour les autres comptes de l’instance.
+            Recommandée pour un compte d’administration — jamais imposée. La console reste ouverte sans elle : activer
+            ou désactiver ce facteur est votre décision, et elle se prend ici.
           </p>
         </div>
         <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.12em] ${toneClass}`}>
@@ -431,23 +486,23 @@ export function ConsoleMfaPanel({
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card px-3 py-2">
           <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Méthode</dt>
-          <dd className="mt-1 font-mono text-sm font-bold">{status?.enabled ? "TOTP · 6 chiffres · 30 s" : "—"}</dd>
+          <dd className="mt-1 font-mono text-sm font-bold">{enabled ? "TOTP · 6 chiffres · 30 s" : "—"}</dd>
         </div>
         <div className="rounded-2xl border border-border bg-card px-3 py-2">
           <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Activée le</dt>
           <dd className="mt-1 font-mono text-sm font-bold">
-            {status?.enrolledAt ? new Date(status.enrolledAt).toLocaleDateString("fr-FR") : "—"}
+            {enabled && status?.enrolledAt ? new Date(status.enrolledAt).toLocaleDateString("fr-FR") : "—"}
           </dd>
         </div>
         <div className="rounded-2xl border border-border bg-card px-3 py-2">
           <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Codes de secours</dt>
           <dd className="mt-1 font-mono text-sm font-bold">
-            {status?.enabled ? `${status.recoveryCodesRemaining} restant(s)` : "—"}
+            {enabled ? `${status?.recoveryCodesRemaining} restant(s)` : "—"}
           </dd>
         </div>
       </dl>
 
-      {status?.enabled && status.recoveryCodesRemaining === 0 && (
+      {enabled && status?.recoveryCodesRemaining === 0 && (
         <p className="mt-3 text-xs leading-5 text-amber-800 dark:text-amber-200">
           Il ne reste aucun code de secours. Si vous perdez votre téléphone, plus aucun code ne pourra ouvrir votre
           session : désactivez puis réenrôlez la double authentification pour en obtenir un nouveau lot.
@@ -456,21 +511,50 @@ export function ConsoleMfaPanel({
 
       {error && <div className="mt-4"><MfaErrorNotice message={error} /></div>}
 
-      {!disableOpen ? (
+      {unknown && (
+        <div className="mt-4 space-y-3 rounded-2xl border border-border bg-secondary/40 p-4">
+          <p className="text-xs leading-5 text-muted-foreground">
+            L’état de votre double authentification n’a pas pu être lu. Rien n’est décidé à votre place : on ne
+            propose ni activation ni désactivation tant qu’on ne sait pas ce qui est déjà en place.
+          </p>
+          <Button variant="outline" onClick={onRetry} disabled={isLoading} className="h-10 rounded-xl border-border font-bold">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Réessayer
+          </Button>
+        </div>
+      )}
+
+      {!isLoading && known && !enabled && (
+        <div className="mt-4 space-y-3 rounded-2xl border border-border bg-secondary/40 p-4">
+          <p className="text-xs leading-5 text-muted-foreground">
+            Aucun second facteur n’est actif sur ce compte. L’activer ajoute un code à 6 chiffres à chaque connexion, et
+            vous remet un lot de codes de secours à usage unique. Rien n’est imposé : vous pouvez commencer maintenant
+            et revenir en arrière quand vous voulez, avec un code valide.
+          </p>
+          <Button onClick={onStartEnroll} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+            <ShieldPlus className="mr-2 h-4 w-4" />
+            Activer la double authentification
+          </Button>
+        </div>
+      )}
+
+      {enabled && !disableOpen && (
         <Button
           variant="outline"
           onClick={onToggleDisable}
-          disabled={isLoading || !status?.enabled}
+          disabled={isLoading}
           className="mt-4 h-10 rounded-xl border-border font-bold"
         >
           <ShieldOff className="mr-2 h-4 w-4" />
           Désactiver la double authentification
         </Button>
-      ) : (
+      )}
+
+      {enabled && disableOpen && (
         <div className="mt-4 space-y-3 rounded-2xl border border-border bg-secondary/40 p-4">
           <p className="text-xs leading-5 text-muted-foreground">
-            La désactivation ferme immédiatement l’accès à cette console : un nouveau code de confirmation sera exigé
-            pour la rouvrir. Présentez un code à 6 chiffres ou un code de secours.
+            La désactivation retire le second facteur de ce compte : la console reste ouverte, mais votre prochaine
+            connexion ne demandera plus qu’un mot de passe. Présentez un code à 6 chiffres ou un code de secours.
           </p>
           <MfaCodeField id="mfa-disable-code" label="Code de confirmation" value={code} onChange={onCodeChange} disabled={pending} />
           <div className="flex flex-wrap gap-2">

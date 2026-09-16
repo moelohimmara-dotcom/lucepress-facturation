@@ -557,11 +557,18 @@ export const appRouter = router({
         // sans MFA se connecte donc exactement comme avant, y compris quand la
         // lecture échoue.
         //
-        // Ce fail-open est sans danger parce que le seul espace où la MFA est
-        // OBLIGATOIRE — la console d’exploitation — ne dépend pas de cette
-        // décision : `systemProcedure` revérifie l’état MFA à CHAQUE appel, et
-        // cette vérification-là échoue FERMÉ (`isMfaActiveForUser`). Une session
-        // ouverte sans second facteur n’ouvre donc rien de sensible.
+        // Ce fail-open ne décide QUE d’une chose : si un second temps est
+        // demandé. Ce qu’il laisse passer est un mot de passe SEUL, et
+        // uniquement quand l’état MFA n’a pas pu être lu — colonne absente, ou
+        // base devenue muette entre la lecture du compte et celle de son état.
+        // Le résidu est donc réel, et il est assumé : un compte qui a activé la
+        // MFA pourrait, dans cette fenêtre, se connecter sans son second
+        // facteur. L’alternative — refuser la connexion sur une lecture
+        // impossible — fermerait l’application à TOUT LE MONDE pour un incident
+        // qui ne concerne que les comptes enrôlés ; c’est ce que le
+        // propriétaire de l’instance a écarté. Rien ne compense plus ce choix
+        // ailleurs : depuis que la console n’exige plus la MFA
+        // (`_core/trpc.ts`), elle est PROPOSÉE partout, jamais imposée.
         const mfa = await readMfaState(user.id);
         if (mfa.readable && mfa.enabled) {
           // PAS DE `recordSuccess` ICI — C’EST VOLONTAIRE, ET C’EST IMPORTANT.
@@ -868,15 +875,15 @@ export const appRouter = router({
    * administrateur système qui voudrait réenrôler un collègue ne le peut pas
    * d’ici : ce serait un pouvoir de prise de contrôle, et il n’est pas ouvert.
    *
-   * POURQUOI `protectedProcedure` ET NON `systemProcedure` : le second verrou de
-   * la console exige une MFA ACTIVE. Si l’enrôlement passait par ce garde, un
-   * compte système sans MFA serait enfermé dehors — il ne pourrait pas s’enrôler
-   * puisqu’il n’est pas enrôlé. Ces quatre procédures sont donc exactement ce
-   * qui lui reste ouvert, et c’est ce qui lui permet de se mettre en règle.
+   * POURQUOI `protectedProcedure` ET NON `systemProcedure` : la MFA appartient
+   * à TOUT compte connecté, pas seulement au compte d’exploitation. La placer
+   * sous le garde de la console la rendrait inaccessible aux `admin`,
+   * `directeur` et `cadre`, alors qu’elle ne dépend d’aucune habilitation.
    *
-   * MFA FACULTATIVE AILLEURS : rien ici n’impose la MFA à un compte métier. Tout
-   * utilisateur authentifié PEUT l’activer ; personne n’y est forcé, sauf pour
-   * franchir la porte de la console.
+   * MFA FACULTATIVE PARTOUT : rien ici n’impose la MFA, à personne. Tout
+   * utilisateur authentifié PEUT l’activer ; personne n’y est forcé — y compris
+   * pour ouvrir la console, qui n’exige plus que le rôle `systeme`
+   * (`server/_core/trpc.ts`). Activer reste un choix, et le désactiver aussi.
    */
   mfa: router({
     /**

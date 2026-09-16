@@ -45,8 +45,6 @@ export type ConsoleAttemptOutcome =
   | "anonyme"
   /** Session valide, rôle non habilité (`admin`, `cadre`, `directeur`, `client`). */
   | "role_refuse"
-  /** Rôle habilité, mais aucune authentification à deux facteurs active. */
-  | "mfa_absente"
   /** Défi MFA présenté, invalide ou expiré. */
   | "defi_refuse"
   /** Enrôlement MFA commencé (secret généré, non encore confirmé). */

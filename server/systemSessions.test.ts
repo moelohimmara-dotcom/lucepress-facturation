@@ -78,21 +78,18 @@ vi.mock("./_core/password", () => ({
   hashPassword: mocks.hashPassword,
 }));
 /**
- * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ * LA MFA N’EST PLUS UN VERROU DE LA CONSOLE.
  *
- * Depuis l’étape B2, `systemProcedure` exige le rôle `systeme` ET une double
- * authentification active : sans ce double, `system.sessions.list` recevrait
- * 403 et ces tests ne parleraient plus de révocation du tout. Seule la lecture
- * d’état MFA est remplacée ; le reste du module reste réel, si bien que
- * `auth.login` continue de traverser le VRAI `readMfaState` (qui, la base
- * n’étant pas configurée, rend un état illisible — donc « pas de MFA », le
- * chemin de connexion ordinaire). Les deux sens du verrou sont prouvés dans
- * `server/systemConsoleMfa.test.ts`.
+ * `systemProcedure` a exigé, à l’étape B2, le rôle `systeme` ET une double
+ * authentification active : la lecture de cet état était donc doublée pour que
+ * `system.sessions.list` réponde autre chose qu’un 403. Le propriétaire de
+ * l’instance a demandé à garder le choix, le garde ne vérifie donc plus que le
+ * rôle — le double disparaît, et le module `./mfa` reste ENTIER. C’est ce qui
+ * permet à `auth.login` de continuer de traverser le VRAI `readMfaState` (qui,
+ * la base n’étant pas configurée, rend un état illisible — donc « pas de MFA »,
+ * le chemin de connexion ordinaire). Les deux sens de la règle d’accès sont
+ * prouvés dans `server/systemConsoleMfa.test.ts`.
  */
-vi.mock("./mfa", async importOriginal => {
-  const actual = await importOriginal<typeof import("./mfa")>();
-  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
-});
 
 /** Texte SQL final et paramètres liés, pour inspecter ce qui part réellement en base. */
 function sqlOf(query: SQL) {

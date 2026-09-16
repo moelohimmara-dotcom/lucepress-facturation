@@ -1,22 +1,27 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CONSOLE_MFA_REQUIRED_ERR_MSG, CONSOLE_REFUSED_ERR_MSG, systemProcedure } from "./_core/trpc";
+import { CONSOLE_REFUSED_ERR_MSG, systemProcedure } from "./_core/trpc";
 import type { TrpcContext } from "./_core/context";
 import { appRouter } from "./routers";
 import { CONSOLE_ATTEMPT_WINDOW_MS, formatConsoleAttempt, logConsoleAttempt, resetConsoleAttemptLog } from "./systemAccessLog";
 
 /**
- * ÉTAPE B2 — LE VERROU DE LA CONSOLE, CÔTÉ SERVEUR.
+ * LA CONSOLE, CÔTÉ SERVEUR — LE RÔLE COMME SEUL VERROU, LA MFA COMME CHOIX.
  *
  * Deux règles s’y croisent, et il serait facile de n’en vérifier qu’une :
  *
- *  1. UN COMPTE `systeme` SANS MFA N’OBTIENT AUCUNE PROCÉDURE DE CONSOLE (403).
- *     Le cahier des charges § 6 exige la double authentification pour ouvrir la
- *     console ; l’exiger « dans l’interface » ne serait pas l’exiger.
- *  2. CE MÊME COMPTE CONSERVE L’ACCÈS À L’ENRÔLEMENT. Sans cette seconde
- *     moitié, le verrou serait une porte fermée sans clé : un administrateur
- *     système sans MFA ne pourrait jamais s’enrôler, donc jamais entrer.
+ *  1. UN COMPTE `systeme` ENTRE DANS LA CONSOLE, MFA OU PAS. Le cahier des
+ *     charges § 6 exigeait la double authentification pour ouvrir la console
+ *     (étape B2) ; le propriétaire de l’instance a demandé le contraire — « je
+ *     dois toujours avoir le choix de décider ». Le 403 ne frappe donc plus
+ *     qu’un RÔLE non habilité, et `systemProcedure` ne consulte même plus
+ *     l’état MFA : un test l’épingle en vérifiant que la lecture n’est JAMAIS
+ *     appelée.
+ *  2. CE COMPTE GARDE LA MAIN SUR SON SECOND FACTEUR. L’enrôlement, la
+ *     confirmation, la lecture d’état et la désactivation restent ouverts sous
+ *     `protectedProcedure` : c’est ce qui rend la MFA réellement facultative —
+ *     disponible pour tous, imposée à personne.
  *
  * Et par-dessus les deux : LE REFUS EST MUET. Ni le message d’erreur, ni le
  * rendu de l’écran ne nomment l’espace protégé. La tentative est écrite dans le
@@ -24,13 +29,20 @@ import { CONSOLE_ATTEMPT_WINDOW_MS, formatConsoleAttempt, logConsoleAttempt, res
  * l’intéressé.
  *
  * `server/mfa.ts` est doublé ici : la mécanique MFA est prouvée sur le vrai
- * module dans `server/mfa.test.ts`. Ce fichier-ci vérifie QUI passe, QUI est
- * refusé, et CE QUI EST ÉCRIT.
+ * module dans `server/mfa.test.ts`, et les deux gestes de la console — activer
+ * puis désactiver — sur ce même vrai module dans
+ * `server/systemConsoleMfaOptional.test.ts`. Ce fichier-ci vérifie QUI passe,
+ * QUI est refusé, et CE QUI EST ÉCRIT.
  */
 
 const mocks = vi.hoisted(() => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || "secret-de-test-uniquement-32-caracteres-mini";
   return {
+    /**
+     * Lecture d’état MFA du compte qui appelle. Elle est DOUBLÉE pour pouvoir
+     * être SURVEILLÉE : depuis que la console n’exige plus la MFA, ce double
+     * sert à prouver qu’elle n’est plus consultée du tout.
+     */
     isMfaActiveForUser: vi.fn(async () => true),
     readMfaState: vi.fn(),
     startEnrollment: vi.fn(),
@@ -101,50 +113,114 @@ beforeEach(() => {
 });
 
 /* ------------------------------------------------------------------ */
-/* 1. Le verrou, dans les deux sens                                    */
+/* 1. Le verrou : le rôle, et lui seul                                 */
 /* ------------------------------------------------------------------ */
 
-describe("Console — rôle système SANS MFA : refus", () => {
-  it("refuse les cinq procédures de console en 403", async () => {
-    mocks.isMfaActiveForUser.mockResolvedValue(false);
-    const caller = appRouter.createCaller(contextFor("systeme"));
+/**
+ * Les cinq lectures de la console, appelées par un compte `systeme`. On ne
+ * suppose PAS qu’elles aboutissent toutes : certaines interrogent une base qui
+ * n’est pas configurée en test. Ce qui est prouvé ici est plus précis, et c’est
+ * exactement la règle qui a changé : le refus de CONSOLE ne tombe plus.
+ */
+const LECTURES_CONSOLE: Array<{ nom: string; appeler: (caller: ReturnType<typeof appRouter.createCaller>) => Promise<unknown> }> = [
+  { nom: "system.overview", appeler: caller => caller.system.overview() },
+  { nom: "system.metrics", appeler: caller => caller.system.metrics() },
+  { nom: "system.access", appeler: caller => caller.system.access() },
+  { nom: "system.sessions.list", appeler: caller => caller.system.sessions.list() },
+  { nom: "system.sessions.revoke", appeler: caller => caller.system.sessions.revoke({ id: 3 }) },
+];
 
-    for (const appel of [
-      () => caller.system.overview(),
-      () => caller.system.metrics(),
-      () => caller.system.access(),
-      () => caller.system.sessions.list(),
-      () => caller.system.sessions.revoke({ id: 3 }),
-    ]) {
-      await expect(appel()).rejects.toMatchObject({ code: "FORBIDDEN" });
+/** Issue d’un appel, succès comme échec, sans jamais lever : « ok » ou le code tRPC. */
+async function issue(appel: () => Promise<unknown>): Promise<string> {
+  try {
+    await appel();
+    return "ok";
+  } catch (error) {
+    return (error as { code?: string }).code ?? "echec";
+  }
+}
+
+describe("Console — rôle système SANS MFA : l’accès reste OUVERT", () => {
+  beforeEach(() => {
+    // Retournement : ce même double rendait `false` pour prouver le 403 ; il
+    // rend désormais `false` pour prouver que RIEN ne change.
+    mocks.isMfaActiveForUser.mockResolvedValue(false);
+  });
+
+  it("ouvre la console à un compte système non enrôlé", async () => {
+    const payload = await appRouter.createCaller(contextFor("systeme")).system.overview();
+    expect(payload).toMatchObject({ application: { name: "Lucepress Facturation" } });
+  });
+
+  it("n’oppose JAMAIS le refus de console sur les cinq procédures", async () => {
+    const issues: string[] = [];
+    for (const lecture of LECTURES_CONSOLE) {
+      issues.push(await issue(() => lecture.appeler(appRouter.createCaller(contextFor("systeme")))));
     }
+    // Aucune des cinq ne se heurte au garde. Un échec d’infrastructure
+    // (`INTERNAL_SERVER_ERROR` sur la base absente, par exemple) n’est PAS un
+    // refus d’accès et ne doit pas être confondu avec lui.
+    expect(issues.filter(resultat => resultat === "FORBIDDEN")).toEqual([]);
+    // Et la lecture qui ne dépend d’aucune base rend bien son résumé.
+    expect(issues[0]).toBe("ok");
   });
 
-  it("ÉCHOUE FERMÉ quand l’état MFA n’est pas lisible", async () => {
-    // `isMfaActiveForUser` rend `false` sur toute lecture impossible : une panne
-    // de base ne peut donc pas ouvrir la console.
+  it("ne consulte même PLUS l’état MFA du compte", async () => {
+    // C’est la preuve la plus directe du retrait de l’obligation : l’état du
+    // second facteur n’est pas seulement ignoré, il n’est pas lu.
+    await appRouter.createCaller(contextFor("systeme")).system.overview();
+    expect(mocks.isMfaActiveForUser).not.toHaveBeenCalled();
+  });
+
+  it("se comporte à l’IDENTIQUE, MFA active ou non", async () => {
+    // Contrôle croisé : la seule chose qui change entre les deux séries est la
+    // valeur du double MFA. Si un résultat différait, c’est que la MFA
+    // discriminerait encore quelque chose.
+    const appels = LECTURES_CONSOLE.map(lecture => () => lecture.appeler(appRouter.createCaller(contextFor("systeme"))));
+
     mocks.isMfaActiveForUser.mockResolvedValue(false);
-    await expect(appRouter.createCaller(contextFor("systeme")).system.overview()).rejects.toMatchObject({
-      code: "FORBIDDEN",
-    });
+    const sansMfa: string[] = [];
+    for (const appel of appels) sansMfa.push(await issue(appel));
+
+    mocks.isMfaActiveForUser.mockResolvedValue(true);
+    const avecMfa: string[] = [];
+    for (const appel of appels) avecMfa.push(await issue(appel));
+
+    expect(sansMfa).toEqual(avecMfa);
   });
 
-  it("laisse passer quand la MFA est active", async () => {
+  it("laisse passer quand la MFA est active — comme avant, et comme sans elle", async () => {
     mocks.isMfaActiveForUser.mockResolvedValue(true);
     const payload = await appRouter.createCaller(contextFor("systeme")).system.overview();
     expect(payload).toMatchObject({ application: { name: "Lucepress Facturation" } });
   });
+
+  it("refuse en 403 TOUT rôle autre que système, MFA active ou non", async () => {
+    for (const role of ["admin", "directeur", "cadre", "client"]) {
+      for (const active of [false, true]) {
+        mocks.isMfaActiveForUser.mockResolvedValue(active);
+        for (const lecture of LECTURES_CONSOLE) {
+          await expect(lecture.appeler(appRouter.createCaller(contextFor(role)))).rejects.toMatchObject({
+            code: "FORBIDDEN",
+            message: CONSOLE_REFUSED_ERR_MSG,
+          });
+        }
+      }
+    }
+  });
 });
 
-describe("Console — l’ENRÔLEMENT reste atteignable sans MFA", () => {
+describe("Console — l’ENRÔLEMENT reste atteignable, et il est le seul chemin", () => {
   it("un compte système non enrôlé lit son état, ouvre un enrôlement, le confirme", async () => {
-    // Le verrou de la console est actif...
+    // Retournement : ce test commençait par constater un 403 sur `overview`.
+    // La console est désormais ouverte dans les deux cas, et la gestion de la
+    // MFA reste exactement le même chemin — c’est ce qui rend le choix réel :
+    // disponible pour s’enrôler, disponible pour se dé-enrôler.
     mocks.isMfaActiveForUser.mockResolvedValue(false);
     const caller = appRouter.createCaller(contextFor("systeme"));
-    await expect(caller.system.overview()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.system.overview()).resolves.toMatchObject({ application: { name: "Lucepress Facturation" } });
 
-    // ...et pourtant l’enrôlement répond : c’est ce qui permet de se mettre en
-    // règle. Sans cette moitié, le compte serait enfermé dehors pour toujours.
+    // ...et l’enrôlement répond, comme avant.
     const statut = await caller.mfa.status();
     expect(statut).toEqual({ readable: true, enabled: false, pending: false, enrolledAt: null, recoveryCodesRemaining: 0 });
 
@@ -171,6 +247,57 @@ describe("Console — l’ENRÔLEMENT reste atteignable sans MFA", () => {
     await expect(caller.mfa.status()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(caller.mfa.enrollStart()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(caller.mfa.disable({ code: "123456" })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  it("ACTIVE puis DÉSACTIVE la MFA depuis la console, sans jamais fermer l’accès", async () => {
+    // AJOUTÉ — c’est le geste que la décision rend possible : le titulaire du
+    // compte décide, dans les deux sens. Les procédures sont celles de la
+    // console, et l’état relu auprès du serveur suit à chaque étape ; la
+    // mécanique TOTP elle-même (secret chiffré, anti-rejeu, codes de secours)
+    // est prouvée sur le VRAI module dans `server/mfa.test.ts`.
+    const caller = appRouter.createCaller(contextFor("systeme"));
+
+    // 1. Rien n’est actif.
+    mocks.readMfaState.mockResolvedValue(ETAT_SANS_MFA);
+    await expect(caller.mfa.status()).resolves.toMatchObject({ enabled: false, pending: false });
+
+    // 2. Activation : secret, puis premier code.
+    const demarrage = await caller.mfa.enrollStart();
+    expect(demarrage.otpauthUri.startsWith("otpauth://totp/")).toBe(true);
+    const activation = await caller.mfa.enrollConfirm({ code: "123456" });
+    expect(activation.success).toBe(true);
+    expect(mocks.confirmEnrollment).toHaveBeenCalledWith(42, "123456");
+    // Les codes de secours sont rendus groupés, une seule fois.
+    expect(activation.recoveryCodes).toEqual(["A2C4E-7GH9K"]);
+
+    // 3. L’état a suivi — c’est la RELECTURE serveur qui le dit, pas un drapeau.
+    mocks.readMfaState.mockResolvedValue({
+      readable: true,
+      enabled: true,
+      pending: false,
+      enrolledAt: new Date("2026-09-16T10:00:00.000Z"),
+      recoveryCodesRemaining: 10,
+    });
+    await expect(caller.mfa.status()).resolves.toEqual({
+      readable: true,
+      enabled: true,
+      pending: false,
+      enrolledAt: "2026-09-16T10:00:00.000Z",
+      recoveryCodesRemaining: 10,
+    });
+
+    // 4. Désactivation, sur un code valide. Le code part TEL QUEL : c’est
+    //    l’interface qui normalise un code de secours (tirets, minuscules) avant
+    //    de l’envoyer, et le serveur vérifie ce qu’on lui présente.
+    const desactivation = await caller.mfa.disable({ code: "ABCDEFGHIJ" });
+    expect(desactivation).toMatchObject({ success: true });
+    expect(mocks.disableMfa).toHaveBeenCalledWith(42, "ABCDEFGHIJ");
+
+    // 5. Retour à l’état initial, et la console est restée accessible à CHAQUE
+    //    étape : rien de tout cela ne ferme ni n’ouvre l’espace protégé.
+    mocks.readMfaState.mockResolvedValue(ETAT_SANS_MFA);
+    await expect(caller.mfa.status()).resolves.toMatchObject({ enabled: false });
+    await expect(caller.system.overview()).resolves.toMatchObject({ application: { name: "Lucepress Facturation" } });
   });
 
   it("traduit chaque motif de refus en message actionnable", async () => {
@@ -227,15 +354,23 @@ describe("Refus muet — l’intéressé n’apprend RIEN", () => {
     });
   });
 
-  it("n’emploie aucun mot révélateur quand la MFA manque", () => {
-    // Le motif doit dire CE QU’IL FAUT FAIRE (activer un second facteur) sans
-    // nommer l’espace où il est exigé : le titulaire légitime n’a pas besoin de
-    // ce mot, son interface l’oriente déjà.
-    const message = CONSOLE_MFA_REQUIRED_ERR_MSG.toLowerCase();
-    for (const mot of MOTS_INTERDITS) {
-      expect({ mot, present: message.includes(mot) }).toEqual({ mot, present: false });
-    }
-    expect(message).toContain("deux facteurs");
+  it("ne promet plus aucun refus lié à la MFA — ni en base, ni dans le garde", () => {
+    // Retournement : ce test épinglait le message « Authentification à deux
+    // facteurs requise… », qui ne nommait rien mais ANNONÇAIT une obligation.
+    // Cette obligation n’existe plus : le garde de la console ne doit donc plus
+    // porter ni le middleware, ni le message. On le prouve sur la source, parce
+    // que c’est le seul endroit où une règle retirée peut survivre par
+    // inadvertance — un texte oublié, un verrou laissé en place.
+    const trpcSource = readFileSync(resolve(process.cwd(), "server/_core/trpc.ts"), "utf8");
+    expect(trpcSource).not.toContain("requireConsoleMfa");
+    expect(trpcSource).not.toContain("CONSOLE_MFA_REQUIRED_ERR_MSG");
+    expect(trpcSource).not.toContain("deux facteurs requise");
+    // Et le vocabulaire du journal ne conserve pas non plus de motif
+    // « mfa_absente » : un motif que plus rien n’émet ferait croire à un refus
+    // qui n’a pas eu lieu.
+    expect(readFileSync(resolve(process.cwd(), "server/systemAccessLog.ts"), "utf8")).not.toContain("mfa_absente");
+    // Ce qui subsiste EST muet : le seul refus que la console oppose encore.
+    expect(CONSOLE_REFUSED_ERR_MSG).toBe("Accès refusé.");
   });
 });
 
@@ -266,14 +401,16 @@ describe("Journal — silencieux pour l’intéressé, visible pour l’administ
     expect(journal.some(ligne => ligne.includes("motif=role_refuse"))).toBe(false);
   });
 
-  it("journalise l’absence de MFA chez un compte pourtant habilité", async () => {
+  it("n’écrit AUCUNE ligne quand un compte habilité entre sans MFA", async () => {
+    // Retournement : ce test vérifiait qu’un compte `systeme` sans MFA laissait
+    // une ligne « mfa_absente ». Il n’y a plus rien à signaler — ce compte
+    // n’est pas refusé, il entre : journaliser une absence de MFA ferait passer
+    // un droit pour une anomalie, et noierait les vrais refus.
     mocks.isMfaActiveForUser.mockResolvedValue(false);
-    await appRouter.createCaller(contextFor("systeme")).system.overview().catch(() => undefined);
+    await appRouter.createCaller(contextFor("systeme")).system.overview();
 
-    const lignes = journal.filter(ligne => ligne.includes("motif=mfa_absente"));
-    expect(lignes).toHaveLength(1);
-    expect(lignes[0]).toContain("role=systeme");
-    expect(lignes[0]).toContain("acteur=systeme@lucepres.gn(id 42)");
+    expect(journal.filter(ligne => ligne.includes("[console] tentative"))).toEqual([]);
+    expect(journal.some(ligne => ligne.includes("mfa_absente"))).toBe(false);
   });
 
   it("journalise l’enrôlement, sans jamais y mettre un secret ni un code", async () => {
@@ -385,10 +522,11 @@ describe("Journal — silencieux pour l’intéressé, visible pour l’administ
   });
 
   it("ne fabrique pas de fausse trace quand l’appelant n’a PAS été refusé", async () => {
-    // Un compte réellement habilité (rôle système) n’a rien à signaler. Sans ce
+    // Un compte réellement habilité (rôle système) n’a rien à signaler — avec
+    // ou sans second facteur : c’est le RÔLE qui ouvre la console. Sans ce
     // garde-fou, n’importe qui pourrait se créer de fausses traces en appelant
     // la procédure à la main, et la ligne cesserait d’être une preuve.
-    mocks.isMfaActiveForUser.mockResolvedValue(true);
+    mocks.isMfaActiveForUser.mockResolvedValue(false);
     const reponse = await appRouter.createCaller(contextFor("systeme")).system.reportRefusal();
     expect(reponse).toEqual({ success: true });
     expect(journal.filter(entree => entree.includes("[console] tentative"))).toEqual([]);
@@ -404,19 +542,28 @@ describe("Journal — silencieux pour l’intéressé, visible pour l’administ
 /* ------------------------------------------------------------------ */
 
 describe("Placement du verrou — sur la procédure, pas dans l’interface", () => {
-  it("applique le rôle AVANT la MFA, et les deux sur systemProcedure", async () => {
+  it("n’applique plus QUE le rôle sur systemProcedure", async () => {
     const source = systemProcedure as unknown as { _def?: unknown };
-    // Une procédure composée : sa définition existe, et les deux verrous sont
-    // enchaînés dans cet ordre (rôle d’abord : un compte non habilité ne fait
-    // pas interroger la base sur son état MFA).
+    // La procédure existe toujours, et c’est un garde COMPOSÉ : sa définition
+    // porte bien le middleware de rôles.
     expect(source).toBeTruthy();
     const trpcSource = (await import("node:fs")).readFileSync("server/_core/trpc.ts", "utf8");
     const declaration = trpcSource.indexOf("export const systemProcedure = t.procedure.use(");
     expect(declaration).toBeGreaterThan(-1);
+
     const roles = trpcSource.slice(declaration);
-    expect(roles.indexOf("requireRoles(")).toBeLessThan(roles.indexOf("requireConsoleMfa"));
-    // Le message de rôle est neutre dans le code aussi : aucune chaîne du dépôt
-    // ne doit réintroduire « réservé à la console d’exploitation ».
+    expect(roles).toContain("requireRoles(");
+    // Retournement : le second maillon (`requireConsoleMfa`) est retiré, et le
+    // maillon de rôle n’est plus suivi d’un `.use(...)` — un verrou ajouté par
+    // inadvertance derrière le rôle se verrait ici.
+    expect(roles).not.toContain("requireConsoleMfa");
+    const apresRoles = roles.slice(roles.indexOf("requireRoles("));
+    expect(apresRoles.slice(0, apresRoles.indexOf(";"))).not.toContain(".use(");
+
+    // Le rôle est TOUJOURS le seul autorisé : la liste ne s’est pas élargie.
+    expect(apresRoles.startsWith('requireRoles(["systeme"]')).toBe(true);
+    // Le message de refus reste neutre dans le code aussi : aucune chaîne du
+    // dépôt ne doit réintroduire « réservé à la console d’exploitation ».
     expect(trpcSource).not.toContain("Accès réservé à la console");
   });
 });

@@ -1,19 +1,26 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { IntrouvableScreen } from "@/components/IntrouvablePanel";
-import { ConsoleMfaEnrollment } from "@/components/SystemMfa";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { hasSystemAccess } from "@shared/roles";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
 /**
- * GARDE DE L’ÉCRAN DE CONSOLE — deux verrous, un refus muet, et une trace.
+ * GARDE DE L’ÉCRAN DE CONSOLE — UN SEUL VERROU, UN REFUS MUET, ET UNE TRACE.
  *
- * VERROU 1 — LE RÔLE. La garde s’appuie sur `hasSystemAccess`, qui dérive de
- * `canAccessPath` : la même règle commande cette garde, la navigation latérale
+ * VERROU UNIQUE — LE RÔLE. La garde s’appuie sur `hasSystemAccess`, qui dérive
+ * de `canAccessPath` : la même règle commande cette garde, la navigation latérale
  * et la matrice de référence. Un `admin` est refusé ici comme partout ailleurs.
+ *
+ * LA MFA N’EST PLUS UN VERROU — C’EST UNE PROPOSITION.
+ * Un second écran bloquait ici les modules tant que le compte n’avait pas
+ * enrôlé un second facteur. Le propriétaire de l’instance a demandé le
+ * contraire — « je dois toujours avoir le choix de décider » : la console
+ * s’ouvre donc au seul rôle `systeme`, et la double authentification se gère
+ * depuis son tableau de bord (`ConsoleMfaManager`), où elle est PROPOSÉE et
+ * jamais imposée. Le serveur n’exige plus rien de plus que le rôle
+ * (`server/_core/trpc.ts`), et l’interface ne décide de rien : elle reflète.
  *
  * LE REFUS EST MUET, ET C’EST LE POINT
  * ------------------------------------
@@ -22,15 +29,6 @@ import { useEffect, type ReactNode } from "react";
  * `IntrouvableScreen`, le composant EXACT que rend la route inconnue de
  * l’application. Même code, même habillage, mêmes boutons : rien à comparer,
  * rien à déduire.
- *
- * VERROU 2 — LA MFA. Un compte `systeme` sans double authentification n’obtient
- * pas les modules : la console affiche l’écran d’enrôlement et RIEN d’autre.
- * L’état est lu auprès du serveur (`mfa.status`), jamais déduit localement —
- * l’interface ne décide pas de qui a le droit d’entrer.
- *
- * DÉFAUT SÛR — en cas de doute, on refuse. Si l’état MFA ne peut pas être lu,
- * les modules ne s’affichent pas : une vérification impossible n’est pas une
- * autorisation.
  */
 
 /** Écran de repli pendant la vérification : ni contenu, ni information. */
@@ -100,63 +98,7 @@ export function SystemGate({ children }: { children: ReactNode }) {
     );
   }
 
-  return <ConsoleMfaGate>{children}</ConsoleMfaGate>;
-}
-
-/**
- * Second verrou : la MFA doit être active AVANT que les modules ne s’affichent.
- *
- * Le composant ne rend ses enfants que sur un « oui » explicite du serveur
- * (`enabled === true`). Un « je ne sais pas » (`readable: false`, requête en
- * échec) laisse l’écran d’attente ou de reprise, jamais le contenu.
- */
-function ConsoleMfaGate({ children }: { children: ReactNode }) {
-  const utils = trpc.useUtils();
-  const status = trpc.mfa.status.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
-
-  if (status.isLoading) return <GateSpinner />;
-
-  if (status.error) {
-    // FAIL-CLOSED : on ne peut pas prouver que la MFA est active, donc on
-    // n’ouvre pas. Le message s’adresse au seul titulaire légitime du rôle
-    // système — il ne révèle rien à personne d’autre, la garde de rôle ayant
-    // déjà écarté tout le monde.
-    return (
-      <DashboardLayout>
-        <div className="mx-auto flex max-w-lg flex-col items-center px-4 py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-200">
-            <ShieldAlert className="h-6 w-6" />
-          </div>
-          <h1 className="font-editorial mt-5 text-2xl font-semibold">Vérification impossible</h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            L’état de la double authentification de votre compte n’a pas pu être lu. L’accès reste fermé par
-            précaution : une vérification impossible n’est pas une autorisation.
-          </p>
-          <Button
-            className="mt-6 h-10 rounded-xl bg-primary font-bold text-primary-foreground"
-            onClick={() => void status.refetch()}
-          >
-            Réessayer
-          </Button>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!status.data?.enabled) {
-    return (
-      <DashboardLayout>
-        <ConsoleMfaEnrollment
-          onActivated={() => {
-            // Le serveur vient de confirmer l’activation : on relit l’état, et
-            // c’est CETTE relecture — pas un drapeau local — qui ouvre l’accès.
-            void utils.mfa.status.invalidate();
-            void utils.mfa.status.refetch();
-          }}
-        />
-      </DashboardLayout>
-    );
-  }
-
+  // Rôle habilité : les modules s’affichent. Rien d’autre n’est demandé ici —
+  // ni second facteur, ni état MFA à relire.
   return <>{children}</>;
 }

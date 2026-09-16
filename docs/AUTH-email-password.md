@@ -157,12 +157,20 @@ détecté par `server/mfaLoginRateLimit.test.ts`, qui utilise le vrai limiteur.
 
 #### Où la MFA est exigée
 
-Elle est **facultative** partout, sauf pour la console d'exploitation
-(`/console`) : `systemProcedure` exige le rôle `systeme` **et** une MFA active.
-Un compte système sans MFA reçoit `403` sur toutes les procédures de la console,
-mais conserve l'accès à `mfa.enrollStart` / `mfa.enrollConfirm` (sous
-`protectedProcedure`) — c'est ainsi qu'il se met en règle. Un compte système
-sans MFA ne peut donc pas ouvrir la console : il doit d'abord s'enrôler.
+Elle est **facultative** partout — y compris pour la console d'exploitation
+(`/console`). `systemProcedure` n'exige que le rôle `systeme` ; il ne consulte
+même pas l'état MFA du compte. Un compte système sans second facteur ouvre donc
+la console normalement, et il active ou désactive sa MFA depuis le tableau de
+bord de la console (panneau « Ma double authentification », `ConsoleMfaManager`).
+
+Elle reste **recommandée** pour un compte d'administration, et elle est
+réellement active dès qu'un compte l'a enrôlée : à la connexion, ce compte passe
+par le second temps (`auth.mfaLogin`, § 4.1) comme n'importe quel autre, quel
+que soit son rôle. Le geste est donc un choix, mais un choix qui compte.
+
+Cette règle a succédé à une obligation (le cahier des charges § 6 exigeait la
+MFA pour ouvrir la console), retirée à la demande du propriétaire de
+l'instance — « je dois toujours avoir le choix de décider ».
 
 ### 4.2 `auth.register` — amorçage du premier compte uniquement
 
@@ -325,9 +333,9 @@ pnpm vitest run server/authLoginRateLimit.test.ts \
 | `authLoginRateLimit.test.ts` | Quotas, blocage progressif, normalisation, **résistance à l'attaque par lot**, plafond mémoire. |
 | `authLoginRoute.test.ts` | Le garde-fou est réellement branché sur `auth.login` ; l'amorçage du premier compte fonctionne. |
 | `mfa.test.ts` | Calcul TOTP (vecteurs RFC 6238), secret jamais en clair, jeton de défi qui n'est pas une session, anti-rejeu, codes de secours consommés. |
-| `mfaLogin.test.ts` | **Connexion inchangée pour un compte sans MFA**, `mfaRequired` sans session, défis expirés ou fabriqués, code de secours. |
+| `mfaLogin.test.ts` | **Connexion inchangée pour un compte sans MFA**, défi exigé d'un compte enrôlé (y compris `systeme`), `mfaRequired` sans session, défis expirés ou fabriqués, code de secours. |
 | `mfaLoginRateLimit.test.ts` | Un mot de passe connu **ne purge pas** le compteur du compte : le second facteur reste protégé de la force brute. |
-| `systemConsoleMfa.test.ts` | `403` pour un compte système sans MFA, enrôlement toujours atteignable, refus muet et **journalisé**. |
+| `systemConsoleMfa.test.ts` | La console s'ouvre au seul rôle `systeme`, **MFA ou non** ; l'état MFA n'est même plus lu ; activation et désactivation restent atteignables ; refus muet et **journalisé**. |
 
 ### Contrôles manuels sur le serveur
 

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   ConsoleModuleRail,
   SystemDashboard,
@@ -35,19 +35,20 @@ import {
 const readSource = (relativePath: string) => readFileSync(resolve(process.cwd(), relativePath), "utf8");
 
 /**
- * ÉTAPE B2 — le compte système de ces tests porte une MFA ACTIVE.
+ * LA MFA N’ENTRE PLUS DANS L’ÉQUATION DE LA CONSOLE.
  *
- * Depuis l’étape B2, `systemProcedure` exige DEUX conditions : le rôle `systeme`
- * ET une double authentification active. Sans ce double, les appels ci-dessous
- * recevraient 403 — ce que `server/systemConsoleMfa.test.ts` vérifie
- * explicitement, dans les deux sens. Ici, on isole le reste des règles de la
- * console ; on remplace donc la seule lecture d’état MFA, en gardant le reste du
- * module réel (aucun autre comportement n’est touché).
+ * Le compte système de ces tests portait une MFA ACTIVE, parce que
+ * `systemProcedure` l’exigeait (étape B2). Ce n’est plus le cas : le garde ne
+ * vérifie que le rôle `systeme`, et ne lit même plus l’état MFA du compte. Le
+ * double qui remplaçait cette lecture est donc retiré — un module réellement
+ * plus simple se prouve mieux qu’un module doublé pour rien.
+ *
+ * Les deux sens de la règle (accès sans MFA, 403 pour tout autre rôle) sont
+ * épinglés dans `server/systemConsoleMfa.test.ts`, et les deux gestes de la
+ * console (activer / désactiver) sur le vrai module dans
+ * `server/systemConsoleMfaOptional.test.ts`. Ici, on isole le reste des règles
+ * de la console.
  */
-vi.mock("./mfa", async importOriginal => {
-  const actual = await importOriginal<typeof import("./mfa")>();
-  return { ...actual, isMfaActiveForUser: vi.fn(async () => true) };
-});
 
 function contextFor(role: string): TrpcContext {
   return {
@@ -272,6 +273,14 @@ describe("Énumération role_admin_directeur — alignement du schéma", () => {
 });
 
 describe("system.overview — contrôle serveur de la console", () => {
+  it("répond au rôle système, MFA active ou non", async () => {
+    // AJOUTÉ — la règle centrale de cette livraison : ouvrir la console ne
+    // demande qu’un rôle. Le compte `systeme` sans second facteur obtient
+    // exactement le même résumé que celui qui en a un.
+    const payload = await appRouter.createCaller(contextFor("systeme")).system.overview();
+    expect(payload).toMatchObject({ application: { name: "Lucepress Facturation" } });
+  });
+
   it("répond au rôle système avec un résumé réel et sans secret", async () => {
     const payload = await appRouter.createCaller(contextFor("systeme")).system.overview();
 
