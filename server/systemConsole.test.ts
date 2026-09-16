@@ -71,18 +71,26 @@ describe("Console d’exploitation — rôle systeme", () => {
     expect(isSystemRole("systeme")).toBe(true);
     expect(isSystemRole("admin")).toBe(false);
     expect(hasSystemAccess("systeme")).toBe(true);
-    expect(hasSystemAccess("admin")).toBe(true);
+    // RETOURNÉ — l’habilitation de console était partagée avec `admin` le temps
+    // des essais (Phase 1 → 3B1) ; elle appartient désormais au seul `systeme`.
+    expect(hasSystemAccess("admin")).toBe(false);
     expect(hasSystemAccess("cadre")).toBe(false);
     expect(hasSystemAccess(undefined)).toBe(false);
   });
 
-  it("réserve /console au rôle système et à l’admin", () => {
+  it("réserve /console au seul rôle système", () => {
     expect(SYSTEM_ONLY_PATHS).toEqual(["/console"]);
     expect(SYSTEM_PATHS).toContain("/console");
 
     expect(canAccessPath("systeme", "/console")).toBe(true);
     expect(canAccessPath("systeme", "/console/sante")).toBe(true);
-    expect(canAccessPath("admin", "/console")).toBe(true);
+    // RETOURNÉ — l’admin ouvrait la console, il ne l’ouvre plus.
+    expect(canAccessPath("admin", "/console")).toBe(false);
+    expect(canAccessPath("admin", "/console/sante")).toBe(false);
+    // Un chemin de console non déclaré reste couvert par le préfixe : il ne peut
+    // pas devenir une porte dérobée pour un rôle non habilité.
+    expect(canAccessPath("admin", "/console/inconnu")).toBe(false);
+    expect(canAccessPath("systeme", "/console/inconnu")).toBe(true);
 
     expect(canAccessPath("directeur", "/console")).toBe(false);
     expect(canAccessPath("cadre", "/console")).toBe(false);
@@ -115,7 +123,7 @@ describe("Console d’exploitation — rôle systeme", () => {
     }
   });
 
-  it("ne change rien pour les rôles existants", () => {
+  it("ne change rien pour les rôles existants, hors console", () => {
     expect(canAccessPath("admin", "/integrations")).toBe(true);
     expect(canAccessPath("admin", "/devis")).toBe(true);
     expect(canAccessPath("directeur", "/integrations")).toBe(false);
@@ -126,6 +134,35 @@ describe("Console d’exploitation — rôle systeme", () => {
     expect(canAccessPath("client", "/portail-client")).toBe(true);
     expect(canAccessPath("client", "/compte/mot-de-passe")).toBe(true);
     expect(canAccessPath("client", "/devis")).toBe(false);
+    // L’admin conserve tout son back-office métier : seule la console lui est retirée.
+    for (const path of [
+      "/",
+      "/devis",
+      "/factures",
+      "/clients",
+      "/chantiers",
+      "/prestations",
+      "/couts-chantier",
+      "/creances",
+      "/relances",
+      "/calendrier",
+      "/journal-audit",
+      "/parametres",
+      "/parametres/utilisateurs",
+      "/parametres/e-mails",
+      "/parametres/modeles",
+      "/parametres/modeles/documents",
+      "/integrations",
+      "/agent-ia",
+      "/agent-ia/planification",
+      "/agent-ia/audit",
+      "/agent-ia/e-mails-test",
+      "/portail-client",
+      "/compte/mot-de-passe",
+      "/404",
+    ]) {
+      expect({ path, droit: canAccessPath("admin", path) }).toEqual({ path, droit: true });
+    }
   });
 
   it("rend le rôle système réellement persistable et attribuable", () => {
@@ -141,17 +178,27 @@ describe("Console d’exploitation — rôle systeme", () => {
     expect(STAFF_ASSIGNABLE_ROLES).not.toContain("client");
     expect(nextAssignableStaffRole("cadre")).toBe("directeur");
     expect(nextAssignableStaffRole("directeur")).toBe("admin");
-    expect(nextAssignableStaffRole("admin")).toBe("systeme");
+    // RETOURNÉ — le raccourci de la page Utilisateurs (écran d’admin) proposait
+    // « Passer administrateur système » : l’admin ne peut plus l’attribuer, le
+    // bouton ne doit donc plus le proposer. Le rôle `systeme` reste dans
+    // `STAFF_ASSIGNABLE_ROLES` (l’énumération acceptée par `users.setRole`) :
+    // seul un compte `systeme` s’en sert, et il n’a pas cet écran.
+    expect(nextAssignableStaffRole("admin")).toBe("cadre");
     expect(nextAssignableStaffRole("systeme")).toBe("cadre");
     // Un rôle inconnu retombe sur la valeur par défaut de la colonne.
     expect(nextAssignableStaffRole("guest")).toBe("cadre");
     expect(nextAssignableStaffRole(undefined)).toBe("cadre");
+    // Aucun rôle ne voit le cycle proposer `systeme` : l’écran Utilisateurs ne
+    // peut pas promettre une promotion que le serveur refuse (403).
+    for (const role of APP_ROLES) {
+      expect(nextAssignableStaffRole(role)).not.toBe("systeme");
+    }
   });
 
   it("annonce toujours le rôle qu’il attribue réellement", () => {
     expect(nextAssignableStaffRoleLabel("cadre")).toBe("Passer directeur");
     expect(nextAssignableStaffRoleLabel("directeur")).toBe("Passer admin");
-    expect(nextAssignableStaffRoleLabel("admin")).toBe("Passer administrateur système");
+    expect(nextAssignableStaffRoleLabel("admin")).toBe("Passer cadre");
     expect(nextAssignableStaffRoleLabel("systeme")).toBe("Passer cadre");
     // Garde-fou d’affichage : le libellé ne doit jamais être vide ni figé.
     for (const role of APP_ROLES) {
@@ -226,13 +273,16 @@ describe("system.overview — contrôle serveur de la console", () => {
     expect(serialized).not.toContain("staff-systeme");
   });
 
-  it("répond aussi à l’admin (croisement explicite)", async () => {
-    const payload = await appRouter.createCaller(contextFor("admin")).system.overview();
-    expect(payload.health.uptimeSec).toBeGreaterThanOrEqual(0);
+  it("refuse l’admin en 403, comme tout autre rôle non système", async () => {
+    // RETOURNÉ — `system.overview` répondait à l’admin (croisement explicite).
+    // Le refus serveur est la moitié du contrôle : l’interface ne suffit jamais.
+    await expect(appRouter.createCaller(contextFor("admin")).system.overview()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
-  it("refuse les rôles non habilités en 403", async () => {
-    for (const role of ["cadre", "directeur", "client"]) {
+  it("refuse tous les rôles non habilités en 403", async () => {
+    for (const role of ["admin", "cadre", "directeur", "client"]) {
       await expect(appRouter.createCaller(contextFor(role)).system.overview()).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
@@ -264,7 +314,14 @@ describe("Isolation du bundle et de la navigation", () => {
   });
 
   it("garde la route /console derrière SystemGate", () => {
+    expect(app).toContain('withSystemGate(SystemConsolePage, "Console d’exploitation")');
+    // Les CINQ routes de la console portent le garde : aucune porte de côté.
+    for (const page of ["SystemConsolePage", "SystemSupervisionPage", "SystemAccessPage", "SystemSessionsPage", "SystemPermissionsPage"]) {
+      expect({ page, garde: app.includes(`withSystemGate(${page}, `) }).toEqual({ page, garde: true });
+    }
     expect(gate).toContain("hasSystemAccess");
+    // Défaut sûr : le garde refuse AVANT de rendre, sur la négation de la règle.
+    expect(gate.replace(/\s+/g, " ")).toContain("if (!hasSystemAccess(user?.role)) {");
     expect(gate).toContain("Accès réservé");
     expect(gate).toContain("réservée à l’administration système");
   });
@@ -273,6 +330,57 @@ describe("Isolation du bundle et de la navigation", () => {
     expect(layout).toContain('path: "/console"');
     expect(layout).toContain("canAccessPath");
     expect(layout).toContain("isSystemRole");
+  });
+
+  /**
+   * MÉTHODE (et non affirmation) : on relit les chemins réellement déclarés dans
+   * `navigationGroups` et on les passe au MÊME filtre que celui du rendu
+   * (`canAccessPath(role, item.path)`). Ce que ce test calcule est donc ce que la
+   * barre latérale affiche.
+   */
+  const navigationPaths = [...layout.matchAll(/\{\s*icon:\s*[A-Za-z]+,\s*label:\s*"[^"]+",\s*path:\s*"([^"]+)"\s*\}/g)]
+    .map(match => match[1]);
+
+  it("filtre la navigation avec canAccessPath", () => {
+    expect(navigationPaths.length).toBeGreaterThan(10);
+    expect(navigationPaths).toContain("/console");
+    expect(layout.replace(/\s+/g, " ")).toContain("items: group.items.filter(item => canAccessPath(role, item.path))");
+  });
+
+  it("ne montre aucune entrée de console à un rôle autre que système", () => {
+    for (const role of APP_ROLES) {
+      const visibles = navigationPaths.filter(path => canAccessPath(role, path));
+      const consoleVisibles = visibles.filter(path => path === "/console" || path.startsWith("/console/"));
+      // Preuve par le filtre : `admin` ne voit plus une seule entrée `/console…`.
+      expect({ role, consoleVisibles }).toEqual({
+        role,
+        consoleVisibles: role === "systeme" ? navigationPaths.filter(p => p.startsWith("/console")) : [],
+      });
+    }
+    // La ligne précédente serait vide des deux côtés si la console avait disparu
+    // de la navigation : on vérifie qu’elle y est toujours, pour le seul système.
+    expect(navigationPaths.filter(path => path.startsWith("/console")).length).toBeGreaterThan(0);
+  });
+
+  it("ne laisse aucun lien vers /console dans les vues publiques et métier", () => {
+    // Surfaces qu’un rôle non système peut réellement ouvrir : accueil public,
+    // page 404, recherche globale, guide, accueil métier, comptes collaborateurs,
+    // paramètres, table des raccourcis et recherche d’espace de travail.
+    for (const chemin of [
+      "client/src/components/LandingPage.tsx",
+      "client/src/components/CommandPalette.tsx",
+      "client/src/components/TourGuide.tsx",
+      "client/src/pages/NotFound.tsx",
+      "client/src/pages/LoginPage.tsx",
+      "client/src/pages/Home.tsx",
+      "client/src/pages/UsersPage.tsx",
+      "client/src/pages/SettingsPage.tsx",
+      "shared/sidebarNavigation.ts",
+      "shared/workspaceSearch.ts",
+      "shared/todayInbox.ts",
+    ]) {
+      expect({ chemin, console: readSource(chemin).includes("/console") }).toEqual({ chemin, console: false });
+    }
   });
 
   it("affiche la santé, la version et la date sur le tableau de bord", () => {

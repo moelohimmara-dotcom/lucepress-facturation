@@ -92,13 +92,34 @@ export const staffProcedure = t.procedure.use(
 );
 
 /**
- * Console d’exploitation : rôle système + admin (croisement explicite).
- * Le contrôle ne repose jamais sur l’interface — chaque procédure de la console
- * repasse par ce middleware.
+ * Gestion des comptes (comptes collaborateurs et comptes système).
+ *
+ * Le garde ouvre la porte à DEUX rôles, mais chacun sur son DOMAINE : les
+ * mutations arbitrent ensuite (`assertAccountHabilitation`, `server/routers.ts`).
+ * Un `admin` ne peut pas créer, promouvoir, modifier ni supprimer un compte
+ * `systeme` — sinon il pourrait s’octroyer la console d’exploitation. Un compte
+ * `systeme` ne distribue pas les rôles du commerce.
+ *
+ * Le rôle reste appliqué côté serveur : l’interface ne fait que refléter.
+ */
+export const usersProcedure = t.procedure.use(
+  requireRoles(
+    ["admin", "systeme"],
+    "Accès réservé à l’administration des comptes.",
+  ),
+);
+
+/**
+ * Console d’exploitation : rôle `systeme` UNIQUEMENT.
+ *
+ * L’accès partagé avec `admin` (Phases 1 → 3B1) était un compromis d’essai, il
+ * est retiré. Le contrôle ne repose jamais sur l’interface — chaque procédure de
+ * la console repasse par ce middleware, et l’admin reçoit un 403 comme tout
+ * autre rôle.
  */
 export const systemProcedure = t.procedure.use(
   requireRoles(
-    ["systeme", "admin"],
+    ["systeme"],
     "Accès réservé à la console d’exploitation Lucepres.",
   ),
 );

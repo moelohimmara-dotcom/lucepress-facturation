@@ -17,8 +17,8 @@ import { useLocation } from "wouter";
  * Console d’exploitation — Phase 3 (module 4, étape B1) : « Sessions actives ».
  *
  * Les données viennent de la procédure protégée `system.sessions.list`, la seule
- * action de `system.sessions.revoke`. Les deux sont réservées au rôle système ou
- * à l’admin (voir `systemProcedure`) : l’interface ne fait que refléter une
+ * action de `system.sessions.revoke`. Les deux sont réservées au SEUL rôle
+ * système (voir `systemProcedure`) : l’interface ne fait que refléter une
  * décision prise côté serveur.
  */
 export default function SystemSessionsPage() {

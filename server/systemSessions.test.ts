@@ -683,26 +683,31 @@ describe("revokeSessionById — garde-fou et idempotence", () => {
 /* ------------------------------------------------------------------ */
 
 describe("system.sessions — contrôle serveur", () => {
-  it("répond au rôle système et à l’admin", async () => {
-    for (const role of ["systeme", "admin"]) {
-      const payload = await appRouter.createCaller(staffContext(role)).system.sessions.list();
-      expect(Object.keys(payload).sort()).toEqual([
-        "generatedAt",
-        "limit",
-        "omitted",
-        "scope",
-        "sessions",
-        "totals",
-        "unavailable",
-      ]);
-      expect(payload.scope).toBe("tenant");
-      expect(payload.generatedAt).toBeTruthy();
-      expect(payload.sessions).toEqual([]);
-      expect(payload.totals).toEqual({ total: 0, active: 0, revoked: 0, expired: 0 });
-      // Base simulée JOIGNABLE et table vide : le relevé est disponible, et il
-      // annonce zéro session — ce n’est pas la même chose qu’un relevé impossible.
-      expect(payload.unavailable).toBe(false);
-    }
+  it("répond au seul rôle système", async () => {
+    // RETOURNÉ — la liste répondait au couple `systeme` + `admin`.
+    const payload = await appRouter.createCaller(staffContext("systeme")).system.sessions.list();
+    expect(Object.keys(payload).sort()).toEqual([
+      "generatedAt",
+      "limit",
+      "omitted",
+      "scope",
+      "sessions",
+      "totals",
+      "unavailable",
+    ]);
+    expect(payload.scope).toBe("tenant");
+    expect(payload.generatedAt).toBeTruthy();
+    expect(payload.sessions).toEqual([]);
+    expect(payload.totals).toEqual({ total: 0, active: 0, revoked: 0, expired: 0 });
+    // Base simulée JOIGNABLE et table vide : le relevé est disponible, et il
+    // annonce zéro session — ce n’est pas la même chose qu’un relevé impossible.
+    expect(payload.unavailable).toBe(false);
+  });
+
+  it("refuse l’admin désormais, en lecture comme en révocation", async () => {
+    const admin = appRouter.createCaller(staffContext("admin"));
+    await expect(admin.system.sessions.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(admin.system.sessions.revoke({ id: 3 })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("signale l’indisponibilité quand la base n’est pas joignable", async () => {

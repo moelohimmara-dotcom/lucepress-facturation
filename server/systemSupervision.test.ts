@@ -212,10 +212,11 @@ describe("Isolation de l’écran Santé & supervision", () => {
     expect(layout).toContain("canAccessPath");
   });
 
-  it("réserve /console/sante au rôle système et à l’admin", () => {
+  it("réserve /console/sante au seul rôle système", () => {
     expect(canAccessPath("systeme", "/console/sante")).toBe(true);
-    expect(canAccessPath("admin", "/console/sante")).toBe(true);
-    for (const role of ["directeur", "cadre", "client"]) {
+    // RETOURNÉ — l’admin ouvrait la console, il ne l’ouvre plus.
+    expect(canAccessPath("admin", "/console/sante")).toBe(false);
+    for (const role of ["admin", "directeur", "cadre", "client"]) {
       expect(canAccessPath(role, "/console/sante")).toBe(false);
     }
     expect(canAccessPath(undefined, "/console/sante")).toBe(false);

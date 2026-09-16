@@ -178,9 +178,12 @@ export function SystemPermissionsPanel() {
         <div className="space-y-2">
           <p className="text-sm font-extrabold">Séparation des devoirs</p>
           <p className="text-xs leading-5 text-muted-foreground">
-            Le rôle <strong>Administrateur système</strong> n’ouvre que la console, la page de mot de passe et la 404 :
-            il n’a aucun accès aux données commerciales. À l’inverse, l’<strong>Admin</strong> conserve la console pour
-            pouvoir l’exploiter et la tester, en plus du back-office métier.
+            Le rôle <strong>Administrateur système</strong> détient seul les habilitations de console ; il n’ouvre donc
+            que la console, la page de mot de passe et la 404, et n’a aucun accès aux données commerciales. L’
+            <strong>Admin</strong>, à l’inverse, administre tout le métier — comptes collaborateurs, modèles,
+            intégrations, agent IA, journal d’audit — sans aucune habilitation de console. Il ne peut ni créer ni
+            promouvoir un compte <span className="font-mono">systeme</span> : c’est ce qui l’empêche de s’octroyer la
+            console.
           </p>
           <p className="text-xs leading-5 text-muted-foreground">
             Le <strong>portail client</strong> ne figure pas dans cette matrice : ses comptes n’accèdent qu’à

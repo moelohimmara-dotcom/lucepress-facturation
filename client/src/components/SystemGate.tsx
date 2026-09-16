@@ -7,7 +7,12 @@ import type { ReactNode } from "react";
 import { useLocation } from "wouter";
 
 /**
- * Bloque l’accès à la console d’exploitation côté UI (rôle `systeme` ou `admin`).
+ * Bloque l’accès à la console d’exploitation côté UI — rôle `systeme` UNIQUEMENT.
+ *
+ * La garde s’appuie sur `hasSystemAccess`, qui dérive de `canAccessPath` : la
+ * même règle commande cette garde, la navigation latérale et la matrice de
+ * référence de la console. Un `admin` est refusé ici comme partout ailleurs.
+ *
  * Le contrôle serveur reste obligatoire : chaque procédure de la console exige
  * elle aussi le rôle (voir `systemProcedure`).
  */

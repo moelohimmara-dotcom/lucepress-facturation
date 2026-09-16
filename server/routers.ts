@@ -8,13 +8,13 @@ import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM, invokeLLMWithFallback, listLLMModels, pickLLMModelCandidates } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router, staffProcedure } from "./_core/trpc";
+import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router, staffProcedure, usersProcedure } from "./_core/trpc";
 import { sendMail, isMailConfigured, getSmtpUser } from "./_core/mailer";
 import { COOKIE_NAME } from "@shared/const";
 import { LUCEPRES_PUBLIC_PROFILE } from "../shared/companyProfile";
 import { IDENTITY_KINDS, omitOptionalPaperworkMissingFields } from "../shared/identityPaperwork";
 import { CLIENT_ACTIVITY_TYPES } from "../shared/clientActivityTypes";
-import { APP_ROLES, isClientRole, STAFF_ASSIGNABLE_ROLES, type PersistedAppRole } from "../shared/roles";
+import { APP_ROLES, isClientRole, isSystemRole, STAFF_ASSIGNABLE_ROLES, type AppRole, type PersistedAppRole } from "../shared/roles";
 import { parse as parseCookieHeader } from "cookie";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { buildCampaignSchedule } from "../shared/agentCampaignSchedule";
@@ -158,6 +158,67 @@ async function issueInvitation(opts: {
 
 const optionalText = z.string().trim().max(2000).optional();
 const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/* ------------------------------------------------------------------ */
+/* Habilitation sur les comptes — protection contre l’escalade         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Le rôle `systeme` est un DOMAINE À PART.
+ *
+ * La console d’exploitation n’appartient qu’à lui (`systemProcedure` →
+ * `systeme` seul). La conséquence à traiter côté comptes est directe : créer un
+ * compte `systeme`, promouvoir vers lui, le rétrograder, réinitialiser son mot
+ * de passe ou le supprimer sont autant de moyens pour un `admin` de s’octroyer
+ * la console. Aucun de ces gestes ne lui appartient.
+ *
+ * Règle unique appliquée ici : une opération est autorisée si et seulement si
+ * l’acteur et le compte visé sont DU MÊME CÔTÉ de la frontière —
+ *   - compte `systeme` visé (ou rôle `systeme` demandé) → acteur `systeme` ;
+ *   - compte métier visé (ou rôle métier demandé) → acteur `admin`.
+ * Réciproquement, un compte `systeme` ne distribue pas les rôles du commerce et
+ * un `admin` n’administre pas les comptes système : séparation des devoirs.
+ *
+ * Défaut sûr : toute combinaison qui n’est pas explicitement du même côté est
+ * refusée.
+ */
+function assertAccountHabilitation(
+  actorRole: AppRole | string,
+  options: { currentRole?: string | null; requestedRole?: string | null },
+): void {
+  const viseUnCompteSysteme = options.currentRole === "systeme" || options.requestedRole === "systeme";
+  if (viseUnCompteSysteme === isSystemRole(actorRole)) return;
+  throw new TRPCError({
+    code: "FORBIDDEN",
+    message: viseUnCompteSysteme
+      ? "Seul un compte d’administration système peut créer, promouvoir, modifier ou supprimer un compte système."
+      : "Un compte d’administration système n’administre pas les comptes métier.",
+  });
+}
+
+/** Rôle actuel d’un compte de l’instance (`null` s’il n’existe pas). */
+async function readAccountRole(userId: number): Promise<string | null> {
+  const comptes = await db.listUsers();
+  return comptes.find(compte => compte.id === userId)?.role ?? null;
+}
+
+/**
+ * Refuse de retirer le DERNIER compte `systeme` de l’instance.
+ *
+ * Sans lui, plus personne ne peut ouvrir la console ni nommer un remplaçant :
+ * la porte se referme définitivement. Le relevé est fourni par l’appelant pour
+ * ne pas relire la table une seconde fois.
+ */
+function assertNotLastSystemAccount(comptes: Array<{ role: string }>): void {
+  if (comptes.filter(compte => compte.role === "systeme").length <= 1) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Impossible de retirer le dernier compte d’administration système de l’instance : plus personne ne pourrait ouvrir la console ni en nommer un.",
+    });
+  }
+}
+
 const quotePaymentScheduleSchema = z.object({
   depositPercent: z.number().int().min(1).max(99).optional(),
   depositDueDate: dateText.optional(),
@@ -678,26 +739,29 @@ export const appRouter = router({
   /**
    * Gestion des collaborateurs (réservée aux administrateurs).
    * Dans l'architecture mono-tenant actuelle, un « collaborateur » est un compte
-   * `users` avec un rôle `admin`, `directeur`, `cadre` ou `systeme`. Les procédures ci-dessous permettent à un admin
-   * de lister, créer, promouvoir/rétrograder, réinitialiser le mot de passe et
-   * révoquer ces comptes — sans jamais exposer le hash des mots de passe.
+   * `users` avec un rôle `admin`, `directeur`, `cadre` ou `systeme`. Les procédures ci-dessous permettent d'administrer
+   * ces comptes — sans jamais exposer le hash des mots de passe.
+   *
+   * HABILITATION — voir `assertAccountHabilitation` : le rôle `systeme` est un
+   * domaine à part, que seul un compte `systeme` peut administrer.
    */
   users: router({
     list: adminProcedure.query(() => db.listUsers()),
-    create: adminProcedure
+    create: usersProcedure
       .input(z.object({
         email: z.string().email().max(320),
         name: z.string().trim().min(2).max(180).optional(),
         password: z.string().min(8).max(128),
         role: z.enum(APP_ROLES).default("cadre"),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         if (input.role === "client") {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Les accès portail client s’invitent depuis la fiche client.",
           });
         }
+        assertAccountHabilitation(ctx.user.role, { requestedRole: input.role });
         const existant = await db.getUserByEmail(input.email);
         if (existant) {
           throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
@@ -712,7 +776,7 @@ export const appRouter = router({
         });
         return { success: true, openId: user.openId, id: user.id } as const;
       }),
-    setRole: adminProcedure
+    setRole: usersProcedure
       // `STAFF_ASSIGNABLE_ROLES` (cadre/directeur/admin/systeme) : tous les rôles
       // internes persistables. `client` reste exclu — il s’attribue depuis la
       // fiche client, pas depuis la gestion des collaborateurs.
@@ -726,23 +790,43 @@ export const appRouter = router({
             message: "Vous ne pouvez pas retirer votre propre rôle d'administrateur.",
           });
         }
+        const comptes = await db.listUsers();
+        const roleActuel = comptes.find(compte => compte.id === input.userId)?.role ?? null;
+        assertAccountHabilitation(ctx.user.role, { currentRole: roleActuel, requestedRole: input.role });
+        // Garde-fou : ne jamais laisser l’instance sans administrateur système —
+        // plus personne ne pourrait alors ouvrir la console ni en nommer un.
+        if (roleActuel === "systeme" && input.role !== "systeme") {
+          assertNotLastSystemAccount(comptes);
+        }
         await db.setUserRole(input.userId, input.role);
         return { success: true } as const;
       }),
-    resetPassword: adminProcedure
+    resetPassword: usersProcedure
       .input(z.object({ userId: z.number().int().positive(), newPassword: z.string().min(8).max(128) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        // Réinitialiser le mot de passe d’un compte `systeme` reviendrait à en
+        // prendre la main, donc à s’octroyer la console : même règle de domaine.
+        const roleActuel = await readAccountRole(input.userId);
+        assertAccountHabilitation(ctx.user.role, { currentRole: roleActuel });
         const { hashPassword } = await import("./_core/password");
         const passwordHash = await hashPassword(input.newPassword);
         await db.resetUserPassword(input.userId, passwordHash);
         return { success: true } as const;
       }),
-    remove: adminProcedure
+    remove: usersProcedure
       .input(z.object({ userId: z.number().int().positive() }))
       .mutation(async ({ ctx, input }) => {
         // Un admin ne peut pas se supprimer lui-même.
         if (ctx.user.id === input.userId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Vous ne pouvez pas supprimer votre propre compte." });
+        }
+        const comptes = await db.listUsers();
+        const roleActuel = comptes.find(compte => compte.id === input.userId)?.role ?? null;
+        assertAccountHabilitation(ctx.user.role, { currentRole: roleActuel });
+        // Même garde-fou que pour la rétrogradation : la suppression aussi peut
+        // vider l’instance de son administrateur système.
+        if (roleActuel === "systeme") {
+          assertNotLastSystemAccount(comptes);
         }
         const result = await db.deleteUser(input.userId);
         if (!result.deleted) {
@@ -762,7 +846,7 @@ export const appRouter = router({
      * L'admin ne saisit PAS le mot de passe du collaborateur — l'invité le définit
      * à l'acceptation (procédure `acceptInvitation`, publique).
      */
-    invite: adminProcedure
+    invite: usersProcedure
       .input(z.object({
         email: z.string().email().max(320),
         name: z.string().trim().min(2).max(180).optional(),
@@ -775,6 +859,9 @@ export const appRouter = router({
             message: "Les accès portail client s’invitent depuis la fiche client, pas depuis les comptes internes.",
           });
         }
+        // Inviter revient à créer : la même habilitation s’applique. Le rôle de
+        // l’invitation est celui que le compte recevra à l’acceptation.
+        assertAccountHabilitation(ctx.user.role, { requestedRole: input.role });
         return issueInvitation({
           email: input.email,
           role: input.role,

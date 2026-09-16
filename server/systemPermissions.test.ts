@@ -6,11 +6,14 @@ import { describe, expect, it } from "vitest";
 import { SystemPermissionsPanel, capabilityGuardSummary } from "../client/src/components/SystemPermissions";
 import {
   APP_ROLES,
+  HABILITATIONS,
   PERMISSION_CAPABILITIES,
   PERMISSION_MATRIX_ROLES,
   PROCEDURE_GUARD_ROLES,
   PROCEDURE_GUARDS,
   canAccessPath,
+  findHabilitationForPath,
+  habilitationRoles,
   permissionFor,
   permissionMatrix,
   type AppRole,
@@ -72,13 +75,14 @@ describe("Matrice de référence — alignement avec canAccessPath", () => {
     }
   });
 
-  it("accorde la console au seul couple système + admin", () => {
+  it("accorde la console au seul rôle système", () => {
     const consoleCapabilities = PERMISSION_CAPABILITIES.filter(capability => capability.path.startsWith("/console"));
 
     expect(consoleCapabilities).toHaveLength(5);
     for (const capability of consoleCapabilities) {
-      expect(PERMISSION_MATRIX_ROLES.filter(role => permissionFor(role, capability))).toEqual(["admin", "systeme"]);
-      for (const role of ["directeur", "cadre", "client"] as AppRole[]) {
+      // RETOURNÉ — la matrice accordait la console au couple `admin` + `systeme`.
+      expect(PERMISSION_MATRIX_ROLES.filter(role => permissionFor(role, capability))).toEqual(["systeme"]);
+      for (const role of ["admin", "directeur", "cadre", "client"] as AppRole[]) {
         expect(permissionFor(role, capability)).toBe(false);
       }
     }
@@ -109,6 +113,54 @@ describe("Matrice de référence — alignement avec canAccessPath", () => {
   });
 });
 
+describe("Modèle d’habilitation — une seule source de droit", () => {
+  it("dérive le droit d’écran des rôles de la procédure d’ouverture", () => {
+    // Aucun rôle n’est écrit deux fois : `canAccessPath` doit rendre exactement
+    // ce que la procédure d’ouverture de l’habilitation autorise.
+    for (const habilitation of HABILITATIONS) {
+      for (const role of APP_ROLES) {
+        expect({ key: habilitation.key, role, droit: canAccessPath(role, habilitation.path) }).toEqual({
+          key: habilitation.key,
+          role,
+          droit: habilitationRoles(habilitation).includes(role),
+        });
+      }
+    }
+  });
+
+  it("ne déclare les capacités qu’une fois : le descripteur EST la matrice", () => {
+    expect(PERMISSION_CAPABILITIES).toBe(HABILITATIONS);
+  });
+
+  it("réserve chaque habilitation de console au seul rôle système", () => {
+    const consoleHabilitations = HABILITATIONS.filter(habilitation => habilitation.path.startsWith("/console"));
+
+    expect(consoleHabilitations).toHaveLength(5);
+    for (const habilitation of consoleHabilitations) {
+      expect(habilitation.guards[0]).toBe("systemProcedure");
+      expect(habilitationRoles(habilitation)).toEqual(["systeme"]);
+      expect(habilitationRoles(habilitation)).not.toContain("admin");
+    }
+  });
+
+  it("rattache un chemin de console non déclaré à l’habilitation de console", () => {
+    // Le préfixe couvre les modules à venir : aucun `/console/…` ne peut
+    // échapper à la règle, et donc redevenir accessible à un rôle non système.
+    expect(findHabilitationForPath("/console/base")?.key).toBe("console.tableau-de-bord");
+    expect(canAccessPath("systeme", "/console/base")).toBe(true);
+    expect(canAccessPath("admin", "/console/base")).toBe(false);
+  });
+
+  it("retient l’habilitation la plus spécifique pour un chemin", () => {
+    expect(findHabilitationForPath("/console/sante")?.key).toBe("console.sante");
+    expect(findHabilitationForPath("/parametres/utilisateurs")?.key).toBe("config.comptes");
+    // `/parametres/modeles/documents` n’a pas de ligne propre : il relève de
+    // `/parametres/modeles`, donc de l’admin — comme avant la refonte.
+    expect(findHabilitationForPath("/parametres/modeles/documents")?.key).toBe("config.modeles");
+    expect(findHabilitationForPath("/aucun-ecran-declare")).toBeUndefined();
+  });
+});
+
 describe("Matrice de référence — alignement avec les procédures serveur", () => {
   const trpc = readSource("server/_core/trpc.ts");
 
@@ -123,10 +175,14 @@ describe("Matrice de référence — alignement avec les procédures serveur", (
       expect(rolesDuCode.length).toBeGreaterThan(0);
       expect({ guard, roles: [...PROCEDURE_GUARD_ROLES[guard]] }).toEqual({ guard, roles: rolesDuCode });
     }
-    expect(guardRolesFromSource(trpc, "systemProcedure")).toEqual(["systeme", "admin"]);
+    // RETOURNÉ — `systemProcedure` exigeait `systeme` + `admin`.
+    expect(guardRolesFromSource(trpc, "systemProcedure")).toEqual(["systeme"]);
     expect(guardRolesFromSource(trpc, "adminProcedure")).toEqual(["admin"]);
     expect(guardRolesFromSource(trpc, "directionProcedure")).toEqual(["admin", "directeur"]);
     expect(guardRolesFromSource(trpc, "staffProcedure")).toEqual(["admin", "directeur", "cadre"]);
+    // Gestion des comptes : admin (comptes métier) + système (comptes système).
+    // Les mutations arbitrent ensuite par domaine (`assertAccountHabilitation`).
+    expect(guardRolesFromSource(trpc, "usersProcedure")).toEqual(["admin", "systeme"]);
   });
 
   it("ne cite que des procédures réellement déclarées", () => {
@@ -293,10 +349,11 @@ describe("Isolation de l’écran Rôles & permissions", () => {
     expect(rail).toContain("Rôles & permissions");
   });
 
-  it("réserve l’écran au rôle système et à l’admin", () => {
+  it("réserve l’écran au seul rôle système", () => {
     expect(canAccessPath("systeme", "/console/permissions")).toBe(true);
-    expect(canAccessPath("admin", "/console/permissions")).toBe(true);
-    for (const role of ["directeur", "cadre", "client"]) {
+    // RETOURNÉ — l’admin ouvrait la console, il ne l’ouvre plus.
+    expect(canAccessPath("admin", "/console/permissions")).toBe(false);
+    for (const role of ["admin", "directeur", "cadre", "client"]) {
       expect(canAccessPath(role, "/console/permissions")).toBe(false);
     }
     expect(canAccessPath(undefined, "/console/permissions")).toBe(false);

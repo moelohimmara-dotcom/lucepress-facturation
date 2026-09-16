@@ -9,10 +9,13 @@ describe("P1.2 — distinction directeur", () => {
     expect(isDirectionRole("client")).toBe(false);
   });
 
-  it("fait cycler les rôles assignables cadre → directeur → admin → systeme → cadre", () => {
+  it("fait cycler les rôles assignables par un admin : cadre → directeur → admin → cadre", () => {
     expect(nextAssignableStaffRole("cadre")).toBe("directeur");
     expect(nextAssignableStaffRole("directeur")).toBe("admin");
-    expect(nextAssignableStaffRole("admin")).toBe("systeme");
+    // RETOURNÉ — le cycle passait par `admin → systeme`. L’écran Utilisateurs est
+    // réservé à l’admin, qui n’a plus l’habilitation d’attribuer le rôle système :
+    // le raccourci ne doit donc plus le proposer.
+    expect(nextAssignableStaffRole("admin")).toBe("cadre");
     expect(nextAssignableStaffRole("systeme")).toBe("cadre");
   });
 

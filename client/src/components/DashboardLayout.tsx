@@ -99,7 +99,10 @@ const navigationGroups = [
     { icon: Cable, label: "Intégrations", path: "/integrations" },
     { icon: Settings, label: "Paramètres", path: "/parametres" },
   ] },
-  // Visible pour les rôles `systeme` et `admin` uniquement (voir canAccessPath).
+  // Console d’exploitation — visible pour le SEUL rôle `systeme` : le filtre
+  // ci-dessous applique `canAccessPath`, qui refuse `/console…` à `admin` comme
+  // à tout autre rôle. Aucune entrée de console n’apparaît donc ailleurs que
+  // chez l’administrateur système.
   { label: "Exploitation", items: [
     { icon: SquareTerminal, label: "Console d’exploitation", path: "/console" },
     { icon: ShieldCheck, label: "Santé & supervision", path: "/console/sante" },

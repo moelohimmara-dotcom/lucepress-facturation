@@ -102,14 +102,16 @@ describe("system.metrics — contrôle serveur de la console", () => {
     expect(serialized).not.toContain("staff-systeme");
   });
 
-  it("répond aussi à l’admin (croisement explicite)", async () => {
-    const payload = await appRouter.createCaller(contextFor("admin")).system.metrics();
-    expect(typeof payload.database.reachable).toBe("boolean");
-    expect(payload.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  it("refuse l’admin en 403, comme tout rôle non système", async () => {
+    // RETOURNÉ — `system.metrics` répondait à l’admin (croisement explicite) :
+    // le contrôle serveur doit porter la même règle que l’interface.
+    await expect(appRouter.createCaller(contextFor("admin")).system.metrics()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
-  it("refuse les rôles non habilités en 403", async () => {
-    for (const role of ["cadre", "directeur", "client"]) {
+  it("refuse tous les rôles non habilités en 403", async () => {
+    for (const role of ["admin", "cadre", "directeur", "client"]) {
       await expect(appRouter.createCaller(contextFor(role)).system.metrics()).rejects.toMatchObject({
         code: "FORBIDDEN",
       });

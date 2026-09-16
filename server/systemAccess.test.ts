@@ -129,14 +129,16 @@ describe("system.access — contrôle serveur de la console", () => {
     expect(() => JSON.stringify(payload)).not.toThrow();
   });
 
-  it("répond aussi à l’admin (croisement explicite)", async () => {
-    const payload = await appRouter.createCaller(contextFor("admin")).system.access();
-    expect(payload.scope).toBe("tenant");
-    expect(payload.passwordPolicy.maxLength).toBe(128);
+  it("refuse l’admin en 403, comme tout rôle non système", async () => {
+    // RETOURNÉ — `system.access` répondait à l’admin (croisement explicite) :
+    // la revue d’accès de l’instance est désormais inaccessible à l’admin.
+    await expect(appRouter.createCaller(contextFor("admin")).system.access()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
-  it("refuse les rôles non habilités en 403", async () => {
-    for (const role of ["cadre", "directeur", "client"]) {
+  it("refuse tous les rôles non habilités en 403", async () => {
+    for (const role of ["admin", "cadre", "directeur", "client"]) {
       await expect(appRouter.createCaller(contextFor(role)).system.access()).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
