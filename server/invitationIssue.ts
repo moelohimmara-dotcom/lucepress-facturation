@@ -39,6 +39,13 @@ export type IssueInvitationInput = {
 
 export type IssueInvitationResult = {
   success: true;
+  /**
+   * Identifiant de l’invitation créée. Ajouté pour la console d’exploitation :
+   * sa ligne de journal doit pouvoir nommer la cible (`invitation#7`) pour être
+   * recoupable avec un renvoi ou une révocation ultérieurs. Le back-office, lui,
+   * l’ignore — le champ est additif, aucun appelant existant ne change.
+   */
+  invitationId: number;
   invitationLink: string;
   email: string;
   role: PersistedAppRole;
@@ -73,7 +80,7 @@ export async function issueInvitation(opts: IssueInvitationInput): Promise<Issue
   const { createInvitationToken, hashInvitationToken } = await import("../shared/invitationToken");
   const token = createInvitationToken();
   const tokenHash = hashInvitationToken(token);
-  await db.createInvitation({
+  const invitation = await db.createInvitation({
     tokenHash,
     email: opts.email,
     role: opts.role,
@@ -114,6 +121,7 @@ export async function issueInvitation(opts: IssueInvitationInput): Promise<Issue
   }
   return {
     success: true as const,
+    invitationId: invitation.id,
     invitationLink: inviteLink,
     email: opts.email,
     role: opts.role,

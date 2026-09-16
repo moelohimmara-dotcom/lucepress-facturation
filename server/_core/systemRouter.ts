@@ -1,13 +1,25 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { hasSystemAccess } from "@shared/roles";
+import { APP_ROLES, STAFF_ASSIGNABLE_ROLES, hasSystemAccess } from "@shared/roles";
 import { pingDatabase } from "../db";
 import { hashSessionToken } from "../sessionRegistry";
+import {
+  createConsoleAccount,
+  issueConsoleInvitation,
+  listConsoleInvitations,
+  removeConsoleAccount,
+  renameConsoleAccount,
+  resendConsoleInvitation,
+  resetConsoleAccountPassword,
+  revokeConsoleInvitation,
+  setConsoleAccountRole,
+  type ConsoleActor,
+} from "../systemAccounts";
 import { collectSystemAccess } from "../systemAccess";
 import { logConsoleAttempt } from "../systemAccessLog";
 import { collectSystemMetrics } from "../systemMetrics";
 import { collectSystemSessions, revokeSessionById } from "../systemSessions";
-import { readRequestSessionToken } from "./context";
+import { readRequestSessionToken, type TrpcContext } from "./context";
 import { buildHealthPayload } from "./health";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router, systemProcedure } from "./trpc";
@@ -17,6 +29,31 @@ import { listLLMModels, pickLLMModel } from "./llm";
 const APPLICATION_NAME = "Lucepress Facturation";
 /** Renseignée par l’hébergeur au déploiement ; `null` si inconnue (jamais inventée). */
 const APPLICATION_VERSION = process.env.APP_VERSION?.trim() || null;
+
+/**
+ * Identité de l’acteur, pour le journal des écritures.
+ *
+ * Elle vient de la session RÉSOLUE par le serveur, jamais de la requête : un
+ * appelant ne peut donc pas signer une ligne de journal à la place d’un autre.
+ *
+ * `systemProcedure` garantit déjà la présence d’un compte — ce refus n’existe
+ * que pour que le type le dise, et pour qu’une évolution du garde ne se traduise
+ * pas par une ligne d’audit signée « acteur inconnu ». Un journal qui ne sait
+ * plus qui a agi ne sert plus à rien.
+ */
+function consoleActor(ctx: TrpcContext): ConsoleActor {
+  const user = ctx.user;
+  if (!user) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Session absente." });
+  }
+  return {
+    id: user.id,
+    name: user.name ?? null,
+    email: user.email ?? user.openId ?? null,
+    role: user.role,
+    tenantId: ctx.tenantId ?? null,
+  };
+}
 
 export const systemRouter = router({
   // Sans input obligatoire : le moniteur VPS / curl GET doit pouvoir
@@ -104,6 +141,117 @@ export const systemRouter = router({
    * Aucun secret, aucun jeton : voir `server/systemAccess.ts`.
    */
   access: systemProcedure.query(async ({ ctx }) => collectSystemAccess({ tenantId: ctx.tenantId ?? undefined })),
+
+  /**
+   * ÉCRITURE SUR LES COMPTES — l’écran « Accès & comptes » cesse d’être une
+   * simple revue et devient agissant (Phase 3, module 4, étape C).
+   *
+   * CINQ PROCÉDURES, TOUTES SOUS `systemProcedure` : rôle `systeme` ET double
+   * authentification active. Le contrôle est donc serveur, à chaque appel —
+   * l’interface ne fait que refléter une décision déjà prise ici, et un compte
+   * `admin`, `directeur`, `cadre` ou `client` reçoit un 403 sur chacune.
+   *
+   * AUCUNE RÈGLE N’EST ÉCRITE DANS CE FICHIER : les procédures traduisent une
+   * entrée typée et délèguent à `server/systemAccounts.ts`, qui réutilise
+   * `db.*`, `accountGuardrails.*` et `invitationIssue.*`. Ce découpage est
+   * délibéré — la même règle doit valoir pour les deux écrans qui administrent
+   * les comptes, et deux implémentations d’un garde-fou finissent par diverger.
+   *
+   * LA JOURNALISATION N’EST PAS ICI NON PLUS : `systemAccounts` écrit une ligne
+   * par écriture, succès comme refus (voir `server/systemAccessLog.ts`). Une
+   * écriture ne peut pas être ajoutée sans sa ligne, puisque c’est le même appel
+   * qui exécute et qui journalise.
+   *
+   * PÉRIMÈTRE VOLONTAIREMENT LARGE : l’administrateur système gère TOUS les
+   * comptes, métier comme système (cahier des charges § 5). Le découpage par
+   * domaine de `users.*` (un `admin` administre le métier, un `systeme` le
+   * système) est celui du back-office ; il ne s’applique pas ici. Seule
+   * exception, assumée : un compte portail `client` ne se crée ni ne s’invite
+   * depuis la console — c’est la fiche client qui sait le faire.
+   */
+  accounts: router({
+    create: systemProcedure
+      .input(
+        z.object({
+          email: z.string().email().max(320),
+          name: z.string().trim().min(2).max(180).optional(),
+          password: z.string().min(8).max(128),
+          // `APP_ROLES` plutôt que `STAFF_ASSIGNABLE_ROLES` : le schéma accepte
+          // `client` et le module le refuse avec un message EN FRANÇAIS qui dit
+          // pourquoi. C’est exactement le choix de `users.create` — un refus
+          // d’énumération rendu par tRPC serait un message technique anglais, là
+          // où l’administrateur a besoin d’une raison.
+          role: z.enum(APP_ROLES),
+        }),
+      )
+      .mutation(async ({ ctx, input }) =>
+        createConsoleAccount({
+          actor: consoleActor(ctx),
+          email: input.email,
+          name: input.name ?? null,
+          password: input.password,
+          role: input.role,
+        }),
+      ),
+
+    rename: systemProcedure
+      .input(z.object({ userId: z.number().int().positive(), name: z.string().trim().max(180) }))
+      .mutation(async ({ ctx, input }) =>
+        renameConsoleAccount({ actor: consoleActor(ctx), userId: input.userId, name: input.name }),
+      ),
+
+    setRole: systemProcedure
+      .input(z.object({ userId: z.number().int().positive(), role: z.enum(STAFF_ASSIGNABLE_ROLES) }))
+      .mutation(async ({ ctx, input }) =>
+        setConsoleAccountRole({ actor: consoleActor(ctx), userId: input.userId, role: input.role }),
+      ),
+
+    /**
+     * Réinitialise un mot de passe et rend le mot de passe temporaire UNE FOIS.
+     * Il n’est ni journalisé, ni relisible : si l’administrateur le perd avant
+     * de l’avoir transmis, il doit en tirer un autre.
+     */
+    resetPassword: systemProcedure
+      .input(z.object({ userId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => resetConsoleAccountPassword({ actor: consoleActor(ctx), userId: input.userId })),
+
+    remove: systemProcedure
+      .input(z.object({ userId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => removeConsoleAccount({ actor: consoleActor(ctx), userId: input.userId })),
+  }),
+
+  invitations: router({
+    /**
+     * Invitations en attente, avec leur identifiant — c’est ce qui rend le
+     * renvoi et la révocation possibles depuis la console. Ni jeton, ni
+     * empreinte : la projection vient de `db.listPendingInvitations()`.
+     *
+     * Lecture : elle ne journalise rien (le journal des écritures ne recense que
+     * les actes).
+     */
+    list: systemProcedure.query(() => listConsoleInvitations()),
+
+    issue: systemProcedure
+      .input(
+        z.object({
+          email: z.string().email().max(320),
+          // Même choix que pour `create` : le schéma accepte `client`, le module
+          // le refuse en français, avec la raison.
+          role: z.enum(APP_ROLES),
+        }),
+      )
+      .mutation(async ({ ctx, input }) =>
+        issueConsoleInvitation({ actor: consoleActor(ctx), email: input.email, role: input.role, req: ctx.req }),
+      ),
+
+    resend: systemProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => resendConsoleInvitation({ actor: consoleActor(ctx), id: input.id, req: ctx.req })),
+
+    revoke: systemProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => revokeConsoleInvitation({ actor: consoleActor(ctx), id: input.id })),
+  }),
 
   /**
    * Sessions révocables (Phase 3 « Protéger », étape B1 — module 4).
