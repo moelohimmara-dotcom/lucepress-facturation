@@ -9,14 +9,16 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 /**
- * Console d’exploitation — Phase 1 (socle).
- * Coquille : rail des modules à venir (Phases 2 à 5) + page d’accueil
+ * Console d’exploitation — Phase 1 (socle) et Phase 2 (module 1).
+ * Coquille : rail des modules (Phases 2 à 5) + page d’accueil
  * « Tableau de bord système » alimentée par `/api/health` et `system.overview`.
  * Lecture seule : la console n’écrit jamais dans les données commerciales.
  */
 export default function SystemConsolePage() {
+  const [, setLocation] = useLocation();
   const [health, setHealth] = useState<ConsoleHealth | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [isLoadingHealth, setIsLoadingHealth] = useState(true);
@@ -68,7 +70,7 @@ export default function SystemConsolePage() {
         />
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
-          <ConsoleModuleRail />
+          <ConsoleModuleRail activePath="/console" onNavigate={path => setLocation(path)} />
           <SystemDashboard
             health={health}
             healthError={healthError}
@@ -77,6 +79,7 @@ export default function SystemConsolePage() {
             isLoadingOverview={overview.isLoading}
             overviewFailed={Boolean(overview.error)}
             now={now}
+            onNavigate={path => setLocation(path)}
           />
         </div>
       </div>

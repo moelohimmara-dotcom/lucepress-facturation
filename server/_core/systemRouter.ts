@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { pingDatabase } from "../db";
+import { collectSystemMetrics } from "../systemMetrics";
 import { buildHealthPayload } from "./health";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router, systemProcedure } from "./trpc";
@@ -33,6 +34,14 @@ export const systemRouter = router({
       health: buildHealthPayload({ dbOk }),
     };
   }),
+
+  /**
+   * Mesures détaillées de supervision (Phase 2 — module 2 « Santé & supervision »).
+   * Lecture seule : comptages, tailles (`pg_catalog`), suivi des migrations.
+   * Une mesure illisible vaut `null` et est listée dans `unavailable` — la
+   * procédure ne remonte ni exception, ni message d’erreur, ni secret.
+   */
+  metrics: systemProcedure.query(async () => collectSystemMetrics()),
 
   llmModels: adminProcedure.query(async () => {
     try {

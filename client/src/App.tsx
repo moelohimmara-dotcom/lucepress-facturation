@@ -42,6 +42,7 @@ const LoginPage = lazy(() => import("./pages/LoginPage"));
 const GuestDocumentPage = lazy(() => import("./pages/GuestDocumentPage"));
 // Console d’exploitation : bundle séparé, jamais chargé pour les autres rôles.
 const SystemConsolePage = lazy(() => import("./pages/SystemConsolePage"));
+const SystemSupervisionPage = lazy(() => import("./pages/SystemSupervisionPage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
 const GuestLazyFallback = () => (
@@ -93,6 +94,7 @@ function withSystemGate<P extends object>(Page: ComponentType<P>, title: string)
 }
 
 const SystemConsoleRoute = withSystemGate(SystemConsolePage, "Console d’exploitation");
+const SystemSupervisionRoute = withSystemGate(SystemSupervisionPage, "Santé & supervision");
 
 function Router() {
   return (
@@ -134,6 +136,7 @@ function Router() {
             <Route path={"/reset-password"} component={ResetPasswordPage} />
             <Route path={"/relances"} component={RemindersPage} />
             <Route path={"/journal-audit"} component={DirectionStaffAuditPage} />
+            <Route path={"/console/sante"} component={SystemSupervisionRoute} />
             <Route path={"/console"} component={SystemConsoleRoute} />
             <Route path={"/login"} component={LoginPage} />
             <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />

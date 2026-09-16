@@ -100,6 +100,7 @@ const navigationGroups = [
   // Visible pour les rôles `systeme` et `admin` uniquement (voir canAccessPath).
   { label: "Exploitation", items: [
     { icon: SquareTerminal, label: "Console d’exploitation", path: "/console" },
+    { icon: ShieldCheck, label: "Santé & supervision", path: "/console/sante" },
   ] },
 ];
 
