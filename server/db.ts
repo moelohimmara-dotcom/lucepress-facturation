@@ -246,6 +246,24 @@ export async function setUserRole(userId: number, role: PersistedAppRole): Promi
 }
 
 /**
+ * Change le NOM affiché d’un compte, et rien d’autre.
+ *
+ * Le nom est une donnée d’identification, pas une donnée d’habilitation : cette
+ * fonction ne touche ni au rôle, ni au mot de passe, ni à l’e-mail — l’e-mail
+ * étant la clé de connexion, le modifier changerait l’identité du compte, ce
+ * qu’aucun écran ne propose aujourd’hui.
+ *
+ * Un nom vide est écrit `null` plutôt qu’une chaîne vide : la colonne admet les
+ * deux, mais l’affichage de secours (« e-mail, sinon Compte #id ») ne se
+ * déclenche que sur une valeur réellement absente.
+ */
+export async function setUserName(userId: number, name: string | null): Promise<void> {
+  const db = await requireDb();
+  const propre = typeof name === "string" && name.trim().length > 0 ? name.trim() : null;
+  await db.update(users).set({ name: propre }).where(and(eq(users.id, userId), eq(users.tenantId, currentTenant())));
+}
+
+/**
  * Réinitialise le mot de passe d'un compte sans connaître l'ancien.
  * Utilisé par un admin qui aide un collaborateur bloqué. Le nouveau mot de passe
  * est fourni déjà haché par l'appelant (scrypt, cf. `_core/password`).
@@ -391,6 +409,37 @@ export async function revokeInvitation(id: number): Promise<void> {
 export async function listInvitations(): Promise<(typeof invitations.$inferSelect)[]> {
   const db = await requireDb();
   return db.select().from(invitations).where(eq(invitations.tenantId, currentTenant())).orderBy(desc(invitations.createdAt));
+}
+
+/**
+ * Invitations EN ATTENTE de l’instance, projetées SANS leur jeton.
+ *
+ * `listInvitations()` rend la ligne entière, `tokenHash` compris : c’est ce
+ * qu’il faut au back-office, qui doit pouvoir renvoyer une invitation. La
+ * console d’exploitation, elle, n’a besoin que de savoir CE QUI est en attente
+ * pour proposer de renvoyer ou de révoquer — elle n’a aucune raison de
+ * transporter une empreinte de jeton dans une réponse d’API, un cache navigateur
+ * ou un journal.
+ *
+ * La projection est donc écrite à la main, colonne par colonne : une empreinte
+ * ne peut pas s’y glisser par inadvertance, contrairement à un `select *`. C’est
+ * la même règle que `server/systemAccess.ts` pour `passwordHash`.
+ */
+export async function listPendingInvitations(): Promise<
+  Array<{ id: number; email: string; role: AppRole; expiresAt: Date; createdAt: Date }>
+> {
+  const db = await requireDb();
+  return db
+    .select({
+      id: invitations.id,
+      email: invitations.email,
+      role: invitations.role,
+      expiresAt: invitations.expiresAt,
+      createdAt: invitations.createdAt,
+    })
+    .from(invitations)
+    .where(and(eq(invitations.tenantId, currentTenant()), eq(invitations.status, "pending")))
+    .orderBy(desc(invitations.createdAt));
 }
 
 export async function deleteInvitation(id: number): Promise<void> {

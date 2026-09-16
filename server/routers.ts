@@ -6,6 +6,7 @@ import { SERVICE_CATEGORIES } from "../shared/defaultServices";
 import { validateQuotePaymentSchedule } from "../shared/paymentSchedule";
 import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { getRequestOrigin, issueInvitation } from "./invitationIssue";
 import { invokeLLM, invokeLLMWithFallback, listLLMModels, pickLLMModelCandidates } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, directionProcedure, protectedProcedure, publicProcedure, router, staffProcedure, usersProcedure } from "./_core/trpc";
@@ -76,18 +77,6 @@ function mfaError(reason: MfaRefusalReason): TRPCError {
   return new TRPCError({ code, message: MFA_REFUSAL_MESSAGES[reason] });
 }
 
-/** Reconstruit l'origine publique (https://...) pour les liens e-mail. */
-function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
-  const configured = process.env.APP_PUBLIC_URL?.trim().replace(/\/$/, "");
-  if (configured) return configured;
-  const proto = req.get?.("x-forwarded-proto") || req.protocol || "https";
-  const host = req.get?.("x-forwarded-host") || req.get?.("host");
-  if (!host || host.includes("localhost") || host.startsWith("127.")) {
-    return "https://lucepress.213.156.135.139.sslip.io";
-  }
-  return `${proto}://${host}`;
-}
-
 const reminderEmailInputSchema = z.object({
   documentId: z.number().int().positive(),
   subject: z.string().trim().min(3).max(255),
@@ -128,78 +117,6 @@ async function dispatchReminderEmail(input: z.infer<typeof reminderEmailInputSch
     createdById: actorId,
   });
   return { success: true as const, emailed: true as const, to, documentId: document.id };
-}
-
-async function issueInvitation(opts: {
-  email: string;
-  /** Seuls les rôles portés par l’énumération `invitations.role` sont invitable. */
-  role: PersistedAppRole;
-  invitedById: number;
-  invitedByName: string | null;
-  tenantId: number;
-  req: { protocol?: string; get?: (name: string) => string | undefined };
-}) {
-  const existant = await db.getUserByEmail(opts.email);
-  if (existant) {
-    throw new TRPCError({ code: "CONFLICT", message: "Un compte existe déjà avec cet e-mail." });
-  }
-  const enAttente = await db.listInvitations();
-  for (const inv of enAttente) {
-    if (inv.email === opts.email && inv.status === "pending") {
-      await db.revokeInvitation(inv.id);
-    }
-  }
-  const { createInvitationToken, hashInvitationToken } = await import("../shared/invitationToken");
-  const token = createInvitationToken();
-  const tokenHash = hashInvitationToken(token);
-  await db.createInvitation({
-    tokenHash,
-    email: opts.email,
-    role: opts.role,
-    invitedBy: opts.invitedById,
-    tenantId: opts.tenantId,
-  });
-  const origin = getRequestOrigin(opts.req);
-  const inviteLink = `${origin}/invitation?token=${token}`;
-  let emailed = false;
-  let emailError: string | undefined;
-  if (!isMailConfigured()) {
-    emailError = "SMTP non configuré.";
-  } else {
-    try {
-      const rendered = await db.renderEmailTemplate("invitation", {
-        inviterName: opts.invitedByName ?? "Lucepres",
-        inviteLink,
-        organization: LUCEPRES_PUBLIC_PROFILE.legalName,
-        expiresAt: new Date(Date.now() + db.INVITATION_TTL_MS).toLocaleString("fr-FR"),
-      });
-      await sendMail({
-        to: opts.email,
-        bcc: (() => {
-          const smtpUser = getSmtpUser();
-          if (!smtpUser) return undefined;
-          if (smtpUser.toLowerCase() === opts.email.trim().toLowerCase()) return undefined;
-          return smtpUser;
-        })(),
-        subject: rendered?.subject ?? `Invitation à rejoindre ${LUCEPRES_PUBLIC_PROFILE.legalName}`,
-        html: rendered?.html ?? "",
-        text: rendered?.text ?? `${opts.invitedByName ?? "Lucepres"} vous invite à rejoindre Lucepress.\n\nAccepter l'invitation : ${inviteLink}\n\nCe lien expirera dans 72 heures.`,
-      });
-      emailed = true;
-    } catch (err) {
-      emailError = err instanceof Error ? err.message : "Échec d'envoi d'e-mail";
-      console.error("[invite] Échec d'envoi d'e-mail:", err);
-    }
-  }
-  return {
-    success: true as const,
-    invitationLink: inviteLink,
-    email: opts.email,
-    role: opts.role,
-    emailed,
-    emailError,
-    smtpConfigured: isMailConfigured(),
-  };
 }
 
 const optionalText = z.string().trim().max(2000).optional();

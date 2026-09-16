@@ -69,6 +69,105 @@ export type ConsoleAttemptEvent = {
   tenantId?: number | null;
 };
 
+/* ------------------------------------------------------------------ */
+/* JOURNAL DES ÉCRITURES DE LA CONSOLE                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * JOURNAL DES ÉCRITURES — le pendant « actes » du journal des tentatives.
+ *
+ * Les deux journaux répondent à deux questions différentes et ne se remplacent
+ * pas :
+ *   - le journal des TENTATIVES (ci-dessus) dit qui a essayé d’ENTRER ;
+ *   - celui-ci dit qui a MODIFIÉ quoi, et avec quel résultat.
+ *
+ * TROIS DIFFÉRENCES ASSUMÉES AVEC LE JOURNAL DES TENTATIVES
+ * --------------------------------------------------------
+ * 1. AUCUNE DÉDUPLICATION. Une tentative ratée vingt-cinq fois en boucle n’est
+ *    qu’une tentative ; une écriture réussie est un FAIT, et deux écritures
+ *    identiques sont deux faits. Dédupliquer ici reviendrait à supprimer des
+ *    preuves. Un test le vérifie explicitement.
+ * 2. LES RÉSULTATS SONT FERMÉS : `ok`, `refuse` ou `echec`.
+ *    On journalise AUSSI les refus (garde-fou, rôle, MFA) : c’est précisément la
+ *    ligne qui manque quand on cherche à comprendre une tentative de
+ *    modification des comptes.
+ * 3. AUCUN SECRET, PAR CONSTRUCTION. Le type `ConsoleActionEvent` n’a pas de
+ *    champ mot de passe, et n’en aura pas : un mot de passe temporaire affiché
+ *    une seule fois à l’écran ne doit exister ni dans un journal, ni dans un
+ *    fichier, ni dans une sortie console. La forme de l’événement rend la fuite
+ *    impossible sans modifier ce fichier — ce qu’un test relit.
+ */
+export type ConsoleActionOutcome =
+  /** L’écriture a été enregistrée. */
+  | "ok"
+  /** Un garde-fou a refusé le geste (rôle, domaine, dernier compte système…). */
+  | "refuse"
+  /** La base ou l’envoi d’e-mail n’a pas abouti : rien n’a été modifié. */
+  | "echec";
+
+/** Verbe de l’écriture. Vocabulaire FERMÉ, stable, sans accent. */
+export type ConsoleActionName =
+  | "compte.creation"
+  | "compte.nom"
+  | "compte.role"
+  | "compte.mot-de-passe"
+  | "compte.suppression"
+  | "invitation.creation"
+  | "invitation.renvoi"
+  | "invitation.revocation";
+
+export type ConsoleActionEvent = {
+  action: ConsoleActionName;
+  outcome: ConsoleActionOutcome;
+  /**
+   * Compte ou invitation VISÉS, sous forme technique et stable (`compte#12`,
+   * `invitation#7`). Jamais un mot de passe, jamais un jeton, jamais un contenu
+   * de requête. Un compte visé peut avoir été supprimé depuis : l’identifiant
+   * reste la seule clé qui permette de recouper la ligne avec les autres.
+   */
+  target: string;
+  /** Rôle porté par l’acteur, tel quel. */
+  role?: string | null;
+  actor?: string | null;
+  actorId?: number | null;
+  tenantId?: number | null;
+};
+
+export type ConsoleActionLogDeps = {
+  /** Destination de la ligne. Par défaut : `console.info`. */
+  sink?: (line: string) => void;
+};
+
+/** Ligne lisible, sans données sensibles. Fonction PURE, donc testable telle quelle. */
+export function formatConsoleAction(event: ConsoleActionEvent): string {
+  const actor = event.actor && event.actor.trim().length > 0 ? event.actor.trim() : "anonyme";
+  const actorId = event.actorId === null || event.actorId === undefined ? "?" : String(event.actorId);
+  const role = event.role && event.role.trim().length > 0 ? event.role.trim() : "aucun";
+  const tenant = event.tenantId === null || event.tenantId === undefined ? "?" : String(event.tenantId);
+  return (
+    `[console] écriture — action=${event.action} resultat=${event.outcome} cible=${event.target}` +
+    ` acteur=${actor}(id ${actorId}) role=${role} tenant=${tenant}`
+  );
+}
+
+/**
+ * Écrit la ligne d’une écriture de console. Ne lève jamais.
+ *
+ * La ligne est écrite APRÈS le geste, avec le RÉSULTAT RÉEL — y compris quand le
+ * geste a été refusé par un garde-fou ou n’a pas abouti. Elle ne prétend donc
+ * jamais qu’une modification a eu lieu quand rien n’a été modifié : c’est le
+ * champ `resultat` qui porte cette distinction, et un test vérifie les trois
+ * valeurs possibles.
+ */
+export function logConsoleAction(event: ConsoleActionEvent, deps: ConsoleActionLogDeps = {}): void {
+  try {
+    const sink = deps.sink ?? ((line: string) => console.info(line));
+    sink(formatConsoleAction(event));
+  } catch {
+    // Un journal ne fait jamais échouer une requête.
+  }
+}
+
 export type ConsoleAttemptLogDeps = {
   /** Destination de la ligne. Par défaut : `console.warn`. */
   sink?: (line: string) => void;
