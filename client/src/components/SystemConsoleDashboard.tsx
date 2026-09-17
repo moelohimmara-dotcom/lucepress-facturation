@@ -1,6 +1,7 @@
 import { Metric } from "@/components/Metric";
 import {
   Activity,
+  Briefcase,
   Cable,
   CircleCheck,
   Clock,
@@ -93,6 +94,13 @@ export const CONSOLE_MODULES: ConsoleModule[] = [
     icon: UsersRound,
     path: "/console/permissions",
     summary: "Matrice de référence capacités × rôles, en lecture seule.",
+    phase: "Phase 3",
+  },
+  {
+    label: "Données & métier",
+    icon: Briefcase,
+    path: "/console/metier",
+    summary: "Hub vers les écrans métier : documents, clients, chantiers, créances…",
     phase: "Phase 3",
   },
   { label: "Environnement", icon: FolderCog, phase: "Phase 4" },

@@ -47,20 +47,19 @@ export const DIRECTION_ONLY_PATHS = ["/journal-audit"] as const;
  *
  * HABILITATION DURCIE : `systeme` seul. L’accès partagé avec `admin` (Phases 1
  * → 3B1) était un compromis d’essai ; il est retiré. Les sous-routes
- * (`/console/sante`, `/console/base`, …) sont couvertes par le préfixe, y
+ * (`/console/sante`, `/console/metier`, …) sont couvertes par le préfixe, y
  * compris celles qui n’existent pas encore — un chemin inconnu sous `/console`
  * n’ouvre donc aucune porte dérobée.
+ *
+ * Ce n’est PAS la liste des écrans ouverts au rôle système : depuis que
+ * l’administrateur système est un super-administrateur, il ouvre toute
+ * l’application (voir `canAccessPath`). Cette constante délimite la console —
+ * l’espace que LUI SEUL peut ouvrir, et qui reste fermé à tous les autres.
  */
 export const SYSTEM_ONLY_PATHS = ["/console"] as const;
 
 /** Seules routes d’un compte portail client. */
 export const CLIENT_PATHS = ["/portail-client", "/compte/mot-de-passe"] as const;
-
-/**
- * Seules routes d’un compte d’administration système : la console, la page de
- * mot de passe et la 404. Séparation des devoirs — aucun écran métier.
- */
-export const SYSTEM_PATHS = [...SYSTEM_ONLY_PATHS, "/compte/mot-de-passe", "/404"] as const;
 
 function matchesPath(candidates: readonly string[], path: string): boolean {
   return candidates.some(candidate => path === candidate || path.startsWith(`${candidate}/`));
@@ -82,12 +81,19 @@ function matchesPath(candidates: readonly string[], path: string): boolean {
 const GUARD_ROLES = {
   /** Toute session authentifiée, portail client compris. */
   protectedProcedure: ["admin", "directeur", "cadre", "systeme", "client"],
-  /** Gestion des comptes, des modèles, des intégrations. */
-  adminProcedure: ["admin"],
+  /**
+   * Administration MÉTIER : comptes collaborateurs, modèles, intégrations.
+   *
+   * Le rôle `systeme` y figure depuis que l’administrateur système est un
+   * super-administrateur : il ouvre toute l’application. Ce qui ne change pas,
+   * c’est le DOMAINE de chaque rôle dans les mutations de comptes (voir
+   * `usersProcedure`) : un `admin` ne peut pas fabriquer de compte `systeme`.
+   */
+  adminProcedure: ["admin", "systeme"],
   /** Pilotage et conformité, sans gestion des comptes. */
-  directionProcedure: ["admin", "directeur"],
+  directionProcedure: ["admin", "directeur", "systeme"],
   /** Équipe commerciale : les données métier. */
-  staffProcedure: ["admin", "directeur", "cadre"],
+  staffProcedure: ["admin", "directeur", "cadre", "systeme"],
   /**
    * Gestion des comptes — DEUX rôles, mais deux DOMAINES distincts.
    *
@@ -153,8 +159,10 @@ export type Habilitation = {
  * `guards[0]` est la procédure réellement lue par l’écran correspondant.
  *
  * QUI PEUT QUOI, EN CLAIR
- * - `systeme` — et lui seul — porte les cinq habilitations `/console…` :
- *   la console est un espace privilégié, séparé du commerce.
+ * - `systeme` — SUPER-ADMINISTRATEUR : il ouvre toute l’application, écrans
+ *   métier compris, ET les cinq habilitations `/console…` que lui seul porte.
+ *   La console reste son espace privé ; elle n’est qu’un point d’entrée vers
+ *   les écrans métier, qui restent la référence (voir `/console/metier`).
  * - `admin` — administration MÉTIER : comptes collaborateurs, modèles,
  *   intégrations, agent IA, journal d’audit. Aucune habilitation de console.
  * - `directeur` — pilotage et conformité (journal d’audit), sans les comptes.
@@ -195,6 +203,13 @@ export const HABILITATIONS: readonly Habilitation[] = [
     label: "Rôles & permissions",
     detail: "La présente matrice, en lecture seule.",
     path: "/console/permissions",
+    guards: ["systemProcedure"],
+  },
+  {
+    key: "console.metier",
+    label: "Données & métier",
+    detail: "Hub vers les écrans métier, qui restent la référence des écritures.",
+    path: "/console/metier",
     guards: ["systemProcedure"],
   },
   {
@@ -339,8 +354,15 @@ export function findPermissionCapability(key: string): Habilitation | undefined 
  *
  * Défaut sûr : tout rôle absent du vocabulaire, non authentifié, ou absent de la
  * matrice est refusé. Les règles résiduelles (hors matrice) ferment le reste :
- * un compte portail est cloisonné, un compte système ne circule que dans la
- * console, un compte métier n’entre pas dans les écrans d’administration.
+ * un compte portail est cloisonné, un compte métier n’entre pas dans les écrans
+ * d’administration.
+ *
+ * L’ADMINISTRATEUR SYSTÈME EST UN SUPER-ADMINISTRATEUR : il ouvre TOUS les
+ * chemins de l’application, métier compris, en plus de la console. La console
+ * n’est pas un couloir : c’est un point d’entrée. Sa particularité n’est donc
+ * plus ce qu’il peut ouvrir, mais ce que LUI SEUL peut ouvrir — les habilitations
+ * `/console…`, portées par `systemProcedure` (voir `SYSTEM_ONLY_PATHS`) — et ce
+ * que les autres ne peuvent pas lui prendre (voir `assertAccountHabilitation`).
  */
 export function canAccessPath(role: AppRole | string | undefined, path: string): boolean {
   if (!role || !isAppRole(role)) return false;
@@ -349,8 +371,8 @@ export function canAccessPath(role: AppRole | string | undefined, path: string):
   // Espaces de noms déclarés par la matrice : le plus spécifique gagne.
   const habilitation = findHabilitationForPath(path);
   if (habilitation) return habilitationRoles(habilitation).includes(role);
-  // Hors matrice : règles résiduelles.
-  if (isSystemRole(role)) return matchesPath(SYSTEM_PATHS, path);
+  // Hors matrice : règles résiduelles. Le rôle système ouvre tout le reste.
+  if (isSystemRole(role)) return true;
   if (role === "admin") return true;
   if (matchesPath(DIRECTION_ONLY_PATHS, path)) {
     return isDirectionRole(role);
@@ -360,20 +382,27 @@ export function canAccessPath(role: AppRole | string | undefined, path: string):
 
 /**
  * Équipe commerciale — accès aux données métier.
- * L’administrateur système (`systeme`) en est volontairement exclu : la console
- * observe le système, elle ne manipule pas le commerce (séparation des devoirs).
+ *
+ * Le rôle `systeme` en fait partie : super-administrateur, il ouvre les écrans
+ * métier comme l’équipe. Le prédicat reste le miroir exact de `staffProcedure`
+ * (`server/_core/trpc.ts`), qui l’accepte désormais lui aussi — sans quoi les
+ * écrans s’ouvriraient sur des procédures qui répondraient 403.
  */
 export function isStaffRole(role: AppRole | string | undefined): boolean {
-  return role === "admin" || role === "directeur" || role === "cadre";
+  return role === "admin" || role === "directeur" || role === "cadre" || isSystemRole(role);
 }
 
-/** Admin ou directeur — pilotage (réattribution, rapports), pas la gestion des comptes. */
+/**
+ * Admin ou directeur — pilotage (réattribution, rapports), pas la gestion des comptes.
+ * Miroir de `directionProcedure`, qui accepte désormais `systeme` comme les deux autres.
+ */
 export function isDirectionRole(role: AppRole | string | undefined): boolean {
-  return role === "admin" || role === "directeur";
+  return role === "admin" || role === "directeur" || isSystemRole(role);
 }
 
+/** Miroir de `adminProcedure`, qui accepte désormais `systeme` comme l’admin. */
 export function isAdminRole(role: AppRole | string | undefined): boolean {
-  return role === "admin";
+  return role === "admin" || isSystemRole(role);
 }
 
 export function isClientRole(role: AppRole | string | undefined): boolean {
@@ -390,8 +419,11 @@ export function isSystemRole(role: AppRole | string | undefined): boolean {
  *
  * Dérivée de `canAccessPath` sur l’espace de noms `/console` — la garde d’écran
  * (`SystemGate`), la navigation latérale et la matrice de référence ne peuvent
- * donc pas diverger. `admin` n’a plus cette habilitation : il lui reste tout le
- * back-office métier.
+ * donc pas diverger. `admin` n’a pas cette habilitation : il lui reste tout le
+ * back-office métier, que l’administrateur système ouvre désormais lui aussi.
+ *
+ * Être super-administrateur ne change rien ici : la console reste l’espace que
+ * `systeme` SEUL peut ouvrir, et ce prédicat est ce qui le garantit.
  */
 export function hasSystemAccess(role: AppRole | string | undefined): boolean {
   return canAccessPath(role, SYSTEM_ONLY_PATHS[0]);

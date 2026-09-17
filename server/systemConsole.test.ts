@@ -17,7 +17,6 @@ import {
   STAFF_ASSIGNABLE_ROLES,
   STAFF_ROLES,
   SYSTEM_ONLY_PATHS,
-  SYSTEM_PATHS,
   canAccessPath,
   hasSystemAccess,
   isAdminRole,
@@ -96,7 +95,16 @@ describe("Console d’exploitation — rôle systeme", () => {
 
   it("réserve /console au seul rôle système", () => {
     expect(SYSTEM_ONLY_PATHS).toEqual(["/console"]);
-    expect(SYSTEM_PATHS).toContain("/console");
+    // RETOURNÉ — `SYSTEM_PATHS` (« tout ce qu’ouvre le rôle système ») est
+    // supprimée : le rôle étant super-administrateur, la liste de ses écrans
+    // serait l’application entière, et elle deviendrait fausse au premier écran
+    // ajouté. Ce qui reste délimité, c’est l’inverse et c’est le seul fait qui
+    // compte : ce que LUI SEUL ouvre. `SYSTEM_ONLY_PATHS` porte cette frontière,
+    // et `canAccessPath` la fait respecter — vérifié ci-dessous plutôt que
+    // recopié.
+    expect(hasSystemAccess("systeme")).toBe(true);
+    expect(canAccessPath("systeme", SYSTEM_ONLY_PATHS[0])).toBe(true);
+    expect(hasSystemAccess("admin")).toBe(false);
 
     expect(canAccessPath("systeme", "/console")).toBe(true);
     expect(canAccessPath("systeme", "/console/sante")).toBe(true);
@@ -115,7 +123,11 @@ describe("Console d’exploitation — rôle systeme", () => {
     expect(canAccessPath("guest", "/console")).toBe(false);
   });
 
-  it("refuse au rôle système les écrans d’administration du métier", () => {
+  it("ouvre au rôle système les écrans d’administration du métier", () => {
+    // RETOURNÉ — ces huit écrans étaient FERMÉS au rôle système, qui n’était pas
+    // super-administrateur. Ils lui sont désormais ouverts, exactement comme à
+    // l’admin : le contrôle porte donc aussi sur la parité des deux rôles sur
+    // ces chemins, pour qu’aucun des deux ne dérive.
     for (const path of [
       "/integrations",
       "/parametres/utilisateurs",
@@ -126,17 +138,28 @@ describe("Console d’exploitation — rôle systeme", () => {
       "/agent-ia/audit",
       "/agent-ia/e-mails-test",
     ]) {
-      expect(canAccessPath("systeme", path)).toBe(false);
+      expect({ path, systeme: canAccessPath("systeme", path) }).toEqual({ path, systeme: true });
+      expect({ path, admin: canAccessPath("admin", path) }).toEqual({ path, admin: true });
     }
   });
 
-  it("cantonne le rôle système à la console, au mot de passe et à la 404", () => {
+  it("ouvre au rôle système TOUTE l’application, la console restant sienne", () => {
+    // RETOURNÉ — le rôle système était cantonné à la console, au mot de passe et
+    // à la 404. Super-administrateur, il ouvre désormais chaque chemin de
+    // l’application : la seule chose qui ne s’ouvre pas à lui est… rien. Ce qui
+    // reste borné est l’inverse — `/console` ne s’ouvre qu’à lui.
     expect(canAccessPath("systeme", "/compte/mot-de-passe")).toBe(true);
     expect(canAccessPath("systeme", "/404")).toBe(true);
 
     for (const path of ["/", "/devis", "/factures", "/clients", "/parametres", "/journal-audit", "/portail-client", "/creances"]) {
-      expect(canAccessPath("systeme", path)).toBe(false);
+      expect({ path, droit: canAccessPath("systeme", path) }).toEqual({ path, droit: true });
     }
+    // `/portail-client` mérite d’être nommé : le cloisonnement par `CLIENT_PATHS`
+    // ne vise que le rôle `client`, jamais le super-administrateur. Aucun compte
+    // portail pour autant : la porte ouverte est celle de l’ÉCRAN, et le portail
+    // ne rend que les données du compte connecté.
+    expect(canAccessPath("client", "/portail-client")).toBe(true);
+    expect(canAccessPath("client", "/devis")).toBe(false);
   });
 
   it("ne change rien pour les rôles existants, hors console", () => {
@@ -222,12 +245,17 @@ describe("Console d’exploitation — rôle systeme", () => {
     }
   });
 
-  it("ne rouvre aucun accès métier au rôle système", () => {
-    // Séparation des devoirs : ces prédicats commandent `staffProcedure`,
-    // `directionProcedure` et les gardes UI métier — `systeme` doit en rester exclu.
-    expect(isStaffRole("systeme")).toBe(false);
-    expect(isDirectionRole("systeme")).toBe(false);
-    expect(isAdminRole("systeme")).toBe(false);
+  it("compte le rôle système dans les prédicats métier, comme les gardes serveur", () => {
+    // RETOURNÉ — ces prédicats excluaient `systeme` (« séparation des devoirs »).
+    // Le rôle étant super-administrateur, ils doivent lui rendre `true` : ils
+    // commandent les gardes UI métier (`staffProcedure`, `directionProcedure`) et
+    // un prédicat qui répondrait `false` fermerait à l’écran ce que le serveur
+    // ouvre — l’écran s’afficherait sur des procédures qui répondent 403.
+    expect(isStaffRole("systeme")).toBe(true);
+    expect(isDirectionRole("systeme")).toBe(true);
+    expect(isAdminRole("systeme")).toBe(true);
+    // Le seul prédicat qui reste fermé : le portail client. Un compte système
+    // n’est pas un compte portail.
     expect(isClientRole("systeme")).toBe(false);
     // Non-régression : les rôles existants ne changent pas de nature.
     expect(isStaffRole("admin")).toBe(true);
@@ -322,6 +350,137 @@ describe("system.overview — contrôle serveur de la console", () => {
   });
 });
 
+/* ------------------------------------------------------------------ */
+/* ÉTANCHÉITÉ — la contrepartie de l’ouverture                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Le rôle système a gagné des droits : c’est la moitié de la livraison. L’autre
+ * moitié, celle qui décide si le changement est sûr, est ce que les AUTRES rôles
+ * n’ont PAS gagné. Ces tests la mesurent, plutôt que de la supposer.
+ *
+ * Aucune base n’est sollicitée : le garde de rôle s’exécute AVANT le corps de la
+ * procédure, donc avant toute lecture. C’est précisément ce qu’on veut prouver —
+ * un refus qui dépendrait de la base ne serait pas un refus.
+ */
+describe("Étanchéité — ce que les autres rôles n’ont pas gagné", () => {
+  /**
+   * LES PROCÉDURES DE CONSOLE, RECENSÉES DANS LE ROUTEUR ET NON RECOPIÉES.
+   *
+   * La liste est lue dans l’arbre de `appRouter` : une procédure de console
+   * ajoutée demain sans garde fait échouer ce test toute seule, sans que
+   * personne ait à penser à l’inscrire ici. Les quatre exclusions sont nommées
+   * et vérifiées plus bas, une par une — aucune n’est laissée implicite.
+   */
+  const HORS_CONSOLE = ["system.health", "system.reportRefusal", "system.llmModels", "system.notifyOwner"] as const;
+
+  const proceduresDuRouteur = Object.keys(
+    (appRouter as unknown as { _def: { procedures: Record<string, unknown> } })._def.procedures,
+  ).sort();
+
+  const proceduresDeConsole = proceduresDuRouteur.filter(
+    path => path.startsWith("system.") && !(HORS_CONSOLE as readonly string[]).includes(path),
+  );
+
+  /**
+   * Chaque procédure, appelée avec une entrée VALIDE quand elle en exige une.
+   * Sans cela, tRPC refuserait sur l’entrée (`BAD_REQUEST`) avant le moindre
+   * contrôle de rôle : le test prouverait la validation, pas le garde.
+   */
+  function appelsDeConsole(role: string): Array<[string, () => Promise<unknown>]> {
+    const caller = appRouter.createCaller(contextFor(role));
+    return [
+      ["system.overview", () => caller.system.overview()],
+      ["system.metrics", () => caller.system.metrics()],
+      ["system.access", () => caller.system.access()],
+      ["system.accounts.create", () => caller.system.accounts.create({ email: "x@example.com", password: "motdepasse1", role: "cadre" })],
+      ["system.accounts.rename", () => caller.system.accounts.rename({ userId: 1, name: "Nom" })],
+      ["system.accounts.setRole", () => caller.system.accounts.setRole({ userId: 1, role: "cadre" })],
+      ["system.accounts.resetPassword", () => caller.system.accounts.resetPassword({ userId: 1 })],
+      ["system.accounts.remove", () => caller.system.accounts.remove({ userId: 1 })],
+      ["system.invitations.list", () => caller.system.invitations.list()],
+      ["system.invitations.issue", () => caller.system.invitations.issue({ email: "x@example.com", role: "cadre" })],
+      ["system.invitations.resend", () => caller.system.invitations.resend({ id: 1 })],
+      ["system.invitations.revoke", () => caller.system.invitations.revoke({ id: 1 })],
+      ["system.sessions.list", () => caller.system.sessions.list()],
+      ["system.sessions.revoke", () => caller.system.sessions.revoke({ id: 1 })],
+    ];
+  }
+
+  it("recense toutes les procédures de console, et rien d’autre", () => {
+    // Le recensement est la prémisse des trois tests suivants : s’il était vide
+    // ou partiel, ils passeraient à vide.
+    expect(proceduresDuRouteur.length).toBeGreaterThan(20);
+    expect(proceduresDeConsole.sort()).toEqual(appelsDeConsole("admin").map(([path]) => path).sort());
+    // Les exclusions sont réelles, et aucune n’est un garde de console déguisé :
+    // les deux premières ne lisent AUCUN rôle, les deux suivantes exigent l’admin.
+    const source = readSource("server/_core/systemRouter.ts");
+    expect(source).toContain("health: publicProcedure.query(");
+    expect(source).toContain("reportRefusal: publicProcedure.mutation(({ ctx }) => {");
+    expect(source).toContain("llmModels: adminProcedure.query(");
+    expect(source).toContain("notifyOwner: adminProcedure");
+    expect(source).not.toContain("overview: publicProcedure");
+  });
+
+  it("refuse l’admin en 403 sur CHAQUE procédure de console", async () => {
+    // La preuve demandée, rôle par rôle et procédure par procédure : le
+    // super-administrateur métier n’a pas gagné un pouce de console. `admin` est
+    // traité à part parce que c’est le seul rôle qui a un historique d’accès
+    // partagé avec la console (Phases 1 → 3B1).
+    const appels = appelsDeConsole("admin");
+    const refus = await Promise.all(
+      appels.map(async ([path, call]) => {
+        try {
+          await call();
+          return { path, code: "AUCUN_REFUS" };
+        } catch (error) {
+          return { path, code: (error as { code?: string }).code ?? "SANS_CODE" };
+        }
+      }),
+    );
+
+    expect(refus).toEqual(appels.map(([path]) => ({ path, code: "FORBIDDEN" })));
+  });
+
+  it("refuse aussi directeur, cadre et client en 403, partout", async () => {
+    for (const role of ["directeur", "cadre", "client"]) {
+      const appels = appelsDeConsole(role);
+      const refus = await Promise.all(
+        appels.map(async ([path, call]) => {
+          try {
+            await call();
+            return { role, path, code: "AUCUN_REFUS" };
+          } catch (error) {
+            return { role, path, code: (error as { code?: string }).code ?? "SANS_CODE" };
+          }
+        }),
+      );
+
+      expect(refus).toEqual(appels.map(([path]) => ({ role, path, code: "FORBIDDEN" })));
+    }
+  });
+
+  it("ne donne à AUCUN rôle non système la moindre entrée de console", () => {
+    // Le pendant côté écran du refus serveur : sur les chemins réellement
+    // déclarés dans la barre latérale, aucun rôle autre que `systeme` n’ouvre un
+    // `/console…`. L’ouverture du métier au super-administrateur ne s’est donc
+    // pas payée d’une fuite inverse.
+    const layout = readSource("client/src/components/DashboardLayout.tsx");
+    const chemins = [...layout.matchAll(/\{\s*icon:\s*[A-Za-z]+,\s*label:\s*"[^"]+",\s*path:\s*"([^"]+)"\s*\}/g)].map(m => m[1]);
+    expect(chemins.filter(path => path.startsWith("/console")).length).toBeGreaterThan(0);
+
+    for (const role of ["admin", "directeur", "cadre", "client"] as const) {
+      expect({ role, console: chemins.filter(path => path.startsWith("/console") && canAccessPath(role, path)) }).toEqual({
+        role,
+        console: [],
+      });
+    }
+    expect(chemins.filter(path => path.startsWith("/console") && canAccessPath("systeme", path)).length).toBe(
+      chemins.filter(path => path.startsWith("/console")).length,
+    );
+  });
+});
+
 describe("Isolation du bundle et de la navigation", () => {
   const app = readSource("client/src/App.tsx");
   const layout = readSource("client/src/components/DashboardLayout.tsx");
@@ -341,8 +500,8 @@ describe("Isolation du bundle et de la navigation", () => {
     // Le garde ne reçoit plus d’intitulé : il n’y a plus de message de refus à
     // composer, puisqu’il refuse MUETTEMENT (voir `systemMfaScreens.ui.test.ts`).
     expect(app).toContain("withSystemGate(SystemConsolePage)");
-    // Les CINQ routes de la console portent le garde : aucune porte de côté.
-    for (const page of ["SystemConsolePage", "SystemSupervisionPage", "SystemAccessPage", "SystemSessionsPage", "SystemPermissionsPage"]) {
+    // Les SIX routes de la console portent le garde : aucune porte de côté.
+    for (const page of ["SystemConsolePage", "SystemSupervisionPage", "SystemAccessPage", "SystemSessionsPage", "SystemPermissionsPage", "SystemMetierPage"]) {
       expect({ page, garde: app.includes(`withSystemGate(${page})`) }).toEqual({ page, garde: true });
     }
     expect(gate).toContain("hasSystemAccess");
@@ -356,8 +515,13 @@ describe("Isolation du bundle et de la navigation", () => {
 
   it("n’affiche l’entrée de navigation que pour les rôles habilités", () => {
     expect(layout).toContain('path: "/console"');
+    // RETOURNÉ — la navigation filtrait par `isSystemRole` (le rôle système était
+    // le seul à ouvrir la console, et le seul à ne pas ouvrir le métier). Elle
+    // filtre désormais par `canAccessPath`, la MÊME règle que les gardes d’écran :
+    // un prédicat particulier ne peut plus décider de ce qui s’affiche, et la
+    // barre latérale ne peut donc pas diverger des routes.
     expect(layout).toContain("canAccessPath");
-    expect(layout).toContain("isSystemRole");
+    expect(layout).not.toContain("isSystemRole");
   });
 
   /**

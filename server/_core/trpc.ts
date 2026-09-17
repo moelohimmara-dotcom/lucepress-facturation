@@ -139,26 +139,35 @@ function requireRoles(
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
-/** Admin uniquement — utilisateurs, paramètres société, intégrations. */
+/**
+ * Administration métier — utilisateurs, paramètres société, intégrations.
+ *
+ * LE RÔLE SYSTÈME EST UN SUPER-ADMINISTRATEUR : il ouvre l’application entière,
+ * donc cette porte aussi. Ce qui ne change pas, c’est le DOMAINE de chacun dans
+ * les mutations de comptes (`assertAccountHabilitation`, `server/routers.ts`) :
+ * un `admin` ne peut pas créer ni promouvoir un compte `systeme`, un compte
+ * `systeme` ne distribue pas les rôles du commerce. L’escalade reste fermée —
+ * elle n’a jamais reposé sur ce garde.
+ */
 export const adminProcedure = t.procedure.use(
-  requireRoles(["admin"], NOT_ADMIN_ERR_MSG),
+  requireRoles(["admin", "systeme"], NOT_ADMIN_ERR_MSG),
 );
 
 /**
- * Direction : admin + directeur.
+ * Direction : admin + directeur + administrateur système.
  * Accès étendu (clients, pilotage) sans gestion des utilisateurs.
  */
 export const directionProcedure = t.procedure.use(
-  requireRoles(["admin", "directeur"], "Accès réservé à la direction."),
+  requireRoles(["admin", "directeur", "systeme"], "Accès réservé à la direction."),
 );
 
 /**
- * Équipe commerciale : admin + directeur + cadre.
+ * Équipe commerciale : admin + directeur + cadre + administrateur système.
  * Documents, paiements, créances, relances, catalogue, dashboard.
  */
 export const staffProcedure = t.procedure.use(
   requireRoles(
-    ["admin", "directeur", "cadre"],
+    ["admin", "directeur", "cadre", "systeme"],
     "Accès réservé à l’équipe commerciale Lucepres.",
   ),
 );
@@ -201,6 +210,11 @@ export const usersProcedure = t.procedure.use(
  * Ce qui n’a pas changé : le refus de rôle reste muet et journalisé (voir
  * `CONSOLE_REFUSED_ERR_MSG`), et aucun autre rôle n’obtient la moindre
  * procédure de console.
+ *
+ * L’administrateur système, lui, est devenu un SUPER-ADMINISTRATEUR : il ouvre
+ * aussi `adminProcedure`, `directionProcedure` et `staffProcedure`. La console
+ * n’en devient pas pour autant publique — c’est ici, et nulle part ailleurs,
+ * que se joue le fait qu’elle reste SON espace : `systeme`, et lui seul.
  */
 export const systemProcedure = t.procedure.use(
   requireRoles(["systeme"], CONSOLE_REFUSED_ERR_MSG, onConsoleAccessRefused),

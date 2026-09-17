@@ -189,8 +189,8 @@ describe("Garde de la console — le rôle suffit, et le chargement reste paress
     expect(manager).toContain("trpc.mfa.status.useQuery");
   });
 
-  it("garde les cinq routes de console, toujours en chargement paresseux", () => {
-    for (const page of ["SystemConsolePage", "SystemSupervisionPage", "SystemAccessPage", "SystemSessionsPage", "SystemPermissionsPage"]) {
+  it("garde les six routes de console, toujours en chargement paresseux", () => {
+    for (const page of ["SystemConsolePage", "SystemSupervisionPage", "SystemAccessPage", "SystemSessionsPage", "SystemPermissionsPage", "SystemMetierPage"]) {
       expect({ page, lazy: app.includes(`lazy(() => import("./pages/${page}"))`) }).toEqual({ page, lazy: true });
       expect({ page, garde: app.includes(`withSystemGate(${page})`) }).toEqual({ page, garde: true });
       // Aucun import statique : le chunk de la console reste hors du bundle métier.
@@ -214,9 +214,23 @@ describe("Garde de la console — le rôle suffit, et le chargement reste paress
     expect(garde.indexOf("<Suspense")).toBeLessThan(suspensionInside);
   });
 
-  it("ramène un compte système hors console vers la console (séparation des devoirs)", () => {
+  it("ne ramène plus un compte système vers la console (super-administrateur)", () => {
     const layout = readSource("client/src/components/DashboardLayout.tsx");
-    expect(layout).toContain('setLocation("/console")');
+    // RETOURNÉ — le rôle système était cantonné à la console, et une redirection
+    // l’y ramenait dès qu’il en sortait (« séparation des devoirs »). Il ouvre
+    // désormais toute l’application, métier compris : la redirection est retirée,
+    // et avec elle la seule contrainte de navigation qui visait ce rôle.
+    expect(layout).not.toContain('setLocation("/console")');
+    // Rien n’a été desserré pour autant : la SEULE redirection commandée par un
+    // rôle reste celle du portail client, et elle passe toujours par
+    // `canAccessPath`. Une redirection dont on retire une branche sans vérifier
+    // celle qui reste est exactement la façon de rouvrir une porte.
+    expect(layout.replace(/\s+/g, " ")).toContain("if (!isClientRole(user?.role)) return;");
+    expect(layout.replace(/\s+/g, " ")).toContain('if (canAccessPath("client", location)) return;');
+    expect(layout).toContain('setLocation("/portail-client")');
+    // Le détour du système n’a pas été remplacé par un autre : la navigation du
+    // rôle système n’est filtrée que par `canAccessPath`, comme celle de l’équipe.
+    expect(layout).not.toContain("isSystemRole");
   });
 });
 

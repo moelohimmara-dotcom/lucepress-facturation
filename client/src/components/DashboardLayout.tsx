@@ -26,7 +26,7 @@ import { trpc } from "@/lib/trpc";
 import { getEffectiveSidebarWidth, getRestorableRoute, getSidebarDensityPreference, getSidebarShortcutPath, hasSidebarOverflow, isCompactSidebar, type SidebarDensityPreference } from "@shared/sidebarNavigation";
 import type { WorkspaceSearchFilters } from "@shared/workspaceSearch";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
-import { canAccessPath, isClientRole, isStaffRole, isSystemRole } from "@shared/roles";
+import { canAccessPath, isClientRole, isStaffRole } from "@shared/roles";
 import {
   ArrowRight,
   History,
@@ -103,12 +103,17 @@ const navigationGroups = [
   // ci-dessous applique `canAccessPath`, qui refuse `/console…` à `admin` comme
   // à tout autre rôle. Aucune entrée de console n’apparaît donc ailleurs que
   // chez l’administrateur système.
+  //
+  // Les groupes métier ci-dessus, eux, ne sont plus filtrés pour lui : le rôle
+  // `systeme` étant super-administrateur, `canAccessPath` les lui ouvre tous —
+  // c’est ce que la console appelle depuis son module « Données & métier ».
   { label: "Exploitation", items: [
     { icon: SquareTerminal, label: "Console d’exploitation", path: "/console" },
     { icon: ShieldCheck, label: "Santé & supervision", path: "/console/sante" },
     { icon: KeyRound, label: "Accès & comptes", path: "/console/acces" },
     { icon: MonitorSmartphone, label: "Sessions actives", path: "/console/sessions" },
     { icon: UsersRound, label: "Rôles & permissions", path: "/console/permissions" },
+    { icon: FolderKanban, label: "Données & métier", path: "/console/metier" },
   ] },
 ];
 
@@ -180,13 +185,10 @@ export function DashboardLayoutContent({ children, sidebarWidth = DEFAULT_WIDTH,
     setLocation("/portail-client");
   }, [user?.role, location, setLocation]);
 
-  // L’administrateur système ne circule que dans la console (séparation des devoirs) :
-  // tout autre écran le ramène à /console.
-  useEffect(() => {
-    if (!isSystemRole(user?.role)) return;
-    if (canAccessPath("systeme", location)) return;
-    setLocation("/console");
-  }, [user?.role, location, setLocation]);
+  // L’administrateur système est un SUPER-ADMINISTRATEUR : il ouvre tous les
+  // écrans, métier compris, en plus du groupe « Exploitation ». Aucune
+  // redirection ne le concerne donc plus — le seul filtre qui le commande est
+  // `canAccessPath`, appliqué plus haut aux entrées de navigation.
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);

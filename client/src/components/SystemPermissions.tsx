@@ -9,8 +9,11 @@ import {
 import {
   APP_ROLE_LABELS,
   PERMISSION_MATRIX_ROLES,
+  PROCEDURE_GUARD_ROLES,
   permissionMatrix,
+  type AppRole,
   type PermissionMatrixRole,
+  type ProcedureGuard,
 } from "@shared/roles";
 
 /**
@@ -31,22 +34,35 @@ import {
  * annonce à l’opérateur.
  */
 
-/** Libellé lisible d’une procédure serveur. */
+/** Nom court d’un rôle, tel qu’il se lit dans un résumé de procédure. */
+const ROLE_SHORT_LABELS: Record<AppRole, string> = {
+  admin: "admin",
+  directeur: "directeur",
+  cadre: "cadre",
+  systeme: "système",
+  client: "client",
+};
+
+/**
+ * Libellé lisible d’une procédure serveur.
+ *
+ * LES RÔLES NE SONT PAS RECOPIÉS ICI : ils sont LUS dans
+ * `PROCEDURE_GUARD_ROLES[guard]`, la table que `server/_core/trpc.ts` applique.
+ * Un garde qui gagne un rôle change donc son libellé tout seul — la colonne
+ * « Procédure serveur » ne peut pas se mettre à décrire autre chose que ce que
+ * le serveur exige (c’est exactement ce qu’un « admin seulement » figé avait
+ * cessé de faire le jour où l’administrateur système est devenu
+ * super-administrateur).
+ *
+ * Deux gardes gardent un nom, parce qu’ils ne décrivent pas une liste de rôles :
+ * la console (un espace) et la session authentifiée (une condition).
+ */
 function guardLabel(guard: string): string {
-  switch (guard) {
-    case "protectedProcedure":
-      return "session authentifiée";
-    case "adminProcedure":
-      return "admin seulement";
-    case "directionProcedure":
-      return "direction (admin + directeur)";
-    case "staffProcedure":
-      return "équipe commerciale";
-    case "systemProcedure":
-      return "console d’exploitation";
-    default:
-      return guard;
-  }
+  if (guard === "systemProcedure") return "console d’exploitation";
+  if (guard === "protectedProcedure") return "session authentifiée";
+  const roles = PROCEDURE_GUARD_ROLES[guard as ProcedureGuard];
+  if (!roles) return guard;
+  return roles.map(role => ROLE_SHORT_LABELS[role] ?? role).join(" + ");
 }
 
 /** Résumé des procédures qui appliquent une ligne de la matrice. */
@@ -178,11 +194,13 @@ export function SystemPermissionsPanel() {
         <div className="space-y-2">
           <p className="text-sm font-extrabold">Séparation des devoirs</p>
           <p className="text-xs leading-5 text-muted-foreground">
-            Le rôle <strong>Administrateur système</strong> détient seul les habilitations de console ; il n’ouvre donc
-            que la console, la page de mot de passe et la 404, et n’a aucun accès aux données commerciales. L’
-            <strong>Admin</strong>, à l’inverse, administre tout le métier — comptes collaborateurs, modèles,
-            intégrations, agent IA, journal d’audit — sans aucune habilitation de console. Il ne peut ni créer ni
-            promouvoir un compte <span className="font-mono">systeme</span> : c’est ce qui l’empêche de s’octroyer la
+            Le rôle <strong>Administrateur système</strong> est un <strong>super-administrateur</strong> : il ouvre toute
+            l’application, écrans métier compris, et détient en plus les habilitations de console que{" "}
+            <strong>personne d’autre</strong> ne porte. La console reste donc son espace privé, et elle ne recopie pas
+            le métier : elle mène aux écrans existants, qui restent la référence des écritures (voir « Données &amp;
+            métier »). L’<strong>Admin</strong>, à l’inverse, administre tout le métier — comptes collaborateurs,
+            modèles, intégrations, agent IA, journal d’audit — sans aucune habilitation de console. Il ne peut ni créer
+            ni promouvoir un compte <span className="font-mono">systeme</span> : c’est ce qui l’empêche de s’octroyer la
             console.
           </p>
           <p className="text-xs leading-5 text-muted-foreground">

@@ -19,10 +19,18 @@ describe("P1.2 — distinction directeur", () => {
     expect(nextAssignableStaffRole("systeme")).toBe("cadre");
   });
 
-  it("garde la distinction direction intacte pour le rôle système", () => {
-    // Le rôle système administre le système, pas le commerce : il n’est pas
-    // « direction » et n’hérite donc pas des écrans de pilotage.
-    expect(isDirectionRole("systeme")).toBe(false);
+  it("compte le rôle système dans la direction, comme directionProcedure", () => {
+    // RETOURNÉ — le rôle système administrait le système sans le commerce : il
+    // n’était donc pas « direction ». Il est devenu SUPER-ADMINISTRATEUR : il
+    // ouvre les écrans de pilotage comme `admin`, et ce prédicat est le miroir
+    // exact de `directionProcedure` (`server/_core/trpc.ts`), qui l’accepte.
+    expect(isDirectionRole("systeme")).toBe(true);
     expect(isDirectionRole("directeur")).toBe(true);
+    expect(isDirectionRole("admin")).toBe(true);
+    // La distinction qui compte n’est pas desserrée : `cadre` et le portail
+    // client restent hors de la direction.
+    expect(isDirectionRole("cadre")).toBe(false);
+    expect(isDirectionRole("client")).toBe(false);
+    expect(isDirectionRole(undefined)).toBe(false);
   });
 });
