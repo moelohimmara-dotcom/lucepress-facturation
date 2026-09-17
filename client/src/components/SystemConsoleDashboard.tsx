@@ -13,6 +13,7 @@ import {
   ListChecks,
   Loader2,
   MonitorSmartphone,
+  Scale,
   ScrollText,
   Server,
   ShieldCheck,
@@ -103,11 +104,21 @@ export const CONSOLE_MODULES: ConsoleModule[] = [
     summary: "Hub vers les écrans métier : documents, clients, chantiers, créances…",
     phase: "Phase 3",
   },
+  {
+    label: "Données",
+    icon: HardDrive,
+    path: "/console/donnees",
+    summary: "Volumes, inventaire des données de recette, export et purge sélective.",
+    phase: "Phase 5",
+  },
   { label: "Environnement", icon: FolderCog, phase: "Phase 4" },
   { label: "Intégrations", icon: Cable, phase: "Phase 5" },
   { label: "Tâches & files", icon: ListChecks, phase: "Phase 5" },
   { label: "Journal technique", icon: ScrollText, phase: "Phase 2" },
-  { label: "Données & conformité", icon: HardDrive, phase: "Phase 5" },
+  // Le reste de la Phase 5 : l’export RGPD, la rétention et l’anonymisation.
+  // Libellé distinct de « Données » (déjà livré) et icône distincte aussi, pour
+  // qu’on ne confonde pas un module livré avec un module annoncé.
+  { label: "Conformité", icon: Scale, phase: "Phase 5" },
 ];
 
 /** Modules déjà livrés : ceux qui portent une route. */

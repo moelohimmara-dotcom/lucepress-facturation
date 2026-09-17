@@ -213,6 +213,13 @@ export const HABILITATIONS: readonly Habilitation[] = [
     guards: ["systemProcedure"],
   },
   {
+    key: "console.donnees",
+    label: "Données & conformité",
+    detail: "Volumes, inventaire des données de recette, export préalable et purge sélective.",
+    path: "/console/donnees",
+    guards: ["systemProcedure"],
+  },
+  {
     key: "metier.documents",
     label: "Devis & factures",
     detail: "Création, envoi, encaissement, partage client.",

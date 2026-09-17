@@ -17,6 +17,8 @@ import {
 } from "../systemAccounts";
 import { collectSystemAccess } from "../systemAccess";
 import { logConsoleAttempt } from "../systemAccessLog";
+import { MAX_SELECTED_CLIENTS, collectDataOverview, collectDemoCandidates } from "../systemData";
+import { exportDemoData, purgeDemoData } from "../systemDataPurge";
 import { collectSystemMetrics } from "../systemMetrics";
 import { collectSystemSessions, revokeSessionById } from "../systemSessions";
 import { readRequestSessionToken, type TrpcContext } from "./context";
@@ -330,6 +332,85 @@ export const systemRouter = router({
           revokedAt: result.outcome === "revoked" ? result.revokedAt : null,
         };
       }),
+  }),
+
+  /**
+   * DONNÉES & CONFORMITÉ — l’écran `/console/donnees` (lot 3).
+   *
+   * Quatre procédures, TOUTES sous `systemProcedure` : rôle `systeme`, et lui
+   * seul. Le contrôle est serveur à chaque appel — un compte `admin`,
+   * `directeur`, `cadre` ou `client` reçoit un 403 sur chacune, y compris la
+   * lecture des volumes.
+   *
+   * LA LECTURE EST SÉPARÉE DE L’ÉCRITURE, ET PAS SEULEMENT PAR LE VERBE.
+   * `overview` et `demoCandidates` n’importent que `systemData.ts`, un module qui
+   * n’émet que des `select`. `export` et `purge` vivent dans
+   * `systemDataPurge.ts`. La séparation est physique : le module de lecture n’a
+   * pas, littéralement, de quoi supprimer une ligne.
+   *
+   * AUCUNE RÈGLE N’EST ÉCRITE ICI. Les procédures traduisent une entrée typée et
+   * délèguent. En particulier, la purge applique ses trois verrous (liste
+   * explicite revalidée, phrase de confirmation portant le nombre recalculé,
+   * jeton d’export préalable du même périmètre) DANS le module, pas dans le
+   * schéma d’entrée : un schéma se contourne, pas une vérification.
+   */
+  data: router({
+    /**
+     * Volumes de l’instance : comptages par table significative et taille de la
+     * base. Lecture seule, périmètre INSTANCE (tous espaces), comme
+     * `system.metrics` sur l’écran voisin — l’écran le dit.
+     */
+    overview: systemProcedure.query(async () => collectDataOverview()),
+
+    /**
+     * Inventaire PRUDENT des enregistrements qui ressemblent à des données de
+     * recette. Cette procédure NE SUPPRIME RIEN : elle propose, avec le motif
+     * exact de chaque proposition et le compte exact de ce qu’une suppression
+     * emporterait. Périmètre TENANT : on ne propose jamais ce qu’on ne relit pas.
+     */
+    demoCandidates: systemProcedure.query(async ({ ctx }) =>
+      collectDemoCandidates({ tenantId: ctx.tenantId ?? undefined }),
+    ),
+
+    /**
+     * EXPORT PRÉALABLE — obligatoire avant toute suppression.
+     *
+     * Rend le JSON du périmètre demandé, tel quel, prêt à télécharger, ET le
+     * jeton signé qui atteste de son périmètre. Lecture seule côté base : cette
+     * procédure ne peut pas détruire ce qu’elle exporte.
+     */
+    export: systemProcedure
+      .input(z.object({ clientIds: z.array(z.number().int().positive()).min(1).max(MAX_SELECTED_CLIENTS) }))
+      .mutation(async ({ ctx, input }) =>
+        exportDemoData({ actor: consoleActor(ctx), tenantId: ctx.tenantId ?? null, clientIds: input.clientIds }),
+      ),
+
+    /**
+     * PURGE SÉLECTIVE — le seul geste destructif de la console.
+     *
+     * `clientIds` est une liste EXPLICITE : jamais un motif. `confirmation` doit
+     * recopier exactement `SUPPRIMER <n> ENREGISTREMENTS`, `n` étant recalculé
+     * par le serveur. `exportToken` vient de `system.data.export` et doit couvrir
+     * le même périmètre, sous dix minutes. Les trois conditions sont vérifiées
+     * dans `systemDataPurge.ts`, et chacune journalise son refus.
+     */
+    purge: systemProcedure
+      .input(
+        z.object({
+          clientIds: z.array(z.number().int().positive()).min(1).max(MAX_SELECTED_CLIENTS),
+          confirmation: z.string().min(1).max(120),
+          exportToken: z.string().min(1).max(4096),
+        }),
+      )
+      .mutation(async ({ ctx, input }) =>
+        purgeDemoData({
+          actor: consoleActor(ctx),
+          tenantId: ctx.tenantId ?? null,
+          clientIds: input.clientIds,
+          confirmation: input.confirmation,
+          exportToken: input.exportToken,
+        }),
+      ),
   }),
 
   llmModels: adminProcedure.query(async () => {

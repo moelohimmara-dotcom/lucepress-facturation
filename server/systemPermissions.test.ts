@@ -82,9 +82,13 @@ describe("Matrice de référence — alignement avec canAccessPath", () => {
   it("accorde la console au seul rôle système", () => {
     const consoleCapabilities = PERMISSION_CAPABILITIES.filter(capability => capability.path.startsWith("/console"));
 
-    // Six modules de console : les cinq de la Phase 3, plus « Données & métier »,
-    // qui ouvre l’administration système sur les écrans métier.
-    expect(consoleCapabilities).toHaveLength(6);
+    // SEPT modules de console : les cinq de la Phase 3, « Données & métier », qui
+    // ouvre l’administration système sur les écrans métier, et « Données &
+    // conformité » (lot 3), qui ajoute les volumes, l’export préalable et la
+    // purge sélective. Le compte est mis à jour À CHAQUE module livré : c’est ce
+    // qui empêche une nouvelle habilitation de console d’échapper au contrôle
+    // « système, et lui seul » ci-dessous.
+    expect(consoleCapabilities).toHaveLength(7);
     for (const capability of consoleCapabilities) {
       // RETOURNÉ — la matrice accordait la console au couple `admin` + `systeme`.
       expect(PERMISSION_MATRIX_ROLES.filter(role => permissionFor(role, capability))).toEqual(["systeme"]);
@@ -149,9 +153,9 @@ describe("Modèle d’habilitation — une seule source de droit", () => {
   it("réserve chaque habilitation de console au seul rôle système", () => {
     const consoleHabilitations = HABILITATIONS.filter(habilitation => habilitation.path.startsWith("/console"));
 
-    // Six habilitations de console : `systemProcedure` les porte toutes, et lui
+    // Sept habilitations de console : `systemProcedure` les porte toutes, et lui
     // seul les ouvre.
-    expect(consoleHabilitations).toHaveLength(6);
+    expect(consoleHabilitations).toHaveLength(7);
     for (const habilitation of consoleHabilitations) {
       expect(habilitation.guards[0]).toBe("systemProcedure");
       expect(habilitationRoles(habilitation)).toEqual(["systeme"]);
@@ -288,8 +292,9 @@ describe("Rendu statique — écran Rôles & permissions", () => {
         expect(html).toContain(`data-testid="perm-${capability.key}-${role}"`);
       }
     }
-    // Vingt capacités : les dix-neuf de la Phase 3, plus « Données & métier ».
-    expect(PERMISSION_CAPABILITIES.length).toBe(20);
+    // Vingt et une capacités : les dix-neuf de la Phase 3, plus « Données &
+    // métier », plus « Données & conformité » (lot 3).
+    expect(PERMISSION_CAPABILITIES.length).toBe(21);
   });
 
   it("rend exactement le droit calculé par canAccessPath, pour chaque cellule", () => {
@@ -424,9 +429,10 @@ describe("Isolation de l’écran Rôles & permissions", () => {
   });
 
   it("rend le module navigable dans le rail de la console", () => {
-    // Six modules livrés : les cinq de la Phase 3 (Accès & comptes et Sessions
-    // actives inclus), plus « Données & métier » — les six portent une route.
-    expect(PERMISSION_CAPABILITIES.filter(capability => capability.path.startsWith("/console"))).toHaveLength(6);
+    // Sept modules livrés : les cinq de la Phase 3 (Accès & comptes et Sessions
+    // actives inclus), « Données & métier » puis « Données & conformité » — les
+    // sept portent une route.
+    expect(PERMISSION_CAPABILITIES.filter(capability => capability.path.startsWith("/console"))).toHaveLength(7);
     expect(page).toContain("/console/permissions");
     expect(page).toContain("ConsoleModuleRail");
     expect(page).toContain("SystemPermissionsPanel");

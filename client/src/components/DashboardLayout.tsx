@@ -40,6 +40,7 @@ import {
   ChevronDown,
   FileText,
   FolderKanban,
+  HardDrive,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -114,6 +115,7 @@ const navigationGroups = [
     { icon: MonitorSmartphone, label: "Sessions actives", path: "/console/sessions" },
     { icon: UsersRound, label: "Rôles & permissions", path: "/console/permissions" },
     { icon: FolderKanban, label: "Données & métier", path: "/console/metier" },
+    { icon: HardDrive, label: "Données", path: "/console/donnees" },
   ] },
 ];
 

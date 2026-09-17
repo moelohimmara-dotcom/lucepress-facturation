@@ -404,6 +404,22 @@ describe("Étanchéité — ce que les autres rôles n’ont pas gagné", () => 
       ["system.invitations.revoke", () => caller.system.invitations.revoke({ id: 1 })],
       ["system.sessions.list", () => caller.system.sessions.list()],
       ["system.sessions.revoke", () => caller.system.sessions.revoke({ id: 1 })],
+      // Module « Données & conformité » (lot 3) : les quatre procédures de
+      // l’écran `/console/donnees`. Les entrées sont VALIDES — un jeton
+      // d’export illisible fait partie du contrat, il est refusé par le module,
+      // pas par le schéma — afin que le refus observé soit bien celui du garde.
+      ["system.data.overview", () => caller.system.data.overview()],
+      ["system.data.demoCandidates", () => caller.system.data.demoCandidates()],
+      ["system.data.export", () => caller.system.data.export({ clientIds: [1] })],
+      [
+        "system.data.purge",
+        () =>
+          caller.system.data.purge({
+            clientIds: [1],
+            confirmation: "SUPPRIMER 14 ENREGISTREMENTS",
+            exportToken: "v1.charge-utile.signature",
+          }),
+      ],
     ];
   }
 
@@ -589,7 +605,7 @@ describe("Isolation du bundle et de la navigation", () => {
 describe("Tableau de bord système — rendu", () => {
   const now = new Date("2026-09-15T10:30:00Z");
 
-  it("liste les dix modules de la console, un seul actif en Phase 1", () => {
+  it("liste les modules de la console, un seul actif en Phase 1", () => {
     const html = renderToStaticMarkup(createElement(ConsoleModuleRail));
     for (const label of [
       "Tableau de bord",
@@ -597,14 +613,21 @@ describe("Tableau de bord système — rendu", () => {
       "Base &amp; sauvegardes",
       "Accès &amp; comptes",
       "Rôles &amp; permissions",
+      "Données &amp; métier",
+      // « Données » est le module LIVRÉ (lot 3), avec sa route ; « Conformité »
+      // reste l’annonce de ce qui n’est pas encore livré. Les deux libellés sont
+      // distincts : le rail ne peut pas laisser croire qu’un module est livré
+      // quand il ne l’est pas.
+      "Données",
       "Environnement",
       "Intégrations",
       "Tâches &amp; files",
       "Journal technique",
-      "Données &amp; conformité",
+      "Conformité",
     ]) {
       expect(html).toContain(label);
     }
+    expect(html).toContain('href="/console/donnees"');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain("Phase 5");
   });

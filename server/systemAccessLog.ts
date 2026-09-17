@@ -112,7 +112,14 @@ export type ConsoleActionName =
   | "compte.suppression"
   | "invitation.creation"
   | "invitation.renvoi"
-  | "invitation.revocation";
+  | "invitation.revocation"
+  /**
+   * Purge sélective de données de recette (module « Données & conformité »).
+   *
+   * C’est la seule action de la console qui DÉTRUIT des données métier, et la
+   * seule qui porte des comptes : voir le champ `counts` ci-dessous.
+   */
+  | "donnees.purge";
 
 export type ConsoleActionEvent = {
   action: ConsoleActionName;
@@ -129,12 +136,38 @@ export type ConsoleActionEvent = {
   actor?: string | null;
   actorId?: number | null;
   tenantId?: number | null;
+  /**
+   * Comptes d’une action destructrice — nombre d’enregistrements, par table.
+   *
+   * POURQUOI CE CHAMP EXISTE, ET POURQUOI IL N’A PAS DE JUMEAU « DÉTAIL ».
+   * Une suppression de données ne se raconte pas avec une cible : « cible=
+   * donnees#clients=3 » ne dit pas COMBIEN de lignes ont disparu, et c’est
+   * exactement ce qu’on cherche en relisant le journal six mois plus tard. Ce
+   * champ porte donc des NOMBRES, et rien d’autre : pas de contenu de ligne, pas
+   * de nom de client, pas d’adresse. Un journal se relit, ne se restaure pas —
+   * y verser des données personnelles serait une seconde fuite, pas une preuve.
+   */
+  counts?: Record<string, number>;
 };
 
 export type ConsoleActionLogDeps = {
   /** Destination de la ligne. Par défaut : `console.info`. */
   sink?: (line: string) => void;
 };
+
+/**
+ * Comptes sérialisés en une suite `clé=valeur` triée. Fonction PURE.
+ *
+ * Le tri n’est pas cosmétique : deux exécutions du même geste doivent produire
+ * deux lignes comparables, sinon un diff de journal ne veut rien dire.
+ */
+export function formatConsoleCounts(counts: Record<string, number> | undefined): string {
+  if (!counts) return "";
+  const entries = Object.entries(counts).filter(([, value]) => Number.isFinite(value));
+  if (entries.length === 0) return "";
+  entries.sort(([left], [right]) => left.localeCompare(right));
+  return ` comptes=${entries.map(([key, value]) => `${key}:${value}`).join(",")}`;
+}
 
 /** Ligne lisible, sans données sensibles. Fonction PURE, donc testable telle quelle. */
 export function formatConsoleAction(event: ConsoleActionEvent): string {
@@ -144,7 +177,8 @@ export function formatConsoleAction(event: ConsoleActionEvent): string {
   const tenant = event.tenantId === null || event.tenantId === undefined ? "?" : String(event.tenantId);
   return (
     `[console] écriture — action=${event.action} resultat=${event.outcome} cible=${event.target}` +
-    ` acteur=${actor}(id ${actorId}) role=${role} tenant=${tenant}`
+    ` acteur=${actor}(id ${actorId}) role=${role} tenant=${tenant}` +
+    formatConsoleCounts(event.counts)
   );
 }
 

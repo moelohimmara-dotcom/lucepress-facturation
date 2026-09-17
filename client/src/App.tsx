@@ -47,6 +47,7 @@ const SystemAccessPage = lazy(() => import("./pages/SystemAccessPage"));
 const SystemSessionsPage = lazy(() => import("./pages/SystemSessionsPage"));
 const SystemPermissionsPage = lazy(() => import("./pages/SystemPermissionsPage"));
 const SystemMetierPage = lazy(() => import("./pages/SystemMetierPage"));
+const SystemDataPage = lazy(() => import("./pages/SystemDataPage"));
 
 const LazyFallback = () => <DashboardLayoutSkeleton />;
 const GuestLazyFallback = () => (
@@ -126,6 +127,7 @@ const SystemAccessRoute = withSystemGate(SystemAccessPage);
 const SystemSessionsRoute = withSystemGate(SystemSessionsPage);
 const SystemPermissionsRoute = withSystemGate(SystemPermissionsPage);
 const SystemMetierRoute = withSystemGate(SystemMetierPage);
+const SystemDataRoute = withSystemGate(SystemDataPage);
 
 function Router() {
   return (
@@ -172,6 +174,7 @@ function Router() {
             <Route path={"/console/sessions"} component={SystemSessionsRoute} />
             <Route path={"/console/permissions"} component={SystemPermissionsRoute} />
             <Route path={"/console/metier"} component={SystemMetierRoute} />
+            <Route path={"/console/donnees"} component={SystemDataRoute} />
             <Route path={"/console"} component={SystemConsoleRoute} />
             <Route path={"/login"} component={LoginPage} />
             <Route path={"/documents/:id/edit"} component={DocumentEditRoute} />
