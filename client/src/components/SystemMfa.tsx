@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { normalizeRecoveryCode } from "@shared/mfa";
-import { useCallback, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 /**
  * CONTENEURS DES ÉCRANS MFA — LES SEULS À PARLER AU SERVEUR.
@@ -84,7 +84,6 @@ export function ConsoleMfaEnrollment({ onActivated, onCancel }: { onActivated: (
   const [codes, setCodes] = useState<string[]>([]);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const start = trpc.mfa.enrollStart.useMutation({
     onSuccess: data => {
@@ -105,20 +104,12 @@ export function ConsoleMfaEnrollment({ onActivated, onCancel }: { onActivated: (
     onError: err => setError(err.message),
   });
 
-  const copySecret = useCallback(async () => {
-    if (!enrollment) return;
-    try {
-      await navigator.clipboard.writeText(enrollment.secret);
-      setCopied(true);
-    } catch {
-      // Le presse-papiers peut être indisponible (contexte non sécurisé) : le
-      // secret reste affiché, l’utilisateur le recopie à la main.
-      setCopied(false);
-    }
-  }, [enrollment]);
+  // La copie du secret n’est PLUS décidée ici : `MfaEnrollSecret` rend le bouton
+  // partagé de la console (`CopyButton`), qui attend la promesse du
+  // presse-papiers et n’annonce « Copié » que si la copie a eu lieu. La logique
+  // n’existe donc qu’une fois, pour les trois secrets que la console manipule.
 
-  if (step === "codes") {
-    return (
+  if (step === "codes") {    return (
       <MfaShell kicker="Exploitation · Sécurité" title="Codes de secours">
         <MfaRecoveryCodes codes={codes} onAcknowledge={onActivated} />
       </MfaShell>
@@ -136,8 +127,6 @@ export function ConsoleMfaEnrollment({ onActivated, onCancel }: { onActivated: (
           code={code}
           onCodeChange={setCode}
           onSubmit={() => confirm.mutate({ code })}
-          onCopySecret={() => void copySecret()}
-          copied={copied}
           pending={confirm.isPending}
           error={error}
         />

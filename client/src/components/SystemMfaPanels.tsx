@@ -1,10 +1,10 @@
+import { CopyButton } from "@/components/CopyButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MFA_CODE_LENGTH, MFA_ISSUER, normalizeTotpCode } from "@shared/mfa";
 import {
   BadgeCheck,
-  Copy,
   KeyRound,
   Loader2,
   LockKeyhole,
@@ -14,6 +14,7 @@ import {
   ShieldPlus,
   TriangleAlert,
 } from "lucide-react";
+import { useRef } from "react";
 
 
 /**
@@ -260,8 +261,6 @@ export function MfaEnrollSecret({
   code,
   onCodeChange,
   onSubmit,
-  onCopySecret,
-  copied,
   pending,
   error,
 }: {
@@ -272,11 +271,11 @@ export function MfaEnrollSecret({
   code: string;
   onCodeChange: (value: string) => void;
   onSubmit: () => void;
-  onCopySecret?: () => void;
-  copied?: boolean;
   pending: boolean;
   error: string | null;
 }) {
+  const secretRef = useRef<HTMLElement | null>(null);
+
   return (
     <form
       data-testid="mfa-enroll-secret"
@@ -290,17 +289,18 @@ export function MfaEnrollSecret({
         <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">Secret à recopier</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <code
+            ref={secretRef}
             data-testid="mfa-secret"
             className="flex-1 break-all rounded-xl bg-secondary px-3 py-2 font-mono text-sm font-bold tracking-[0.18em] text-foreground"
           >
             {formatSecretForDisplay(secret)}
           </code>
-          {onCopySecret && (
-            <Button type="button" variant="outline" onClick={onCopySecret} className="h-9 rounded-xl border-border text-xs font-bold">
-              <Copy className="mr-1.5 h-3.5 w-3.5" />
-              {copied ? "Copié" : "Copier"}
-            </Button>
-          )}
+          {/*
+            Le bouton partagé copie le secret BRUT (celui de l’URI), pas sa
+            présentation par groupes de quatre, et n’annonce « Copié » que si la
+            copie a réellement eu lieu ; sinon il sélectionne le secret affiché.
+          */}
+          <CopyButton value={secret} targetRef={secretRef} className="h-9 rounded-xl border-border text-xs font-bold" testId="mfa-secret-copy" />
         </div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           Dans votre application : « Ajouter un compte » → « Saisir une clé de configuration », puis collez ce secret.

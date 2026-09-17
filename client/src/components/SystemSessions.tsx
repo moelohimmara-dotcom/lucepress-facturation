@@ -1,4 +1,5 @@
 import { Metric } from "@/components/Metric";
+import { ScrollableTableRegion } from "@/components/ScrollableTableRegion";
 import {
   ConsoleStatusBadge,
   Panel,
@@ -277,7 +278,11 @@ export function SystemSessionsPanel({
         )}
 
         {rows.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
+          <ScrollableTableRegion
+            label="Sessions de l’instance — tableau défilable"
+            testId="sessions-table"
+            hint="Tableau large : « Révoquer » est la dernière colonne, à droite. Atteignez le tableau avec Tab, puis faites défiler avec les flèches ← →."
+          >
             <table className="w-full min-w-[62rem] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
@@ -348,7 +353,7 @@ export function SystemSessionsPanel({
                 })}
               </tbody>
             </table>
-          </div>
+          </ScrollableTableRegion>
         )}
 
         <p className="mt-4 text-[11px] leading-4 text-muted-foreground">

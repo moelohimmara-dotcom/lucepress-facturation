@@ -1,3 +1,4 @@
+import { CopyButton } from "@/components/CopyButton";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,9 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { APP_ROLE_LABELS, STAFF_ASSIGNABLE_ROLES, type StaffAssignableRole } from "@shared/roles";
 import {
-  Check,
   CircleCheck,
-  ClipboardCopy,
   KeyRound,
   Loader2,
   Mail,
@@ -24,7 +23,7 @@ import {
   UserPlus,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 /**
  * BOÎTES DE DIALOGUE DE L’ÉCRAN « ACCÈS & COMPTES » — la partie qui agit.
@@ -188,12 +187,12 @@ export function TemporaryPasswordPanel({
   password: string;
   onDone: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const passwordRef = useRef<HTMLElement | null>(null);
 
   return (
     <div className="space-y-4" data-testid="temporary-password-panel">
       <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/70">
-        <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
+        <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
         <div>
           <p className="text-sm font-extrabold text-amber-950 dark:text-amber-200">Mot de passe temporaire — affiché une seule fois</p>
           <p className="mt-1 text-xs leading-5 text-amber-950 dark:text-amber-200">
@@ -206,23 +205,18 @@ export function TemporaryPasswordPanel({
 
       <div className="flex flex-wrap items-center gap-2">
         <code
+          ref={passwordRef}
           className="min-w-0 flex-1 rounded-xl border border-border bg-muted px-3 py-2 font-mono text-sm font-bold tracking-[0.12em] text-foreground"
           data-testid="temporary-password-value"
         >
           {password}
         </code>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-xl border-border font-bold"
-          onClick={() => {
-            void navigator.clipboard?.writeText(password);
-            setCopied(true);
-          }}
-        >
-          {copied ? <Check className="mr-2 h-4 w-4" /> : <ClipboardCopy className="mr-2 h-4 w-4" />}
-          {copied ? "Copié" : "Copier"}
-        </Button>
+        {/*
+          Le bouton partagé attend la promesse du presse-papiers : « Copié »
+          n’apparaît que si la copie a réellement eu lieu, et l’échec sélectionne
+          le mot de passe ci-dessus pour une recopie manuelle.
+        */}
+        <CopyButton value={password} targetRef={passwordRef} testId="temporary-password-copy" />
       </div>
 
       <p className="text-xs leading-5 text-muted-foreground">
@@ -262,7 +256,7 @@ export function InvitationLinkPanel({
   smtpConfigured: boolean;
   onDone: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const linkRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <div className="space-y-4" data-testid="invitation-link-panel">
@@ -280,19 +274,10 @@ export function InvitationLinkPanel({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Input readOnly value={link} className="min-w-0 flex-1 font-mono text-xs" data-testid="invitation-link-value" />
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-xl border-border font-bold"
-          onClick={() => {
-            void navigator.clipboard?.writeText(link);
-            setCopied(true);
-          }}
-        >
-          {copied ? <Check className="mr-2 h-4 w-4" /> : <ClipboardCopy className="mr-2 h-4 w-4" />}
-          {copied ? "Copié" : "Copier"}
-        </Button>
+        <Input ref={linkRef} readOnly value={link} className="min-w-0 flex-1 font-mono text-xs" data-testid="invitation-link-value" />
+        {/* Même règle que pour le mot de passe : le lien vaut 72 heures et n’est
+            plus affiché ensuite, donc « Copié » ne se dit pas à la légère. */}
+        <CopyButton value={link} targetRef={linkRef} testId="invitation-link-copy" />
       </div>
 
       <p className="text-xs leading-5 text-muted-foreground">

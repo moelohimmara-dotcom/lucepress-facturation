@@ -1,4 +1,5 @@
 import { Metric } from "@/components/Metric";
+import { ScrollableTableRegion } from "@/components/ScrollableTableRegion";
 import {
   AccessAdministrationBanner,
   AccessNoticeBanner,
@@ -475,7 +476,11 @@ export function SystemAccessPanel({
         )}
 
         {accounts.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
+          <ScrollableTableRegion
+            label="Comptes de l’instance — tableau défilable"
+            testId="access-accounts-table"
+            hint="Tableau large : les actions de chaque ligne se trouvent à droite. Atteignez le tableau avec Tab, puis faites défiler avec les flèches ← →."
+          >
             <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
@@ -585,7 +590,7 @@ export function SystemAccessPanel({
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollableTableRegion>
         )}
 
         <p className="mt-4 text-[11px] leading-4 text-muted-foreground">

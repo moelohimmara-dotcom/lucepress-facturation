@@ -252,6 +252,14 @@ export function SystemDataPanel({
   const verdict = dataVerdict(overview, candidates, failed);
   const pending = "…";
 
+  // TROIS ÉTATS DE L’INVENTAIRE, ET PAS DEUX. `undefined` ne veut pas dire
+  // « vide » : il veut dire « pas lu » — la lecture est en cours, ou elle a
+  // échoué. Les confondre ferait affirmer « il n’y a rien à purger » sur une
+  // lecture qui n’a jamais eu lieu : c’est exactement le mensonge que le
+  // commentaire d’en-tête de ce fichier promet d’éviter.
+  const inventoryLoading = isLoadingCandidates && candidates === undefined;
+  const inventoryUnreadable = candidates === undefined && !isLoadingCandidates;
+
   function toggle(clientId: number) {
     setSelected(current =>
       current.includes(clientId) ? current.filter(id => id !== clientId) : [...current, clientId],
@@ -423,10 +431,29 @@ export function SystemDataPanel({
       </div>
 
       <Panel title="Candidats « données de démonstration »">
-        {isLoadingCandidates && !candidates ? (
+        {inventoryLoading ? (
           <p className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Inventaire en cours…
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Inventaire en cours…
           </p>
+        ) : inventoryUnreadable ? (
+          /*
+            ÉCHEC DE LECTURE — l’état est INDÉTERMINÉ, pas vide. On le dit, et on
+            ne conclut rien : « rien à purger » exige d’avoir LU la liste.
+          */
+          <div
+            data-testid="data-inventory-unreadable"
+            className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-950 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-200"
+          >
+            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-extrabold">Impossible de conclure : l’inventaire n’a pas été lu</p>
+              <p className="mt-1 text-xs leading-5">
+                La liste des candidats est <strong>inconnue</strong> — elle n’est pas vide, elle n’a pas été lue. Aucun
+                client n’est proposé, aucune suppression n’est possible, et l’écran ne peut pas dire s’il reste ou non
+                des données de recette. Réessayez avec « Actualiser ».
+              </p>
+            </div>
+          </div>
         ) : candidates?.unavailable.length ? (
           <p className="text-xs leading-5 text-muted-foreground">
             Inventaire indisponible : la base n’a pas répondu. <strong>Rien n’est proposé</strong> plutôt que de
@@ -578,34 +605,50 @@ export function SystemDataPanel({
             <Button
               data-testid="data-export"
               onClick={() => onExport(selected)}
-              disabled={selected.length === 0 || isExporting}
+              disabled={selected.length === 0 || isExporting || inventoryUnreadable}
               className="h-10 rounded-xl font-bold"
             >
-              {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Download className="mr-2 h-4 w-4" aria-hidden="true" />}
               Exporter la sélection (JSON)
             </Button>
             <span className="text-xs text-muted-foreground">
-              {selected.length === 0
-                ? "Sélectionnez au moins un client."
-                : `${selectedCandidates.length} client(s) · ${formatCount(selectedRecords)} enregistrement(s)`}
+              {inventoryUnreadable
+                ? "Inventaire non lu : aucune sélection n’est vérifiable."
+                : selected.length === 0
+                  ? "Sélectionnez au moins un client."
+                  : `${selectedCandidates.length} client(s) · ${formatCount(selectedRecords)} enregistrement(s)`}
             </span>
           </div>
+
+          {/*
+            Un périmètre sélectionné AVANT l’échec ne doit pas pouvoir être figé
+            après : la liste n’est plus à l’écran, donc plus vérifiable. On ferme
+            les deux gestes et on dit pourquoi.
+          */}
+          {inventoryUnreadable && (
+            <p data-testid="data-export-blocked" className="text-xs leading-5 font-semibold text-amber-800 dark:text-amber-200">
+              Inventaire non lu : l’export et la suppression restent fermés tant que l’inventaire n’a pas été relu. Un
+              périmètre exporté sans sa liste ne serait plus vérifiable à l’écran.
+            </p>
+          )}
 
           <div className="rounded-2xl border border-border bg-card p-4">
             <Button
               data-testid="data-purge"
               variant="destructive"
               onClick={() => setConfirmOpen(true)}
-              disabled={!exportUpToDate || isPurging}
+              disabled={!exportUpToDate || isPurging || inventoryUnreadable}
               className="h-10 rounded-xl font-bold"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
               Supprimer la sélection
             </Button>
-            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-              {exportUpToDate
-                ? "Export préalable enregistré : la suppression est déverrouillée."
-                : "Inerte tant que l’export préalable du périmètre courant n’a pas été produit — on ne détruit pas sans filet."}
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {inventoryUnreadable
+                ? "Inerte : l’inventaire n’a pas été lu, donc le périmètre à détruire est inconnu."
+                : exportUpToDate
+                  ? "Export préalable enregistré : la suppression est déverrouillée."
+                  : "Inerte tant que l’export préalable du périmètre courant n’a pas été produit — on ne détruit pas sans filet."}
             </p>
 
             {confirmOpen && exportUpToDate && (

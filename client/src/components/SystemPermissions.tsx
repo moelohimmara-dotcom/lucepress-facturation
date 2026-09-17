@@ -1,3 +1,4 @@
+import { ScrollableTableRegion } from "@/components/ScrollableTableRegion";
 import {
   Check,
   Info,
@@ -130,7 +131,11 @@ export function SystemPermissionsPanel() {
           <p className="text-[11px] text-muted-foreground">Droits dérivés de canAccessPath</p>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
+        <ScrollableTableRegion
+          label="Capacités × rôles — tableau défilable"
+          testId="permissions-matrix-table"
+          hint="Tableau large : défilement horizontal avec les flèches ← → après l’avoir atteint avec Tab."
+        >
           <table className="w-full min-w-[52rem] border-collapse text-left text-sm">
             <caption className="sr-only">
               Matrice de référence des capacités par rôle, en lecture seule.
@@ -177,7 +182,7 @@ export function SystemPermissionsPanel() {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollableTableRegion>
 
         <div className="mt-4 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">

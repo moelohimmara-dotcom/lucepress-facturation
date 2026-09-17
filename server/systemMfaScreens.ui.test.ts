@@ -328,8 +328,9 @@ describe("Console — enrôlement proposé", () => {
         code: "12345",
         onCodeChange: () => undefined,
         onSubmit: () => undefined,
-        onCopySecret: () => undefined,
-        copied: false,
+        // `onCopySecret` / `copied` ont disparu : le bouton de copie est
+        // désormais le composant partagé `CopyButton`, qui porte lui-même son
+        // état et n’annonce « Copié » que sur une copie réelle.
         pending: false,
         error: null,
       }),
