@@ -157,7 +157,7 @@ export function SystemSessionsPanel({
 
       {failed && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold">Relevé des sessions indisponible</p>
             <p className="mt-1 text-xs leading-5">
@@ -170,7 +170,7 @@ export function SystemSessionsPanel({
 
       {!failed && sessions?.unavailable && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold">Registre des sessions illisible</p>
             <p className="mt-1 text-xs leading-5">
@@ -194,18 +194,18 @@ export function SystemSessionsPanel({
           }
         >
           {notice.tone === "ok" ? (
-            <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" />
+            <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           ) : notice.tone === "warn" ? (
-            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           ) : (
-            <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           )}
           <p className="text-sm leading-5 font-semibold">{notice.message}</p>
         </div>
       )}
 
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <div>
           <p className="text-sm font-extrabold">Révocation immédiate, sans attendre l’échéance</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -264,7 +264,7 @@ export function SystemSessionsPanel({
       <section className="lucepress-panel rounded-[1.35rem] p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="lucepress-kicker">Sessions de l’instance</h2>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {unavailable ? "registre indisponible" : sessions ? `${rows.length} ligne(s)` : "relevé indisponible"}
           </p>
         </div>
@@ -285,7 +285,7 @@ export function SystemSessionsPanel({
           >
             <table className="w-full min-w-[62rem] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+                <tr className="border-b border-border text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
                   <th scope="col" className="py-2 pr-3">Compte</th>
                   <th scope="col" className="py-2 pr-3">Ouverte le</th>
                   <th scope="col" className="py-2 pr-3">Dernière activité</th>
@@ -324,7 +324,7 @@ export function SystemSessionsPanel({
                       </td>
                       <td className="py-2.5">
                         {session.current ? (
-                          <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                          <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
                             Session courante
                           </span>
                         ) : revocable ? (
@@ -338,14 +338,14 @@ export function SystemSessionsPanel({
                             data-testid={`revoke-session-${session.id}`}
                           >
                             {revokingId === session.id ? (
-                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                             ) : (
-                              <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                              <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                             )}
                             Révoquer
                           </Button>
                         ) : (
-                          <span className="text-[11px] text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </td>
                     </tr>
@@ -356,7 +356,7 @@ export function SystemSessionsPanel({
           </ScrollableTableRegion>
         )}
 
-        <p className="mt-4 text-[11px] leading-4 text-muted-foreground">
+        <p className="mt-4 text-xs leading-4 text-muted-foreground">
           Ni le jeton de session ni son empreinte ne sont transmis à cette console : la colonne « Session courante » est
           calculée par la base de données. L’agent et l’IP proviennent de la requête de connexion et dépendent du client
           et du réseau : ils situent une session, ils ne prouvent pas qui l’utilise. « Dernière activité » est

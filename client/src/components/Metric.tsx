@@ -40,7 +40,7 @@ export function Metric({ icon: Icon, value, label, detail, tone = "primary", fla
   if (flat) {
     return (
       <div className="p-5">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">{label}</p>
+        <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-muted-foreground">{label}</p>
         <p className={cn("mt-2 font-mono text-lg font-extrabold", toneValue[tone])}>{value}</p>
       </div>
     );
@@ -50,12 +50,12 @@ export function Metric({ icon: Icon, value, label, detail, tone = "primary", fla
       <div className="flex items-center gap-3">
         {Icon && (
           <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", toneIcon[tone])}>
-            <Icon className="h-5 w-5" />
+            <Icon className="h-5 w-5" aria-hidden="true" />
           </div>
         )}
         <div className="min-w-0">
           <p className={cn("lucepress-value text-xl", toneValue[tone])}>{value}</p>
-          <p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
+          <p className="mt-1 text-xs font-extrabold uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
         </div>
       </div>
       {detail && <p className="mt-3 text-xs leading-5 text-muted-foreground">{detail}</p>}

@@ -282,7 +282,7 @@ export function SystemDataPanel({
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
         <div className="space-y-1">
           <p className="text-sm font-extrabold">Les suppressions sont journalisées</p>
           <p className="text-xs leading-5">
@@ -296,7 +296,7 @@ export function SystemDataPanel({
 
       {failed && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold">Relevé indisponible</p>
             <p className="mt-1 text-xs leading-5">
@@ -316,7 +316,7 @@ export function SystemDataPanel({
               : "border-rose-200 bg-rose-50 text-rose-950 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-200"
           }`}
         >
-          <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p className="text-xs leading-5 font-semibold">{notice.message}</p>
         </div>
       )}
@@ -365,7 +365,7 @@ export function SystemDataPanel({
       <Panel title="Volumes par table">
         {isLoadingOverview && !overview ? (
           <p className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Relevé en cours…
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Relevé en cours…
           </p>
         ) : (
           <ul data-testid="data-volumes" className="divide-y divide-border/60">
@@ -373,7 +373,7 @@ export function SystemDataPanel({
               <li key={volume.key} data-testid={`data-volume-${volume.key}`} className="flex items-baseline justify-between gap-4 py-1.5">
                 <span className="min-w-0 flex-1 truncate text-xs font-bold text-foreground">
                   {volume.label}
-                  <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">{volume.table}</span>
+                  <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">{volume.table}</span>
                 </span>
                 <span className="shrink-0 font-mono text-sm font-bold text-foreground">{formatCount(volume.count)}</span>
               </li>
@@ -385,7 +385,7 @@ export function SystemDataPanel({
             )}
           </ul>
         )}
-        <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
           Comptages de l’<strong>instance entière</strong>, tous espaces confondus — c’est la question « qu’y a-t-il dans
           cette base ? ». Une mesure illisible vaut « indisponible », jamais 0.
         </p>
@@ -414,16 +414,16 @@ export function SystemDataPanel({
             {(candidates?.rules ?? []).map(rule => (
               <li key={rule.key} className="rounded-xl border border-border bg-card p-3">
                 <p className="text-xs font-extrabold text-foreground">{rule.label}</p>
-                <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{rule.pattern}</p>
-                <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{rule.explanation}</p>
+                <p className="mt-0.5 font-mono text-xs text-muted-foreground">{rule.pattern}</p>
+                <p className="mt-1 text-xs leading-4 text-muted-foreground">{rule.explanation}</p>
               </li>
             ))}
             {(candidates?.rules ?? []).length === 0 && (
               <li className="text-xs text-muted-foreground">Règle indisponible : aucun inventaire n’a été lu.</li>
             )}
           </ul>
-          <p className="mt-3 flex items-start gap-2 text-[11px] leading-5 text-muted-foreground">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Règle fermée et publiée : un enregistrement n’est proposé que s’il porte l’un de ces motifs, et chaque
             proposition affiche celui qui l’a déclenchée. Aucun score, aucune heuristique silencieuse.
           </p>
@@ -514,15 +514,15 @@ export function SystemDataPanel({
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-foreground">{candidate.companyName}</p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         {candidate.email && (
                           <span className="inline-flex items-center gap-1">
-                            <AtSign className="h-3 w-3" />
+                            <AtSign className="h-3 w-3" aria-hidden="true" />
                             {candidate.email}
                           </span>
                         )}
                         <span className="inline-flex items-center gap-1">
-                          <Database className="h-3 w-3" />
+                          <Database className="h-3 w-3" aria-hidden="true" />
                           client {candidate.clientId}
                         </span>
                       </p>
@@ -532,14 +532,14 @@ export function SystemDataPanel({
                             key={`${motif.matcher}-${motif.field}-${index}`}
                             className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-2 py-1"
                           >
-                            <Tag className="h-3 w-3 shrink-0 text-primary" />
-                            <span className="text-[11px] font-extrabold text-foreground">{motif.label}</span>
-                            <span className="text-[11px] text-muted-foreground">{motifFieldLabel(motif.field)}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground">{motif.pattern}</span>
+                            <Tag className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                            <span className="text-xs font-extrabold text-foreground">{motif.label}</span>
+                            <span className="text-xs text-muted-foreground">{motifFieldLabel(motif.field)}</span>
+                            <span className="font-mono text-xs text-muted-foreground">{motif.pattern}</span>
                           </li>
                         ))}
                       </ul>
-                      <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
                         <strong className="text-foreground">{candidate.totalRecords}</strong> enregistrement(s) seraient
                         supprimés — le client compris : {formatCandidateCounts(candidate.counts)}.
                       </p>
@@ -558,18 +558,18 @@ export function SystemDataPanel({
                     : "border-border bg-muted text-muted-foreground"
                 }`}
               >
-                <Download className="mt-0.5 h-4 w-4 shrink-0" />
+                <Download className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <div className="space-y-1">
                   <p className="text-xs font-extrabold">
                     {exportUpToDate ? "Export préalable enregistré" : "Export caduc : la sélection a changé"}
                   </p>
-                  <p className="text-[11px] leading-5">
+                  <p className="text-xs leading-5">
                     {lastExport.filename} · {formatCount(lastExport.totalRecords)} enregistrement(s) ·{" "}
                     {lastExport.counts.map(entry => `${entry.label} : ${entry.count}`).join(" · ")}. Jeton valable jusqu’à{" "}
                     {formatConsoleTimestamp(lastExport.tokenExpiresAt)}.
                   </p>
                   {!exportUpToDate && (
-                    <p className="text-[11px] leading-5 font-semibold">
+                    <p className="text-xs leading-5 font-semibold">
                       Le jeton ne couvre que le périmètre exporté : exportez à nouveau la sélection courante pour
                       pouvoir supprimer.
                     </p>
@@ -585,13 +585,13 @@ export function SystemDataPanel({
             <p className="text-sm font-extrabold text-foreground">Clients reconnus mais écartés — et pourquoi</p>
             <ul data-testid="data-excluded" className="mt-2 space-y-2">
               {candidates.excluded.map(entry => (
-                <li key={entry.clientId} data-testid={`data-excluded-${entry.clientId}`} className="text-[11px] leading-5">
+                <li key={entry.clientId} data-testid={`data-excluded-${entry.clientId}`} className="text-xs leading-5">
                   <span className="font-bold text-foreground">{entry.companyName}</span>{" "}
                   <span className="text-muted-foreground">— {entry.reason}</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
               Ces clients <strong>ne sont pas proposés</strong> : leur suppression emporterait des données métier réelles,
               ou la base la refuserait. Ils ne comptent donc pas dans le total annoncé.
             </p>
@@ -682,7 +682,7 @@ export function SystemDataPanel({
                     }
                     className="h-10 rounded-xl font-bold"
                   >
-                    {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                    {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />}
                     Supprimer définitivement
                   </Button>
                   <Button
@@ -696,7 +696,7 @@ export function SystemDataPanel({
                   >
                     Annuler
                   </Button>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {canPurge ? "Phrase exacte : le serveur acceptera le geste." : "La phrase doit être recopiée à l’identique."}
                   </span>
                 </div>
@@ -704,8 +704,8 @@ export function SystemDataPanel({
             )}
           </div>
 
-          <p className="flex items-start gap-2 text-[11px] leading-5 text-muted-foreground">
-            <ScrollText className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+            <ScrollText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>
               <strong className="text-foreground">Les suppressions sont journalisées</strong> : chaque purge écrit une
               ligne portant l’acteur, le périmètre et le nombre d’enregistrements supprimés par table (voir le journal

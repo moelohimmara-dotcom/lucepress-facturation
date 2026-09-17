@@ -30,6 +30,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-field-border: var(--field-border);
+  --color-status-unknown: var(--status-unknown);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -66,7 +68,9 @@
   --destructive: oklch(0.55 0.19 28);
   --destructive-foreground: oklch(0.98 0.005 90);
   --border: oklch(0.874 0.025 83);
-  --input: oklch(0.88 0.024 82);
+  --input: oklch(0.58 0.05 83);
+  --field-border: oklch(0.58 0.05 83);
+  --status-unknown: oklch(0.58 0.025 162);
   --ring: oklch(0.56 0.111 162);
   --chart-1: oklch(0.48 0.11 164);
   --chart-2: oklch(0.67 0.12 89);
@@ -102,7 +106,9 @@
   --destructive: oklch(0.66 0.17 28);
   --destructive-foreground: oklch(0.18 0.025 164);
   --border: oklch(0.36 0.026 163);
-  --input: oklch(0.36 0.026 163);
+  --input: oklch(0.58 0.03 163);
+  --field-border: oklch(0.58 0.03 163);
+  --status-unknown: oklch(0.66 0.02 162);
   --ring: oklch(0.76 0.11 157);
   --sidebar: oklch(0.15 0.037 164);
   --sidebar-foreground: oklch(0.94 0.013 90);
@@ -132,18 +138,18 @@
   .font-script { font-family: var(--font-script); font-weight: 600; line-height: 1.15; }
   .card-shadow { box-shadow: 0 20px 48px -34px oklch(0.18 0.06 164 / 52%), 0 1px 0 oklch(1 0 0 / 72%) inset; }
   .lucepress-panel { border: 1px solid oklch(0.875 0.025 83 / 82%); background: linear-gradient(145deg, oklch(0.997 0.004 90 / 96%), oklch(0.973 0.012 88 / 84%)); box-shadow: 0 22px 58px -40px oklch(0.18 0.06 164 / 54%), 0 1px 0 oklch(1 0 0 / 72%) inset; }
-  .lucepress-kicker { color: oklch(0.39 0.095 165); font-size: 0.69rem; font-weight: 800; letter-spacing: 0.2em; line-height: 1; text-transform: uppercase; }
+  .lucepress-kicker { color: oklch(0.39 0.095 165); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.2em; line-height: 1; text-transform: uppercase; }
   .lucepress-value { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.04em; font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 144; }
-  .lucepress-field { border-color: oklch(0.84 0.03 83); background: oklch(0.987 0.007 88); box-shadow: 0 1px 0 oklch(1 0 0 / 70%) inset; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+  .lucepress-field { border-color: var(--field-border); background: oklch(0.987 0.007 88); box-shadow: 0 1px 0 oklch(1 0 0 / 70%) inset; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out); }
   .lucepress-field:focus { border-color: oklch(0.52 0.11 164); background: oklch(1 0 0); box-shadow: 0 0 0 4px oklch(0.52 0.11 164 / 13%); outline: none; }
-  .lucepress-control > input, .lucepress-control > select, .lucepress-control > textarea { border-color: oklch(0.84 0.03 83); background: oklch(0.987 0.007 88); box-shadow: 0 1px 0 oklch(1 0 0 / 70%) inset; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+  .lucepress-control > input, .lucepress-control > select, .lucepress-control > textarea { border-color: var(--field-border); background: oklch(0.987 0.007 88); box-shadow: 0 1px 0 oklch(1 0 0 / 70%) inset; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out); }
   .lucepress-control > input:focus, .lucepress-control > select:focus, .lucepress-control > textarea:focus { border-color: oklch(0.52 0.11 164); background: oklch(1 0 0); box-shadow: 0 0 0 4px oklch(0.52 0.11 164 / 13%); outline: none; }
   li.flex.gap-2 { display: block; position: relative; padding-left: 1.5rem; }
   li.flex.gap-2 > svg { left: 0; position: absolute; top: 0.2rem; }
   .dark body { background-image: radial-gradient(circle at 75% -8%, oklch(0.38 0.07 157 / 26%), transparent 32rem), radial-gradient(circle at 5% 100%, oklch(0.33 0.05 210 / 18%), transparent 28rem); }
   .dark .lucepress-panel { border-color: oklch(0.39 0.026 163); background: linear-gradient(145deg, oklch(0.265 0.025 164 / 96%), oklch(0.215 0.024 164 / 90%)); box-shadow: 0 22px 58px -40px oklch(0.03 0.01 164 / 85%), 0 1px 0 oklch(0.8 0.03 160 / 7%) inset; }
   .dark .lucepress-kicker { color: oklch(0.78 0.1 157); }
-  .dark .lucepress-field, .dark .lucepress-control > input, .dark .lucepress-control > select, .dark .lucepress-control > textarea { border-color: oklch(0.4 0.026 163); background: oklch(0.205 0.02 164); box-shadow: 0 1px 0 oklch(0.82 0.03 157 / 5%) inset; }
+  .dark .lucepress-field, .dark .lucepress-control > input, .dark .lucepress-control > select, .dark .lucepress-control > textarea { border-color: var(--field-border); background: oklch(0.205 0.02 164); box-shadow: 0 1px 0 oklch(0.82 0.03 157 / 5%) inset; }
   .dark .lucepress-field:focus, .dark .lucepress-control > input:focus, .dark .lucepress-control > select:focus, .dark .lucepress-control > textarea:focus { border-color: oklch(0.76 0.11 157); background: oklch(0.23 0.022 164); box-shadow: 0 0 0 4px oklch(0.76 0.11 157 / 14%); }
   .lucepress-ornament::after { content: ""; position: absolute; right: -2.5rem; top: -2.5rem; width: 9rem; height: 9rem; border: 1px solid oklch(0.73 0.125 89 / 22%); border-radius: 999px; box-shadow: 0 0 0 1.35rem oklch(0.73 0.125 89 / 5%); pointer-events: none; }
   @media (prefers-reduced-motion: reduce) { .animate-pulse, .lucepress-hover-lift { animation: none !important; transition: none !important; } #main-content > *, .stagger-rise > *, [style*="lucepress-rise"] { animation: none !important; opacity: 1 !important; transform: none !important; } html { scroll-behavior: auto !important; } }

@@ -35,7 +35,7 @@ export function AuthShell({ kicker, title, description, children, footerLink }: 
           <div className="relative z-10 flex flex-col gap-10">
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sidebar-primary/15 ring-1 ring-sidebar-border/60">
-                <ShieldCheck className="h-5 w-5 text-sidebar-primary" />
+                <ShieldCheck className="h-5 w-5 text-sidebar-primary" aria-hidden="true" />
               </span>
               <span className="lucepress-kicker text-sidebar-primary">{LUCEPRES_PUBLIC_PROFILE.legalName}</span>
             </div>
@@ -52,7 +52,7 @@ export function AuthShell({ kicker, title, description, children, footerLink }: 
           </div>
           <div className="relative z-10 flex items-center justify-between gap-4 border-t border-sidebar-border/50 pt-6 text-xs text-sidebar-foreground/60">
             <span className="font-mono">{LUCEPRES_PUBLIC_PROFILE.location}</span>
-            <span className="lucepress-kicker text-sidebar-foreground/55">{LUCEPRES_PUBLIC_PROFILE.positioning}</span>
+            <span className="lucepress-kicker text-sidebar-foreground/70">{LUCEPRES_PUBLIC_PROFILE.positioning}</span>
           </div>
         </aside>
 
@@ -61,7 +61,7 @@ export function AuthShell({ kicker, title, description, children, footerLink }: 
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8 flex items-center gap-3 lg:hidden">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20">
-                <ShieldCheck className="h-5 w-5 text-primary" />
+                <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
               </span>
               <span className="lucepress-kicker text-primary">{LUCEPRES_PUBLIC_PROFILE.legalName}</span>
             </div>

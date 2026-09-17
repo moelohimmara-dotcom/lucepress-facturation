@@ -83,7 +83,7 @@ function GrantCell({ granted, capabilityKey, role }: { granted: boolean; capabil
       {granted ? (
         <Check className="mx-auto h-4 w-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
       ) : (
-        <Minus className="mx-auto h-4 w-4 text-muted-foreground/50" aria-hidden="true" />
+        <Minus className="mx-auto h-4 w-4 text-muted-foreground" aria-hidden="true" />
       )}
       <span className="sr-only">{granted ? "Autorisé" : "Refusé"}</span>
     </td>
@@ -107,14 +107,14 @@ export function SystemPermissionsPanel() {
             {rows.length} capacités × {PERMISSION_MATRIX_ROLES.length} rôles internes · {grantedTotal} droits ouverts
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
-          <UsersRound className="h-3.5 w-3.5" />
+        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+          <UsersRound className="h-3.5 w-3.5" aria-hidden="true" />
           Matrice de référence
         </span>
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-        <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+        <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
         <div>
           <p className="text-sm font-extrabold">Matrice de référence — édition à venir (migration requise)</p>
           <p className="mt-1 text-xs leading-5">
@@ -128,7 +128,7 @@ export function SystemPermissionsPanel() {
       <section className="lucepress-panel rounded-[1.35rem] p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="lucepress-kicker">Capacités × rôles</h2>
-          <p className="text-[11px] text-muted-foreground">Droits dérivés de canAccessPath</p>
+          <p className="text-xs text-muted-foreground">Droits dérivés de canAccessPath</p>
         </div>
 
         <ScrollableTableRegion
@@ -142,7 +142,7 @@ export function SystemPermissionsPanel() {
             </caption>
             <thead>
               <tr className="border-b border-border">
-                <th scope="col" className="py-2 pr-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+                <th scope="col" className="py-2 pr-3 text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
                   Capacité
                 </th>
                 {PERMISSION_MATRIX_ROLES.map(role => (
@@ -150,12 +150,12 @@ export function SystemPermissionsPanel() {
                     key={role}
                     scope="col"
                     data-testid={`perm-col-${role}`}
-                    className="px-3 py-2 text-center text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground"
+                    className="px-3 py-2 text-center text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground"
                   >
                     {APP_ROLE_LABELS[role]}
                   </th>
                 ))}
-                <th scope="col" className="py-2 pl-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+                <th scope="col" className="py-2 pl-3 text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
                   Procédure serveur
                 </th>
               </tr>
@@ -170,7 +170,7 @@ export function SystemPermissionsPanel() {
                   <td className="py-2.5 pr-3">
                     <span className="block font-semibold text-foreground">{capability.label}</span>
                     <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{capability.detail}</span>
-                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground/80">{capability.path}</span>
+                    <span className="mt-0.5 block font-mono text-xs text-muted-foreground">{capability.path}</span>
                   </td>
                   {PERMISSION_MATRIX_ROLES.map(role => (
                     <GrantCell key={role} granted={grants[role]} capabilityKey={capability.key} role={role} />
@@ -184,18 +184,18 @@ export function SystemPermissionsPanel() {
           </table>
         </ScrollableTableRegion>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" aria-hidden="true" /> Autorisé
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <Minus className="h-3.5 w-3.5 text-muted-foreground/50" aria-hidden="true" /> Refusé
+            <Minus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Refusé
           </span>
         </div>
       </section>
 
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
-        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <div className="space-y-2">
           <p className="text-sm font-extrabold">Séparation des devoirs</p>
           <p className="text-xs leading-5 text-muted-foreground">
@@ -217,7 +217,7 @@ export function SystemPermissionsPanel() {
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
-        <Info className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <p className="text-xs leading-5 text-muted-foreground">
           Source unique : le descripteur <span className="font-mono">shared/roles.ts</span>. Chaque case est calculée par
           la même fonction que celle qui commande la navigation et les gardes d’écran (<span className="font-mono">canAccessPath</span>),

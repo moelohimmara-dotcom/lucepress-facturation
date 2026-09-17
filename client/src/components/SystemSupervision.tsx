@@ -107,7 +107,7 @@ export function SystemSupervisionPanel({ metrics, failed, isLoading }: Supervisi
 
       {failed && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold">Mesures indisponibles</p>
             <p className="mt-1 text-xs leading-5">
@@ -120,7 +120,7 @@ export function SystemSupervisionPanel({ metrics, failed, isLoading }: Supervisi
 
       {isLoading && !metrics && (
         <p className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Relevé en cours…
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Relevé en cours…
         </p>
       )}
 
@@ -162,7 +162,7 @@ export function SystemSupervisionPanel({ metrics, failed, isLoading }: Supervisi
           <Row label="Connexions ouvertes sur la base">
             {isLoading && !metrics ? pending : !metrics ? "—" : formatCount(database?.pool.observedConnections)}
           </Row>
-          <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
             Le pilote PostgreSQL n’expose pas le nombre de connexions réellement empruntées dans le pool : cette valeur
             n’est pas communiquée, plutôt que déduite. Le nombre de connexions ouvertes est relevé côté serveur
             (pg_stat_activity) pour la base courante.
@@ -176,7 +176,7 @@ export function SystemSupervisionPanel({ metrics, failed, isLoading }: Supervisi
             {isLoading && !metrics ? pending : formatCount(metrics?.counts.pendingInvitations)}
           </Row>
           <Row label="Comptes">{isLoading && !metrics ? pending : formatCount(metrics?.counts.accounts)}</Row>
-          <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
             Comptages de l’instance entière (tous espaces confondus), relevés par requêtes count en lecture seule.
           </p>
         </Panel>
@@ -216,7 +216,7 @@ export function SystemSupervisionPanel({ metrics, failed, isLoading }: Supervisi
           <Row label="Dernière migration">
             {isLoading && !metrics ? pending : metrics?.migration.appliedAt ? formatConsoleTimestamp(metrics.migration.appliedAt) : "indisponible"}
           </Row>
-          <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
             {metrics && !metrics.migration.tracked
               ? "Cette base ne possède pas le schéma de suivi drizzle.__drizzle_migrations : la dernière migration appliquée n’est pas lisible ici."
               : "Relevé dans drizzle.__drizzle_migrations (suivi des migrations Drizzle)."}
@@ -226,10 +226,10 @@ export function SystemSupervisionPanel({ metrics, failed, isLoading }: Supervisi
 
       {metrics && metrics.unavailable.length > 0 && (
         <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
-          <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+          <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold text-foreground">Mesures indisponibles sur ce relevé</p>
-            <p className="mt-1 font-mono text-[11px] text-muted-foreground">{metrics.unavailable.join(" · ")}</p>
+            <p className="mt-1 font-mono text-xs text-muted-foreground">{metrics.unavailable.join(" · ")}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Ces mesures n’ont pas pu être lues (droits ou disponibilité) : elles sont affichées « indisponible »
               plutôt que remplacées par une valeur approchée.

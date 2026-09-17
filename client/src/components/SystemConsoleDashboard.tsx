@@ -168,7 +168,7 @@ function StatusDot({ tone }: { tone: StatusTone }) {
         ? "bg-amber-500"
         : tone === "down"
           ? "bg-rose-500"
-          : "bg-muted-foreground/40";
+          : "bg-status-unknown";
   return <span className={`inline-block h-2 w-2 rounded-full ${className}`} aria-hidden="true" />;
 }
 
@@ -201,7 +201,7 @@ export function ConsoleStatusBadge({ tone, label }: { tone: StatusTone; label: s
           ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-200"
           : "border-border bg-muted text-muted-foreground";
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.12em] ${className}`}>
+    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${className}`}>
       <StatusDot tone={tone} />
       {label}
     </span>
@@ -249,7 +249,7 @@ export function ConsoleLink({
 export function ConsoleModuleRail({ activePath = "/console", onNavigate }: { activePath?: string; onNavigate?: ConsoleNavigate }) {
   return (
     <nav aria-label="Modules de la console" className="lucepress-panel h-fit rounded-[1.35rem] p-3">
-      <p className="px-2 pb-2 pt-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">Modules</p>
+      <p className="px-2 pb-2 pt-1 text-xs font-extrabold uppercase tracking-[0.18em] text-muted-foreground">Modules</p>
       <ul className="space-y-1">
         {CONSOLE_MODULES.map(module => {
           const Icon = module.icon;
@@ -265,10 +265,10 @@ export function ConsoleModuleRail({ activePath = "/console", onNavigate }: { act
           }`;
           const body = (
             <>
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{module.label}</span>
               {!path && (
-                <span className="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
+                <span className="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
                   {module.phase}
                 </span>
               )}
@@ -289,7 +289,7 @@ export function ConsoleModuleRail({ activePath = "/console", onNavigate }: { act
           );
         })}
       </ul>
-      <p className="px-3 pt-3 text-[11px] leading-4 text-muted-foreground">
+      <p className="px-3 pt-3 text-xs leading-4 text-muted-foreground">
         Les modules annotés d’une phase seront livrés lors des phases suivantes.
       </p>
     </nav>
@@ -314,12 +314,12 @@ export function ConsoleQuickAccess({ onNavigate }: { onNavigate?: ConsoleNavigat
               className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-secondary/40"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden="true" />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-bold text-foreground">{module.label}</span>
                 <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{module.summary}</span>
-                <span className="mt-1 block font-mono text-[11px] text-muted-foreground">{path}</span>
+                <span className="mt-1 block font-mono text-xs text-muted-foreground">{path}</span>
               </span>
             </ConsoleLink>
           );
@@ -373,7 +373,7 @@ export function SystemDashboard({
 
       {healthError && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold">Relevé de santé indisponible</p>
             <p className="mt-1 text-xs leading-5">{healthError}</p>
@@ -439,11 +439,11 @@ export function SystemDashboard({
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : overviewFailed ? (
               <span className="inline-flex items-center gap-2 text-rose-700 dark:text-rose-200">
-                <TriangleAlert className="h-4 w-4" /> refusé
+                <TriangleAlert className="h-4 w-4" aria-hidden="true" /> refusé
               </span>
             ) : (
               <span className="inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-200">
-                <CircleCheck className="h-4 w-4" /> vérifié
+                <CircleCheck className="h-4 w-4" aria-hidden="true" /> vérifié
               </span>
             )}
           </Row>
@@ -452,7 +452,7 @@ export function SystemDashboard({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4">
-        <SquareTerminal className="h-5 w-5 shrink-0 text-primary" />
+        <SquareTerminal className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <p className="text-xs leading-5 text-muted-foreground">
           Les modules de sauvegarde, de gestion des accès et d’environnement arrivent dans les phases suivantes.
           Aucune donnée commerciale n’est modifiable depuis cette console.

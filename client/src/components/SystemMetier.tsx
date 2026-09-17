@@ -171,7 +171,7 @@ export function SystemMetierPanel({
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
-        <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <div className="space-y-2">
           <p className="text-sm font-extrabold">Les écrans métier restent la référence</p>
           <p className="text-xs leading-5 text-muted-foreground">
@@ -196,7 +196,7 @@ export function SystemMetierPanel({
               >
                 <div className="flex items-start gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-foreground">{domain.label}</p>
@@ -211,10 +211,10 @@ export function SystemMetierPanel({
                           className={buttonVariants({ variant: "outline", size: "sm" })}
                         >
                           {destination.label}
-                          <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
+                          <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
                         </ConsoleLink>
                       ))}
-                      <span className="font-mono text-[11px] text-muted-foreground">
+                      <span className="font-mono text-xs text-muted-foreground">
                         {domain.destinations.map(destination => destination.path).join(" · ")}
                       </span>
                     </div>
@@ -231,8 +231,8 @@ export function SystemMetierPanel({
           </p>
         )}
 
-        <p className="mt-4 flex items-start gap-2 text-[11px] leading-5 text-muted-foreground">
-          <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+          <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Les boutons « Ouvrir » mènent aux écrans existants de l’application (navigation interne, ou nouvel onglet
           selon le clic).
         </p>

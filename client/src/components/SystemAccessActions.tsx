@@ -132,11 +132,11 @@ export function AccessNoticeBanner({ notice }: { notice: AccessNotice }) {
   return (
     <div className={`flex items-start gap-3 rounded-2xl border p-4 ${style}`} data-testid="access-notice">
       {notice.tone === "ok" ? (
-        <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" />
+        <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
       ) : notice.tone === "warn" ? (
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
       ) : (
-        <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
+        <XCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
       )}
       <p className="text-sm font-semibold leading-5">{notice.message}</p>
     </div>
@@ -160,7 +160,7 @@ function DialogError({ message }: { message: string | null | undefined }) {
 /** Rappel présent dans chaque boîte de dialogue : rien de tout ceci n’est discret. */
 export function JournalisedMention({ className }: { className?: string }) {
   return (
-    <p className={`text-[11px] leading-4 text-muted-foreground ${className ?? ""}`}>
+    <p className={`text-xs leading-4 text-muted-foreground ${className ?? ""}`}>
       Les actions sont journalisées : acteur, compte visé, action et résultat.
     </p>
   );
@@ -405,7 +405,7 @@ export function CreateAccountDialog({
               onChange={event => setPassword(event.target.value)}
               required
             />
-            <p className="text-[11px] text-muted-foreground">8 caractères minimum. Aucune autre exigence n’est imposée.</p>
+            <p className="text-xs text-muted-foreground">8 caractères minimum. Aucune autre exigence n’est imposée.</p>
           </div>
           <div className="space-y-2">
             <Label>Rôle</Label>
@@ -418,7 +418,7 @@ export function CreateAccountDialog({
               Annuler
             </Button>
             <Button type="submit" className="h-10 rounded-xl font-bold" disabled={pending} data-testid="create-account-submit">
-              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />}
               {pending ? "Création…" : "Créer le compte"}
             </Button>
           </DialogFooter>
@@ -473,7 +473,7 @@ export function RenameAccountDialog({
           <div className="space-y-2">
             <Label htmlFor="sra-name">Nom affiché</Label>
             <Input id="sra-name" value={name} onChange={event => setName(event.target.value)} placeholder="Laisser vide pour effacer" />
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Compte : {account ? accessAccountLabel(account) : "—"} · {account?.email ?? "sans adresse"}
             </p>
           </div>
@@ -686,7 +686,7 @@ export function RemoveAccountDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950/70">
-            <Trash2 className="mt-0.5 h-5 w-5 shrink-0 text-rose-700 dark:text-rose-300" />
+            <Trash2 className="mt-0.5 h-5 w-5 shrink-0 text-rose-700 dark:text-rose-300" aria-hidden="true" />
             <p className="text-xs leading-5 text-rose-900 dark:text-rose-200">
               Compte visé : <strong>{account ? accessAccountLabel(account) : "—"}</strong>
               {account?.email ? ` · ${account.email}` : ""} · rôle {account ? roleLabel(account.role) : "—"}.
@@ -791,7 +791,7 @@ export function InviteDialog({
               Annuler
             </Button>
             <Button type="submit" className="h-10 rounded-xl font-bold" disabled={pending} data-testid="invite-submit">
-              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Mail className="mr-2 h-4 w-4" aria-hidden="true" />}
               {pending ? "Émission…" : "Émettre l’invitation"}
             </Button>
           </DialogFooter>
@@ -829,7 +829,7 @@ export function RevokeInvitationDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/70">
-            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
             <p className="text-xs leading-5 text-amber-950 dark:text-amber-200">
               Invitation visée : <strong>{invitation?.email ?? "—"}</strong>
               {invitation ? ` · rôle ${invitation.roleLabel}` : ""}. Si l’e-mail n’est simplement pas arrivé, préférez
@@ -870,7 +870,7 @@ export function RevokeInvitationDialog({
 export function AccessAdministrationBanner() {
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
-      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
       <div>
         <p className="text-sm font-extrabold">Administration des comptes</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -888,8 +888,8 @@ export function AccessAdministrationBanner() {
 /** Icône d’avertissement réutilisée par la liste des invitations en attente. */
 export function ExpiredInvitationMark() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-amber-900 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-      <TriangleAlert className="h-3 w-3" />
+    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-amber-900 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
+      <TriangleAlert className="h-3 w-3" aria-hidden="true" />
       Échue
     </span>
   );

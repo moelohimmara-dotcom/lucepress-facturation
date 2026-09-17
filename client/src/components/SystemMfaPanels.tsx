@@ -125,7 +125,7 @@ export function MfaErrorNotice({ message }: { message: string }) {
       data-testid="mfa-error"
       className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-100"
     >
-      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <p className="text-xs leading-5">{message}</p>
     </div>
   );
@@ -168,7 +168,7 @@ export function MfaChallengePanel({
       }}
     >
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-secondary/50 p-3">
-        <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <p className="text-xs leading-5 text-muted-foreground">
           Votre mot de passe est reconnu. Saisissez maintenant le code à {MFA_CODE_LENGTH} chiffres affiché par votre
           application d’authentification, ou l’un de vos codes de secours.
@@ -193,7 +193,7 @@ export function MfaChallengePanel({
         className="h-12 w-full rounded-xl bg-primary text-base font-bold text-primary-foreground"
       >
         {pending ? "Vérification…" : "Valider le code"}
-        {pending && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+        {pending && <Loader2 className="ml-2 h-4 w-4 animate-spin" aria-hidden="true" />}
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
@@ -221,7 +221,7 @@ export function MfaEnrollIntro({ onStart, pending, error }: { onStart: () => voi
   return (
     <div className="space-y-5" data-testid="mfa-enroll-intro">
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-secondary/50 p-4">
-        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <div>
           <p className="text-sm font-extrabold">Double authentification — recommandée, jamais imposée</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -246,7 +246,7 @@ export function MfaEnrollIntro({ onStart, pending, error }: { onStart: () => voi
         className="h-11 w-full rounded-xl bg-primary font-bold text-primary-foreground"
       >
         {pending ? "Préparation…" : "Générer mon secret"}
-        {pending ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <KeyRound className="ml-2 h-4 w-4" />}
+        {pending ? <Loader2 className="ml-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <KeyRound className="ml-2 h-4 w-4" aria-hidden="true" />}
       </Button>
     </div>
   );
@@ -308,7 +308,7 @@ export function MfaEnrollSecret({
         </p>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           Certaines applications acceptent aussi le lien complet :{" "}
-          <span className="break-all font-mono text-[11px] text-foreground/70">{otpauthUri}</span>
+          <span className="break-all font-mono text-xs text-foreground/70">{otpauthUri}</span>
         </p>
       </div>
 
@@ -330,7 +330,7 @@ export function MfaEnrollSecret({
         className="h-11 w-full rounded-xl bg-primary font-bold text-primary-foreground"
       >
         {pending ? "Activation…" : "Activer la double authentification"}
-        {pending && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+        {pending && <Loader2 className="ml-2 h-4 w-4 animate-spin" aria-hidden="true" />}
       </Button>
     </form>
   );
@@ -341,7 +341,7 @@ export function MfaRecoveryCodes({ codes, onAcknowledge }: { codes: readonly str
   return (
     <div className="space-y-5" data-testid="mfa-recovery-codes">
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-secondary/50 p-4">
-        <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <div>
           <p className="text-sm font-extrabold">Double authentification active</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -358,7 +358,7 @@ export function MfaRecoveryCodes({ codes, onAcknowledge }: { codes: readonly str
             className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2"
             data-testid={`mfa-recovery-code-${index + 1}`}
           >
-            <span className="font-mono text-[10px] font-bold text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
+            <span className="font-mono text-xs font-bold text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
             <span className="font-mono text-sm font-bold tracking-[0.12em]">{entry}</span>
           </li>
         ))}
@@ -477,25 +477,25 @@ export function ConsoleMfaPanel({
             ou désactiver ce facteur est votre décision, et elle se prend ici.
           </p>
         </div>
-        <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.12em] ${toneClass}`}>
-          <ShieldCheck className="h-3.5 w-3.5" />
+        <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${toneClass}`}>
+          <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
           {isLoading ? "Vérification…" : summary.label}
         </span>
       </div>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card px-3 py-2">
-          <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Méthode</dt>
+          <dt className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Méthode</dt>
           <dd className="mt-1 font-mono text-sm font-bold">{enabled ? "TOTP · 6 chiffres · 30 s" : "—"}</dd>
         </div>
         <div className="rounded-2xl border border-border bg-card px-3 py-2">
-          <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Activée le</dt>
+          <dt className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Activée le</dt>
           <dd className="mt-1 font-mono text-sm font-bold">
             {enabled && status?.enrolledAt ? new Date(status.enrolledAt).toLocaleDateString("fr-FR") : "—"}
           </dd>
         </div>
         <div className="rounded-2xl border border-border bg-card px-3 py-2">
-          <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Codes de secours</dt>
+          <dt className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">Codes de secours</dt>
           <dd className="mt-1 font-mono text-sm font-bold">
             {enabled ? `${status?.recoveryCodesRemaining} restant(s)` : "—"}
           </dd>
@@ -518,7 +518,7 @@ export function ConsoleMfaPanel({
             propose ni activation ni désactivation tant qu’on ne sait pas ce qui est déjà en place.
           </p>
           <Button variant="outline" onClick={onRetry} disabled={isLoading} className="h-10 rounded-xl border-border font-bold">
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
             Réessayer
           </Button>
         </div>
@@ -532,7 +532,7 @@ export function ConsoleMfaPanel({
             et revenir en arrière quand vous voulez, avec un code valide.
           </p>
           <Button onClick={onStartEnroll} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
-            <ShieldPlus className="mr-2 h-4 w-4" />
+            <ShieldPlus className="mr-2 h-4 w-4" aria-hidden="true" />
             Activer la double authentification
           </Button>
         </div>
@@ -545,7 +545,7 @@ export function ConsoleMfaPanel({
           disabled={isLoading}
           className="mt-4 h-10 rounded-xl border-border font-bold"
         >
-          <ShieldOff className="mr-2 h-4 w-4" />
+          <ShieldOff className="mr-2 h-4 w-4" aria-hidden="true" />
           Désactiver la double authentification
         </Button>
       )}

@@ -150,13 +150,13 @@ export function accessVerdict(
 
 function MeanBadge({ available }: { available: boolean }) {
   return available ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200">
-      <CircleCheck className="h-3 w-3" />
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200">
+      <CircleCheck className="h-3 w-3" aria-hidden="true" />
       Disponible
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">
-      <CircleMinus className="h-3 w-3" />
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-muted-foreground">
+      <CircleMinus className="h-3 w-3" aria-hidden="true" />
       Non disponible
     </span>
   );
@@ -168,8 +168,8 @@ function RoleBadge({ role, label }: { role: string; label: string }) {
     <span
       className={
         portal
-          ? "rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-900 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200"
-          : "rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-secondary-foreground"
+          ? "rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-900 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200"
+          : "rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-secondary-foreground"
       }
       data-testid={`access-role-${role}`}
     >
@@ -284,7 +284,7 @@ export function SystemAccessPanel({
             className="h-10 rounded-xl bg-primary font-bold text-primary-foreground"
             data-testid="access-create-account"
           >
-            <UserPlus className="mr-2 h-4 w-4" />
+            <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
             Créer un compte
           </Button>
           <Button
@@ -295,7 +295,7 @@ export function SystemAccessPanel({
             className="h-10 rounded-xl border-border font-bold"
             data-testid="access-invite"
           >
-            <Mail className="mr-2 h-4 w-4" />
+            <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
             Inviter
           </Button>
         </div>
@@ -303,7 +303,7 @@ export function SystemAccessPanel({
 
       {failed && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold">Relevé des accès indisponible</p>
             <p className="mt-1 text-xs leading-5">
@@ -320,7 +320,7 @@ export function SystemAccessPanel({
         <AccessAdministrationBanner />
       ) : (
         <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
           <div>
             <p className="text-sm font-extrabold">Consultation seule — sauf la révocation de session</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -404,11 +404,11 @@ export function SystemAccessPanel({
             précédente serait un mensonge confortable.
           */}
           {invitations === undefined ? (
-            <p className="mt-3 text-[11px] leading-4 text-muted-foreground">
+            <p className="mt-3 text-xs leading-4 text-muted-foreground">
               Seuls des nombres par rôle sont remontés : ni jeton d’invitation, ni adresse e-mail.
             </p>
           ) : (
-            <p className="mt-3 text-[11px] leading-4 text-muted-foreground">
+            <p className="mt-3 text-xs leading-4 text-muted-foreground">
               Les adresses des invitations en attente sont détaillées plus bas, pour permettre le renvoi et la
               révocation. Ni le lien, ni le jeton, ni son empreinte ne sont remontés.
             </p>
@@ -441,7 +441,7 @@ export function SystemAccessPanel({
           <Row label="Comparaison">{access.passwordPolicy.hashing.comparison}</Row>
           <Row label="Complexité">{access.passwordPolicy.complexity ?? "aucune exigence imposée"}</Row>
           <Row label="Validité du lien de réinitialisation">{`${access.passwordPolicy.resetLinkTtlMinutes} min`}</Row>
-          <p className="mt-4 text-[11px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">
+          <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.1em] text-muted-foreground">
             Garde-fous en place
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-muted-foreground">
@@ -449,7 +449,7 @@ export function SystemAccessPanel({
               <li key={protection}>{protection}</li>
             ))}
           </ul>
-          <p className="mt-4 text-[11px] leading-4 text-muted-foreground">
+          <p className="mt-4 text-xs leading-4 text-muted-foreground">
             Imposée par : {access.passwordPolicy.enforcedBy.join(", ")} — source {access.passwordPolicy.hashing.implementation}.
           </p>
         </Panel>
@@ -458,7 +458,7 @@ export function SystemAccessPanel({
       <section className="lucepress-panel rounded-[1.35rem] p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="lucepress-kicker">Comptes de l’instance</h2>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {access ? `${access.accountsTotal} compte(s)` : "relevé indisponible"}
           </p>
         </div>
@@ -483,7 +483,7 @@ export function SystemAccessPanel({
           >
             <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+                <tr className="border-b border-border text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
                   <th scope="col" className="py-2 pr-3">Nom</th>
                   <th scope="col" className="py-2 pr-3">E-mail</th>
                   <th scope="col" className="py-2 pr-3">Rôle</th>
@@ -516,8 +516,8 @@ export function SystemAccessPanel({
                         data-testid={`access-mfa-${account.id}`}
                         className={
                           account.mfaEnabled
-                            ? "inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200"
-                            : "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground"
+                            ? "inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200"
+                            : "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-muted-foreground"
                         }
                       >
                         {account.mfaEnabled ? "MFA active" : "MFA inactive"}
@@ -544,7 +544,7 @@ export function SystemAccessPanel({
                             onClick={() => actions.onRename(account)}
                             data-testid={`rename-account-${account.id}`}
                           >
-                            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                            <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                             Renommer
                           </Button>
                           <Button
@@ -556,7 +556,7 @@ export function SystemAccessPanel({
                             onClick={() => actions.onChangeRole(account)}
                             data-testid={`change-role-${account.id}`}
                           >
-                            <UserCog className="mr-1.5 h-3.5 w-3.5" />
+                            <UserCog className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                             Rôle
                           </Button>
                           <Button
@@ -568,7 +568,7 @@ export function SystemAccessPanel({
                             onClick={() => actions.onResetPassword(account)}
                             data-testid={`reset-password-${account.id}`}
                           >
-                            <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                            <KeyRound className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                             Mot de passe
                           </Button>
                           <Button
@@ -580,7 +580,7 @@ export function SystemAccessPanel({
                             onClick={() => actions.onRemove(account)}
                             data-testid={`remove-account-${account.id}`}
                           >
-                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                            <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                             Supprimer
                           </Button>
                         </div>
@@ -593,7 +593,7 @@ export function SystemAccessPanel({
           </ScrollableTableRegion>
         )}
 
-        <p className="mt-4 text-[11px] leading-4 text-muted-foreground">
+        <p className="mt-4 text-xs leading-4 text-muted-foreground">
           Aucun mot de passe, aucune empreinte de mot de passe, aucun jeton et aucun secret TOTP ne sont lus par cette
           console : la colonne « second facteur » n’est qu’un booléen. La date de « dernière connexion » est initialisée
           à la création du compte : elle ne prouve pas une connexion réelle.
@@ -610,7 +610,7 @@ export function SystemAccessPanel({
         <section className="lucepress-panel rounded-[1.35rem] p-5" data-testid="access-invitations">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="lucepress-kicker">Invitations en attente</h2>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {invitationsFailed ? "liste indisponible" : `${invitations?.length ?? 0} invitation(s)`}
             </p>
           </div>
@@ -640,7 +640,7 @@ export function SystemAccessPanel({
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{invitation.email}</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       Rôle visé : {invitation.roleLabel} · émise le {formatAccessDate(invitation.createdAt)} · expire le{" "}
                       {formatAccessDate(invitation.expiresAt)}
                     </p>
@@ -658,7 +658,7 @@ export function SystemAccessPanel({
                           onClick={() => actions.onResendInvitation(invitation)}
                           data-testid={`resend-invitation-${invitation.id}`}
                         >
-                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                           Renvoyer
                         </Button>
                         <Button
@@ -670,7 +670,7 @@ export function SystemAccessPanel({
                           onClick={() => actions.onRevokeInvitation(invitation)}
                           data-testid={`revoke-invitation-${invitation.id}`}
                         >
-                          <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                          <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                           Révoquer
                         </Button>
                       </>
@@ -683,7 +683,7 @@ export function SystemAccessPanel({
 
           <div className="mt-4">
             <JournalisedMention />
-            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+            <p className="mt-1 text-xs leading-4 text-muted-foreground">
               Seules des invitations EN ATTENTE figurent ici. Ni le lien, ni le jeton, ni même son empreinte ne sont
               transmis à cet écran : « Renvoyer » en régénère un nouveau et invalide l’ancien.
             </p>
