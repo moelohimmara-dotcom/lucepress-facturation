@@ -1,0 +1,17 @@
+name = "lucepress-gestion"
+main = "cloudflare/worker.ts"
+compatibility_date = "2026-09-01"
+account_id = "71e00d35a00589b9497b6f65022c02a4"
+workers_dev = true
+
+[assets]
+directory = "./dist/public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[vars]
+NODE_ENV = "production"
+API_ORIGIN = "https://lucepress-gestion.netlify.app"
+
+[observability]
+enabled = true

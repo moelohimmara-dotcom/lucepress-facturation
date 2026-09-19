@@ -7,12 +7,14 @@ import { countGettingStartedTasks, gettingStartedTasks, isGettingStartedTaskComp
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { buildTodayInbox, countTodayInboxByPriority, type TodayInboxItem } from "@shared/todayInbox";
 import { formatGnf } from "@shared/billing";
-import { AlertTriangle, ArrowRight, CalendarDays, Check, CheckCircle2, CircleHelp, FilePlus2, Mail, Sparkles, TrendingUp, Wallet, UsersRound, Clock } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarDays, Check, CheckCircle2, CircleHelp, FilePlus2, FlaskConical, Loader2, Mail, Sparkles, TrendingUp, Wallet, UsersRound, Clock } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useLocation } from "wouter";
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const utils = trpc.useUtils();
   const [showGettingStarted, setShowGettingStarted] = useState(() => localStorage.getItem("lucepress-getting-started-collapsed") !== "true");
   const [hasReviewedReceivables, setHasReviewedReceivables] = useState(() => localStorage.getItem("lucepress-getting-started-receivables") === "true");
   const { data: documents = [] } = trpc.billing.documents.list.useQuery(undefined, { refetchInterval: 60_000 });
@@ -20,6 +22,25 @@ export default function Home() {
   const { data: receivables } = trpc.billing.receivables.useQuery(undefined, { refetchInterval: 60_000 });
   const { data: dashboard } = trpc.billing.dashboard.useQuery(undefined, { refetchInterval: 60_000 });
   const { data: mailStatus } = trpc.billing.mailStatus.useQuery();
+  const bootstrapDemo = trpc.billing.bootstrapDemo.useMutation({
+    onSuccess: async result => {
+      if (result.alreadySeeded) {
+        toast.message("Des clients existent déjà — le jeu demo n’a pas été recréé.");
+        return;
+      }
+      await Promise.all([
+        utils.billing.clients.list.invalidate(),
+        utils.billing.documents.list.invalidate(),
+        utils.billing.receivables.invalidate(),
+        utils.billing.dashboard.invalidate(),
+      ]);
+      toast.success(`Jeu demo prêt · ${result.quoteNumber} + acompte payé + facture en retard.`);
+    },
+    onError: error => {
+      toast.error(error.message || "Le jeu demo n’a pas pu être créé.");
+    },
+  });
+  const isEmptyTenant = clients.length === 0;
 
   const counts = dashboard?.counts;
   const receivableSummary = receivables?.summary;
@@ -44,6 +65,8 @@ export default function Home() {
     [clients.length, documents, hasReviewedReceivables],
   );
   const gettingStartedCount = countGettingStartedTasks(gettingStartedMilestones);
+  const showBootstrapInPanel = isEmptyTenant && showGettingStarted && gettingStartedCount < gettingStartedTasks.length;
+  const showBootstrapInInbox = isEmptyTenant && !showBootstrapInPanel;
 
   function openGettingStartedTask(task: (typeof gettingStartedTasks)[number]) {
     if (task.id === "receivables") {
@@ -139,6 +162,9 @@ export default function Home() {
           <GettingStartedPanel
             completedCount={gettingStartedCount}
             milestones={gettingStartedMilestones}
+            isEmptyTenant={showBootstrapInPanel}
+            bootstrapPending={bootstrapDemo.isPending}
+            onBootstrap={() => bootstrapDemo.mutate()}
             onOpenTask={openGettingStartedTask}
             onDismiss={() => {
               setShowGettingStarted(false);
@@ -198,11 +224,27 @@ export default function Home() {
                 </div>
                 <h3 className="mt-4 font-editorial text-lg font-semibold">File vide</h3>
                 <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                  Créez un devis ou enregistrez un paiement : les prochaines actions apparaîtront ici automatiquement.
+                  {isEmptyTenant
+                    ? "Base neuve : charge le jeu demo pour voir devis → acompte → créances, ou crée ton premier devis."
+                    : "Crée un devis ou enregistre un paiement : les prochaines actions apparaîtront ici automatiquement."}
                 </p>
-                <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="mt-5 h-10 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15">
-                  <Sparkles className="mr-2 h-4 w-4" />Créer un devis avec l'IA
-                </Button>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                  {showBootstrapInInbox ? (
+                    <Button
+                      type="button"
+                      data-testid="bootstrap-demo-button"
+                      disabled={bootstrapDemo.isPending}
+                      onClick={() => bootstrapDemo.mutate()}
+                      className="h-10 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15"
+                    >
+                      {bootstrapDemo.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
+                      Charger le jeu demo
+                    </Button>
+                  ) : null}
+                  <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15">
+                    <Sparkles className="mr-2 h-4 w-4" />Créer un devis avec l'IA
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -262,11 +304,17 @@ function InboxCard({ item, onOpen }: { item: TodayInboxItem; onOpen: () => void 
 function GettingStartedPanel({
   completedCount,
   milestones,
+  isEmptyTenant,
+  bootstrapPending,
+  onBootstrap,
   onOpenTask,
   onDismiss,
 }: {
   completedCount: number;
   milestones: { hasClient: boolean; hasQuote: boolean; hasReviewedReceivables: boolean };
+  isEmptyTenant: boolean;
+  bootstrapPending: boolean;
+  onBootstrap: () => void;
   onOpenTask: (task: (typeof gettingStartedTasks)[number]) => void;
   onDismiss: () => void;
 }) {
@@ -277,12 +325,30 @@ function GettingStartedPanel({
         <div>
           <p className="lucepress-kicker">Test 48 h</p>
           <h2 className="font-editorial mt-2 text-2xl font-semibold">Trois gestes pour démarrer</h2>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">Client → devis → suivi. Ensuite, cette page devient votre file quotidienne.</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">Client → devis → suivi. Ensuite, cette page devient ta file quotidienne.</p>
         </div>
         <button type="button" onClick={onDismiss} className="shrink-0 text-xs font-extrabold text-primary hover:underline">
           Réduire
         </button>
       </div>
+      {isEmptyTenant ? (
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-dashed border-primary/25 bg-card/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-extrabold">Base vide — raccourci SMOKE</p>
+            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">Un clic charge un client, un devis accepté, un acompte payé et une facture en retard.</p>
+          </div>
+          <Button
+            type="button"
+            data-testid="bootstrap-demo-button"
+            disabled={bootstrapPending}
+            onClick={onBootstrap}
+            className="h-10 shrink-0 rounded-xl bg-primary font-bold text-primary-foreground"
+          >
+            {bootstrapPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
+            Charger le jeu demo
+          </Button>
+        </div>
+      ) : null}
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-primary/10">
         <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${progress}%` }} />
       </div>

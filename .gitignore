@@ -120,3 +120,7 @@ test-results/
 # Local Netlify folder
 .netlify
 netlify/functions/api.js
+
+# Cloudflare Workers
+.wrangler/
+.dev.vars

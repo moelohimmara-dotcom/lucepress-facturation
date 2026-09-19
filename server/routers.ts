@@ -29,6 +29,7 @@ import { buildDocumentSharePdfBuffer } from "./documentSharePdf";
 import { buildDocumentShareDocxBuffer } from "./documentShareDocx";
 import { buildDocumentPdfBuffer, renderHtmlToPdfBuffer } from "./pdfService";
 import { GUEST_DOCUMENT_INVALID_MESSAGE } from "../shared/documentShare";
+import { bootstrapDemoDataset } from "./bootstrapDemo";
 import { signMfaChallenge, verifyMfaChallenge } from "./_core/mfaChallenge";
 import {
   confirmEnrollment,
@@ -1424,6 +1425,17 @@ export const appRouter = router({
   billing: router({
     dashboard: staffProcedure.query(() => db.getDashboardData()),
     mailStatus: staffProcedure.query(() => ({ smtpConfigured: isMailConfigured() })),
+    bootstrapDemo: staffProcedure.mutation(async ({ ctx }) => {
+      try {
+        return await bootstrapDemoDataset(ctx.user.id);
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Le jeu demo n’a pas pu être créé.",
+        });
+      }
+    }),
     audit: router({
       list: directionProcedure
         .input(z.object({

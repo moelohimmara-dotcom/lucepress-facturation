@@ -133,6 +133,8 @@ L'ancienne version reste servie quelques minutes. Vérifier avec `?cb=<nombre>`.
 | Contexte tenant | `server/_core/tenantContext.ts` (runWithTenant / currentTenant) |
 | PDF serveur | `server/documentSharePdf.ts` (buildDocumentSharePdfBuffer) |
 | Function serverless | `netlify/functions/api.ts` |
+| Worker Cloudflare (primaire) | `cloudflare/worker.ts`, `wrangler.toml` |
+| Dual deploy CF + Netlify | `docs/DEPLOY-DUAL.md`, ADR-0004, `.github/workflows/deploy-dual.yml` |
 | Documentation API | `docs/API.md` |
 | Landing publique immersive WebGL | `docs/landing-immersive-webgl.md`, `client/src/lib/ascendPlanet.ts` |
 | Config build frontend | `vite.config.ts` (VitePWA) |

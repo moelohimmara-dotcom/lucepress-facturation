@@ -52,26 +52,27 @@ describe("Phase 10+ : Onboarding Guidé", () => {
     vi.clearAllMocks();
   });
 
-  it("1. Doit avoir 9 étapes dans le tour principal", () => {
-    expect(appTourSteps).toHaveLength(9);
+  it("1. Doit avoir 8 étapes dans le tour SMOKE", () => {
+    expect(appTourSteps).toHaveLength(8);
   });
 
   it("2. Doit avoir des sélecteurs CSS valides pour les éléments cibles", () => {
     const stepsWithSelectors = appTourSteps.filter(step => step.targetSelector);
     expect(stepsWithSelectors.length).toBeGreaterThan(0);
 
-    // Vérifie que les sélecteurs sont bien formés
     stepsWithSelectors.forEach(step => {
       expect(step.targetSelector).toMatch(/^\[data-testid=['"]/);
     });
   });
 
-  it("3. Doit avoir des étapes spécifiques au domaine", () => {
+  it("3. Doit couvrir le cash-loop SMOKE", () => {
     const domainSteps = appTourSteps.filter(step =>
-      ["clients", "receivables", "create-quote", "ai-assistant"].includes(step.id)
+      ["bootstrap-demo", "clients", "create-quote", "receivables", "reminders"].includes(step.id)
     );
 
-    expect(domainSteps.length).toBeGreaterThanOrEqual(4);
+    expect(domainSteps.length).toBeGreaterThanOrEqual(5);
+    expect(appTourSteps.find(step => step.id === "bootstrap-demo")?.targetSelector).toContain("bootstrap-demo-button");
+    expect(appTourSteps.find(step => step.id === "receivables")?.targetSelector).toContain("sidebar-cr-ances");
   });
 
   it("4. Doit avoir une étape de bienvenue", () => {
