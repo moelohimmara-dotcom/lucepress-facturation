@@ -12,7 +12,7 @@ const DASH_ROWS = [
   { label: "Encaissé", w: 34 },
 ] as const;
 
-const LOGOS = ["HydroConakry", "BTP Kankan", "Forage Nimba", "Maintenance Kindia", "Travaux Nzérékoré", "Énergie Boké"] as const;
+const METIERS = ["Forage", "BTP", "Hydraulique", "Maintenance"] as const;
 
 const FEATURES = [
   { Icon: IconWorkflow, title: "Devis en 5 étapes guidées", text: "Décris ton chantier, l'assistant IA prépare un brouillon complet. Tu relis, tu valides, tu envoies — sans te perdre dans un long formulaire." },
@@ -20,21 +20,37 @@ const FEATURES = [
   { Icon: IconLeads, title: "Portail client", text: "Tes clients consultent et acceptent leurs devis en toute autonomie sur un lien sécurisé. Fini les allers-retours par téléphone." },
   { Icon: IconBolt, title: "Relances en un clic", text: "Déclenche une relance dès qu'une facture approche l'échéance — en quelques secondes, pas en quelques jours." },
   { Icon: IconShield, title: "Sécurité entreprise", text: "Espace sécurisé, rôles par équipe et montants en GNF. Une sécurité discrète qui grandit avec tes collaborateurs." },
-  { Icon: IconGlobe, title: "Pensé pour la Guinée", text: "Multi-chantiers, formatage GNF fr-GN et faibles latences partout où tes chantiers se trouvent en Guinée." },
+  { Icon: IconGlobe, title: "Pensé pour la Guinée", text: "Multi-chantiers, formatage GNF fr-GN et latences adaptées là où tes chantiers se trouvent." },
 ] as const;
 
 const STATS = [
-  { value: "3.4×", label: "Pipeline commercial accéléré" },
-  { value: "92%", label: "Devis acceptés du premier envoi" },
-  { value: "−63%", label: "Retards de paiement" },
   { value: "GNF", label: "Tout en franc guinéen" },
+  { value: "1 fil", label: "Devis → facture → créances" },
+  { value: "Équipe", label: "Accès réservé Lucepres" },
+  { value: "E-mail", label: "Relances et invitations SMTP" },
 ] as const;
 
-const FOOTER_COLS = [
-  { title: "Produit", links: ["Devis", "Factures", "Créances"] },
-  { title: "Société", links: ["À propos", "Contact", "Chantiers"] },
-  { title: "Légal", links: ["Confidentialité", "Conditions", "Sécurité"] },
-] as const;
+const FOOTER_COLS: Array<{
+  title: string;
+  links: Array<{ label: string; href?: string; action?: "login" }>;
+}> = [
+  {
+    title: "Produit",
+    links: [
+      { label: "Devis", action: "login" },
+      { label: "Factures", action: "login" },
+      { label: "Créances", action: "login" },
+    ],
+  },
+  {
+    title: "Équipe",
+    links: [
+      { label: "Se connecter", action: "login" },
+      { label: "Contact", href: `mailto:${LUCEPRES_PUBLIC_PROFILE.email}` },
+      { label: "Téléphone", href: `tel:${LUCEPRES_PUBLIC_PROFILE.phone.replace(/\s/g, "")}` },
+    ],
+  },
+];
 
 export function LandingPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -50,10 +66,13 @@ export function LandingPage() {
     let lenis: { destroy: () => void } | undefined;
     let observer: IntersectionObserver | undefined;
 
-    if (canvasRef.current) {
+    if (canvasRef.current && !reduceMotion) {
       startPlanetScene(canvasRef.current).then((fn) => {
         cleanupScene = fn;
+        root.classList.add("planet-ready");
       });
+    } else {
+      root.classList.add("planet-ready");
     }
 
     if (!reduceMotion) {
@@ -91,12 +110,9 @@ export function LandingPage() {
       revealEls.forEach((el) => observer!.observe(el));
     }
 
-    const onDashboardBars = () => {
-      root.querySelectorAll<HTMLElement>(".dash-bar").forEach((bar, i) => {
-        bar.style.animationDelay = `${i * 90}ms`;
-      });
-    };
-    onDashboardBars();
+    root.querySelectorAll<HTMLElement>(".dash-bar").forEach((bar, i) => {
+      bar.style.animationDelay = `${i * 90}ms`;
+    });
 
     return () => {
       cleanupScene?.();
@@ -109,9 +125,11 @@ export function LandingPage() {
   }, []);
 
   const goLogin = () => setLocation("/login");
+  const contactMailto = `mailto:${LUCEPRES_PUBLIC_PROFILE.email}?subject=${encodeURIComponent("Échange Lucepres Gestion")}`;
 
   return (
     <div className="ascend-landing" ref={rootRef}>
+      <div className="planet-fallback" aria-hidden />
       <canvas className="planet-canvas" ref={canvasRef} aria-hidden />
       <div className="page" id="top">
         <header className="hero">
@@ -123,8 +141,7 @@ export function LandingPage() {
             <div className="nav-links">
               <a href="#features">Fonctions</a>
               <a href="#solutions">Solutions</a>
-              <a href="#solutions">Témoignages</a>
-              <a href="#cta">Aide</a>
+              <a href={contactMailto}>Contact</a>
             </div>
             <button type="button" className="btn btn-ghost" onClick={goLogin}>
               Se connecter
@@ -132,7 +149,13 @@ export function LandingPage() {
           </nav>
 
           <div className="hero-inner">
-            <h1 className="hero-title" data-reveal style={{ "--rd": "60ms" } as React.CSSProperties}>
+            <p className="hero-brand" data-reveal style={{ "--rd": "0ms" } as React.CSSProperties}>
+              {LUCEPRES_PUBLIC_PROFILE.displayName}
+            </p>
+            <p className="hero-kicker" data-reveal style={{ "--rd": "40ms" } as React.CSSProperties}>
+              Gestion commerciale · {LUCEPRES_PUBLIC_PROFILE.location}
+            </p>
+            <h1 className="hero-title" data-reveal style={{ "--rd": "80ms" } as React.CSSProperties}>
               Du premier devis<br />au <em>paiement</em> encaissé.
             </h1>
             <p className="hero-sub" data-reveal style={{ "--rd": "180ms" } as React.CSSProperties}>
@@ -144,17 +167,17 @@ export function LandingPage() {
                 Accéder à l'espace
                 <IconArrow />
               </button>
-              <a className="btn btn-outline" href="#cta">
-                Planifier un échange
+              <a className="btn btn-outline" href={contactMailto}>
+                Écrire à l'équipe
               </a>
             </div>
           </div>
 
-          <div className="logos" data-reveal style={{ "--rd": "420ms" } as React.CSSProperties}>
-            <p className="logos-label">Ils avancent avec Lucepres</p>
-            <div className="logos-row">
-              {LOGOS.map((name) => (
-                <span className="logo" key={name}>{name}</span>
+          <div className="metiers" data-reveal style={{ "--rd": "420ms" } as React.CSSProperties}>
+            <p className="metiers-label">Terrain Lucepres</p>
+            <div className="metiers-row">
+              {METIERS.map((name) => (
+                <span className="metier" key={name}>{name}</span>
               ))}
             </div>
           </div>
@@ -207,7 +230,7 @@ export function LandingPage() {
             </div>
             <div className="dashboard" data-reveal style={{ "--rd": "160ms" } as React.CSSProperties}>
               <div className="dash-top">
-                <span className="dash-title">Trésorerie · Q3</span>
+                <span className="dash-title">Trésorerie · aperçu</span>
                 <span className="dash-live">
                   <span className="dot" aria-hidden />
                   Live
@@ -245,21 +268,17 @@ export function LandingPage() {
           <div className="cta-card">
             <span className="eyebrow" data-reveal style={{ "--rd": "60ms" } as React.CSSProperties}>Prêt quand tu l'es</span>
             <h2 id="cta-title" data-reveal style={{ "--rd": "140ms" } as React.CSSProperties}>
-              Mets ta croissance sur une nouvelle trajectoire
+              Ouvre ton espace Lucepres
             </h2>
             <p data-reveal style={{ "--rd": "220ms" } as React.CSSProperties}>
-              Connecte-toi en quelques minutes. Accès réservé à l'équipe Lucepres. Rejoins les collaborateurs qui font
-              avancer leurs chantiers chaque matin.
+              Connecte-toi en quelques minutes. Accès réservé à l'équipe Lucepres — devis, créances et relances sur un seul fil.
             </p>
             <div className="hero-actions" data-reveal style={{ "--rd": "300ms" } as React.CSSProperties}>
               <button type="button" className="btn btn-primary" onClick={goLogin}>
                 Accéder à l'espace
                 <IconArrow />
               </button>
-              <a
-                className="btn btn-outline"
-                href={`mailto:${LUCEPRES_PUBLIC_PROFILE.email}`}
-              >
+              <a className="btn btn-outline" href={contactMailto}>
                 Parler à l'équipe
               </a>
             </div>
@@ -282,21 +301,24 @@ export function LandingPage() {
               {FOOTER_COLS.map((col) => (
                 <div className="footer-col" key={col.title}>
                   <h4>{col.title}</h4>
-                  {col.links.map((link) => (
-                    <a
-                      key={link}
-                      href={link === "Contact" ? `mailto:${LUCEPRES_PUBLIC_PROFILE.email}` : "#"}
-                    >
-                      {link}
-                    </a>
-                  ))}
+                  {col.links.map((link) =>
+                    link.action === "login" ? (
+                      <button type="button" className="footer-link" key={link.label} onClick={goLogin}>
+                        {link.label}
+                      </button>
+                    ) : (
+                      <a key={link.label} href={link.href}>
+                        {link.label}
+                      </a>
+                    ),
+                  )}
                 </div>
               ))}
             </div>
           </footer>
 
           <p className="copyright">
-            © {new Date().getFullYear()} {LUCEPRES_PUBLIC_PROFILE.legalName} — Bâti parmi les étoiles.
+            © {new Date().getFullYear()} {LUCEPRES_PUBLIC_PROFILE.legalName} · {LUCEPRES_PUBLIC_PROFILE.documentFooter}
           </p>
         </section>
       </div>

@@ -15,7 +15,8 @@
   --radius-lg: 26px;
   --maxw: 1180px;
   --shadow: 0 30px 80px -30px rgba(0, 0, 0, .75);
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
 
   box-sizing: border-box;
   font-family: var(--font);
@@ -45,6 +46,17 @@ html.lenis, html.lenis body { height: auto; }
 }
 .ascend-landing [data-reveal].in { opacity: 1; transform: none; }
 
+.ascend-landing .planet-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(90% 60% at 50% -5%, rgba(93, 240, 168, .12), transparent 55%),
+    radial-gradient(70% 50% at 80% 20%, rgba(70, 110, 200, .18), transparent 50%),
+    radial-gradient(80% 55% at 15% 30%, rgba(40, 70, 140, .22), transparent 55%),
+    linear-gradient(180deg, #04060f 0%, #060a18 55%, #04060f 100%);
+}
 .ascend-landing .planet-canvas {
   position: fixed;
   inset: 0;
@@ -53,7 +65,10 @@ html.lenis, html.lenis body { height: auto; }
   display: block;
   z-index: 0;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity .8s ease;
 }
+.ascend-landing.planet-ready .planet-canvas { opacity: 1; }
 .ascend-landing .page { position: relative; z-index: 1; }
 .ascend-landing .section {
   position: relative;
@@ -75,8 +90,9 @@ html.lenis, html.lenis body { height: auto; }
 .ascend-landing .section-head h2,
 .ascend-landing .showcase-copy h2,
 .ascend-landing .cta-card h2 {
+  font-family: var(--font-display);
   font-size: clamp(30px, 4.4vw, 50px);
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.05;
   letter-spacing: -.02em;
   text-shadow: 0 2px 40px rgba(0, 0, 0, .6);
@@ -152,18 +168,37 @@ html.lenis, html.lenis body { height: auto; }
   align-items: center;
   justify-content: center;
   text-align: center;
-  transform: translateY(-10vh);
+  transform: translateY(-8vh);
+}
+.ascend-landing .hero-brand {
+  font-family: var(--font-display);
+  font-size: clamp(42px, 7vw, 72px);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: 1;
+  color: var(--ink);
+  text-shadow: 0 2px 50px rgba(0, 0, 0, .55);
+}
+.ascend-landing .hero-kicker {
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 .ascend-landing .hero-title {
-  font-size: clamp(34px, 5.2vw, 62px);
-  font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -.03em;
-  max-width: 15ch;
+  margin-top: 22px;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4.2vw, 48px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.02em;
+  max-width: 18ch;
   text-shadow: 0 2px 50px rgba(0, 0, 0, .55);
 }
 .ascend-landing .hero-title em {
-  font-style: normal;
+  font-style: italic;
   background: linear-gradient(180deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text;
   background-clip: text;
@@ -179,11 +214,19 @@ html.lenis, html.lenis body { height: auto; }
   text-shadow: 0 1px 24px rgba(0, 0, 0, .55);
 }
 .ascend-landing .hero-actions { margin-top: 38px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-.ascend-landing .logos { text-align: center; padding: 0 24px clamp(36px, 6vw, 64px); }
-.ascend-landing .logos-label { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted-2); }
-.ascend-landing .logos-row { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(24px, 5vw, 56px); margin-top: 22px; }
-.ascend-landing .logo { font-size: 17px; font-weight: 700; color: var(--muted-2); opacity: .8; transition: color .2s ease, opacity .2s ease; }
-.ascend-landing .logo:hover { color: var(--ink); opacity: 1; }
+.ascend-landing .metiers { text-align: center; padding: 0 24px clamp(36px, 6vw, 64px); }
+.ascend-landing .metiers-label { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted-2); }
+.ascend-landing .metiers-row { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(16px, 3vw, 28px); margin-top: 22px; }
+.ascend-landing .metier {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--muted);
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .03);
+}
 
 .ascend-landing .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .ascend-landing .card {
@@ -316,10 +359,23 @@ html.lenis, html.lenis body { height: auto; }
 }
 .ascend-landing .footer-brand { max-width: 320px; }
 .ascend-landing .footer-brand p { margin-top: 14px; color: var(--muted); font-size: 14px; line-height: 1.6; }
-.ascend-landing .footer-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; }
+.ascend-landing .footer-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
 .ascend-landing .footer-col h4 { font-size: 12px; text-transform: uppercase; color: var(--muted-2); letter-spacing: .12em; margin-bottom: 14px; }
-.ascend-landing .footer-col a { display: block; font-size: 14px; color: var(--muted); padding: 4px 0; transition: color .2s ease; }
-.ascend-landing .footer-col a:hover { color: var(--ink); }
+.ascend-landing .footer-col a,
+.ascend-landing .footer-col .footer-link {
+  display: block;
+  font-size: 14px;
+  color: var(--muted);
+  padding: 4px 0;
+  transition: color .2s ease;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ascend-landing .footer-col a:hover,
+.ascend-landing .footer-col .footer-link:hover { color: var(--ink); }
 .ascend-landing .copyright { text-align: center; margin-top: 56px; font-size: 13px; color: var(--muted-2); }
 
 @media (max-width: 980px) {
@@ -344,8 +400,8 @@ html.lenis, html.lenis body { height: auto; }
 }
 @media (max-width: 380px) {
   .ascend-landing .stats { grid-template-columns: 1fr; }
-  .ascend-landing .logos-row { gap: 18px; }
-  .ascend-landing .logo { font-size: 15px; }
+  .ascend-landing .metiers-row { gap: 10px; }
+  .ascend-landing .metier { font-size: 13px; padding: 6px 12px; }
 }
 
 @keyframes ascend-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
