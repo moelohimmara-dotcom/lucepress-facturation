@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useLocation } from "wouter";
+import { Link } from "wouter";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
 import { startPlanetScene } from "@/lib/ascendPlanet";
 import "./ascend-landing.css";
@@ -55,7 +55,6 @@ const FOOTER_COLS: Array<{
 export function LandingPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const root = rootRef.current;
@@ -124,7 +123,6 @@ export function LandingPage() {
     };
   }, []);
 
-  const goLogin = () => setLocation("/login");
   const contactMailto = `mailto:${LUCEPRES_PUBLIC_PROFILE.email}?subject=${encodeURIComponent("Échange Lucepres Gestion")}`;
 
   return (
@@ -143,9 +141,9 @@ export function LandingPage() {
               <a href="#solutions">Solutions</a>
               <a href={contactMailto}>Contact</a>
             </div>
-            <button type="button" className="btn btn-ghost" onClick={goLogin}>
+            <Link href="/login" className="btn btn-ghost">
               Se connecter
-            </button>
+            </Link>
           </nav>
 
           <div className="hero-inner">
@@ -163,10 +161,10 @@ export function LandingPage() {
               d'hydraulique, de BTP et de maintenance en Guinée. Tu gagnes du temps sur le papier, tu gardes le cap sur la trésorerie.
             </p>
             <div className="hero-actions" data-reveal style={{ "--rd": "300ms" } as React.CSSProperties}>
-              <button type="button" className="btn btn-primary" onClick={goLogin}>
+              <Link href="/login" className="btn btn-primary">
                 Accéder à l'espace
                 <IconArrow />
-              </button>
+              </Link>
               <a className="btn btn-outline" href={contactMailto}>
                 Écrire à l'équipe
               </a>
@@ -222,10 +220,10 @@ export function LandingPage() {
                 repérer ce qui marche et les commandes pour accélérer aussitôt.
               </p>
               <div className="hero-actions" data-reveal style={{ "--rd": "270ms" } as React.CSSProperties}>
-                <button type="button" className="btn btn-primary" onClick={goLogin}>
+                <Link href="/login" className="btn btn-primary">
                   Explorer la plateforme
                   <IconArrow />
-                </button>
+                </Link>
               </div>
             </div>
             <div className="dashboard" data-reveal style={{ "--rd": "160ms" } as React.CSSProperties}>
@@ -274,10 +272,10 @@ export function LandingPage() {
               Connecte-toi en quelques minutes. Accès réservé à l'équipe Lucepres — devis, créances et relances sur un seul fil.
             </p>
             <div className="hero-actions" data-reveal style={{ "--rd": "300ms" } as React.CSSProperties}>
-              <button type="button" className="btn btn-primary" onClick={goLogin}>
+              <Link href="/login" className="btn btn-primary">
                 Accéder à l'espace
                 <IconArrow />
-              </button>
+              </Link>
               <a className="btn btn-outline" href={contactMailto}>
                 Parler à l'équipe
               </a>
@@ -303,9 +301,9 @@ export function LandingPage() {
                   <h4>{col.title}</h4>
                   {col.links.map((link) =>
                     link.action === "login" ? (
-                      <button type="button" className="footer-link" key={link.label} onClick={goLogin}>
+                      <Link href="/login" className="footer-link" key={link.label}>
                         {link.label}
-                      </button>
+                      </Link>
                     ) : (
                       <a key={link.label} href={link.href}>
                         {link.label}

@@ -37,11 +37,19 @@ describe("landing page publique Lucepress (refonte immersive)", () => {
     expect(source).toContain("FEATURES");
   });
 
-  it("affiche des statistiques chiffrées (stats grid)", () => {
+  it("affiche des statistiques honnêtes (stats grid sans chiffres marketing fictifs)", () => {
     expect(source).toContain("STATS");
-    expect(source).toContain("3.4×");
-    expect(source).toContain("92%");
+    expect(source).toContain("GNF");
+    expect(source).toContain("1 fil");
     expect(source).toContain("stat-value");
+    expect(source).not.toContain("3.4×");
+    expect(source).not.toContain("92%");
+  });
+
+  it("route Se connecter et les CTA vers /login via Link (pas de bouton JS seul)", () => {
+    expect(source).toContain('Link href="/login"');
+    expect(source).toContain("Se connecter");
+    expect(source).not.toContain("setLocation(\"/login\")");
   });
 
   it("monte une scène WebGL planète immersive en arrière-plan", () => {
@@ -61,5 +69,15 @@ describe("landing page publique Lucepress (refonte immersive)", () => {
     expect(source).toContain('aria-labelledby="solutions-title"');
     expect(source).toContain('aria-labelledby="cta-title"');
     expect(source).toContain("Aperçu illustratif du tableau de bord");
+  });
+});
+
+describe("landing CSS — clic nav non bloqué par le hero", () => {
+  const css = readFileSync(resolve(process.cwd(), "client/src/components/ascend-landing.css"), "utf8");
+
+  it("garde la nav au-dessus du hero-inner (z-index) et laisse passer les clics", () => {
+    expect(css).toMatch(/\.ascend-landing\s+\.nav\s*\{[^}]*z-index:\s*5/s);
+    expect(css).toMatch(/\.ascend-landing\s+\.hero-inner\s*\{[^}]*pointer-events:\s*none/s);
+    expect(css).toMatch(/\.ascend-landing\s+\.hero-inner\s+a[\s,][^}]*pointer-events:\s*auto/s);
   });
 });

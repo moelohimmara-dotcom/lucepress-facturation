@@ -148,6 +148,8 @@ html.lenis, html.lenis body { height: auto; }
   background: radial-gradient(125% 62% at 50% -10%, rgba(4, 6, 15, .82) 0%, rgba(4, 6, 15, .28) 44%, transparent 68%);
 }
 .ascend-landing .nav {
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -169,6 +171,11 @@ html.lenis, html.lenis body { height: auto; }
   justify-content: center;
   text-align: center;
   transform: translateY(-8vh);
+  pointer-events: none;
+}
+.ascend-landing .hero-inner a,
+.ascend-landing .hero-inner button {
+  pointer-events: auto;
 }
 .ascend-landing .hero-brand {
   font-family: var(--font-display);
