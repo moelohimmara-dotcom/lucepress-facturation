@@ -24,6 +24,14 @@ Les deux reçoivent **le même build** à chaque release. Même `DATABASE_URL` S
 
 Aligner au minimum : `DATABASE_URL` (ou Hyperdrive côté CF), `JWT_SECRET`, SMTP_*, PDFSHIFT_* .
 
+**Liens e-mail (invitations, reset MDP, documents)** — définir sur Netlify (où tourne l’API) :
+
+```bash
+APP_PUBLIC_URL=https://lucepress-gestion.moelohimmara.workers.dev
+```
+
+Sans cette variable, le Worker Cloudflare envoie l’en-tête `x-lucepress-public-origin` pour que les liens restent sur l’URL primaire même si l’API répond depuis Netlify.
+
 Côté Cloudflare : créer un **Hyperdrive** pointant vers le pooler Supabase, puis ajouter dans `wrangler.toml` :
 
 ```toml

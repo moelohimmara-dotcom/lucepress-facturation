@@ -22,6 +22,7 @@ export default {
     headers.delete("host");
     headers.set("x-forwarded-host", url.host);
     headers.set("x-forwarded-proto", url.protocol.replace(":", ""));
+    headers.set("x-lucepress-public-origin", url.origin);
 
     const init: RequestInit = {
       method: request.method,

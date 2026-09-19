@@ -58,10 +58,14 @@ export type IssueInvitationResult = {
 export function getRequestOrigin(req: { protocol?: string; get?: (name: string) => string | undefined }): string {
   const configured = process.env.APP_PUBLIC_URL?.trim().replace(/\/$/, "");
   if (configured) return configured;
+
+  const edgeOrigin = req.get?.("x-lucepress-public-origin")?.trim().replace(/\/$/, "");
+  if (edgeOrigin && /^https?:\/\//i.test(edgeOrigin)) return edgeOrigin;
+
   const proto = req.get?.("x-forwarded-proto") || req.protocol || "https";
   const host = req.get?.("x-forwarded-host") || req.get?.("host");
   if (!host || host.includes("localhost") || host.startsWith("127.")) {
-    return "https://lucepress.213.156.135.139.sslip.io";
+    return "https://lucepress-gestion.moelohimmara.workers.dev";
   }
   return `${proto}://${host}`;
 }
