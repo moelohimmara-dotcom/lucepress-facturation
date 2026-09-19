@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview — Landing Monsoon × Atelier (miroir code)</title>
+  <link rel="stylesheet" href="../../client/src/components/lucepress-landing.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,560&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --lp-font: "Outfit", system-ui, sans-serif;
+      --lp-display: "Fraunces", Georgia, serif;
+    }
+    body { margin: 0; }
+    .banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+      background: oklch(0.255 0.067 164); color: #fff;
+      font: 600 12px/1.3 Outfit, sans-serif; padding: 8px 16px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">Miroir HTML du code React — hors prod · pattern Monsoon × tokens Atelier</div>
+  <div class="lp" style="padding-top:32px">
+    <div class="lp-nav-wrap">
+      <nav class="lp-nav" aria-label="Principale">
+        <a class="lp-brand" href="#top"><span class="lp-brand-mark">▲</span><span>Lucepres</span></a>
+        <div class="lp-nav-links">
+          <a href="#parcours">Parcours</a>
+          <a href="mailto:Lucepres@gmail.com">Contact</a>
+          <a class="lp-nav-login" href="#login">Se connecter</a>
+        </div>
+      </nav>
+    </div>
+    <section class="lp-hero" id="top">
+      <video class="lp-hero-video" src="https://pub-1e5b4001b36b47e28e6a2fb775966a79.r2.dev/templates/monsoon/hero.mp4" autoplay muted loop playsinline></video>
+      <div class="lp-hero-fallback"></div>
+      <div class="lp-hero-overlay"></div>
+      <div class="lp-hero-veil"></div>
+      <div class="lp-hero-glow"></div>
+      <div class="lp-hero-content">
+        <span class="lp-eyebrow">Gestion commerciale · Conakry, Guinée</span>
+        <p class="lp-hero-brand">Lucepres</p>
+        <h1 class="lp-hero-title">Du premier devis au <em>paiement</em> encaissé.</h1>
+        <p class="lp-hero-sub">Devis, créances et relances en GNF — pensé pour les chantiers d’hydraulique, de BTP et de maintenance.</p>
+        <div class="lp-hero-actions">
+          <a class="lp-btn lp-btn-primary" href="#login">Accéder à l'espace</a>
+          <a class="lp-btn lp-btn-glass" href="mailto:Lucepres@gmail.com">Écrire à l’équipe</a>
+        </div>
+      </div>
+      <div class="lp-strip">
+        <p class="lp-strip-label">Terrain Lucepres</p>
+        <div class="lp-strip-row">
+          <span class="lp-strip-item">Forage</span>
+          <span class="lp-strip-item">BTP</span>
+          <span class="lp-strip-item">Hydraulique</span>
+          <span class="lp-strip-item">Maintenance</span>
+          <span class="lp-strip-item">GNF</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

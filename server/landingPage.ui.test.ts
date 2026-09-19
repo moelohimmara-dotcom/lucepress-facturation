@@ -4,80 +4,56 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(process.cwd(), "client/src/components/LandingPage.tsx"), "utf8");
+const css = readFileSync(resolve(process.cwd(), "client/src/components/lucepress-landing.css"), "utf8");
 
-describe("landing page publique Lucepress (refonte immersive)", () => {
+describe("landing page publique Lucepres (Monsoon × Atelier)", () => {
   it("expose un hero clair orienté bénéfice (devis → paiement encaissé)", () => {
     expect(source).toContain("Du premier devis");
-    expect(source).toContain("au");
     expect(source).toContain("paiement");
     expect(source).toContain("encaiss");
     expect(source).toContain("Tu gagnes du temps sur le papier");
   });
 
-  it("affiche une réassurance métier visible (Guinée, GNF, IA, sécurité)", () => {
-    expect(source).toContain("Pensé pour la Guinée");
-    expect(source).toContain("GNF");
-    expect(source).toContain("agent IA");
-    expect(source).toContain("Sécurité entreprise");
+  it("ancre la marque Lucepres au niveau héro", () => {
+    expect(source).toContain("lp-hero-brand");
+    expect(source).toContain("LUCEPRES_PUBLIC_PROFILE.displayName");
   });
 
-  it("présente un aperçu produit (dashboard mockup de trésorerie) sous le hero", () => {
-    expect(source).toContain("dash-bars");
-    expect(source).toContain("dash-rows");
-    expect(source).toContain("Trésorerie");
-    expect(source).toContain("Live");
-    expect(source).toContain("DASH_BAR_HEIGHTS");
-    expect(source).toContain("DASH_ROWS");
-  });
-
-  it("hiérarchise les fonctions différenciantes (devis guidés, portail client, relances)", () => {
-    expect(source).toContain("Devis en 5 étapes guidées");
-    expect(source).toContain("Portail client");
-    expect(source).toContain("Relances en un clic");
-    expect(source).toContain("FEATURES");
-  });
-
-  it("affiche des statistiques honnêtes (stats grid sans chiffres marketing fictifs)", () => {
-    expect(source).toContain("STATS");
-    expect(source).toContain("GNF");
-    expect(source).toContain("1 fil");
-    expect(source).toContain("stat-value");
-    expect(source).not.toContain("3.4×");
-    expect(source).not.toContain("92%");
-  });
-
-  it("route Se connecter et les CTA vers /login via Link (pas de bouton JS seul)", () => {
+  it("route Se connecter et les CTA vers /login via Link", () => {
     expect(source).toContain('Link href="/login"');
     expect(source).toContain("Se connecter");
-    expect(source).not.toContain("setLocation(\"/login\")");
+    expect(source).toContain("Accéder à l'espace");
   });
 
-  it("monte une scène WebGL planète immersive en arrière-plan", () => {
-    expect(source).toContain("startPlanetScene");
-    expect(source).toContain("planet-canvas");
+  it("utilise une vidéo héro claire + strip métiers (pas de logos fictifs)", () => {
+    expect(source).toContain("lp-hero-video");
+    expect(source).toContain("hero.mp4");
+    expect(source).toContain("METIERS");
+    expect(source).toContain("Forage");
+    expect(source).not.toContain("Northwind");
+    expect(source).not.toContain("3.4×");
   });
 
-  it("expose les coordonnées de contact dans le footer", () => {
+  it("monte le parcours funnel et le contact réel", () => {
+    expect(source).toContain("FUNNEL");
     expect(source).toContain("mailto:");
     expect(source).toContain("tel:");
     expect(source).toContain("LUCEPRES_PUBLIC_PROFILE.phone");
-    expect(source).toContain("LUCEPRES_PUBLIC_PROFILE.email");
   });
 
-  it("structure la page de façon accessible (aria-labelledby sur les sections)", () => {
-    expect(source).toContain('aria-labelledby="features-title"');
-    expect(source).toContain('aria-labelledby="solutions-title"');
-    expect(source).toContain('aria-labelledby="cta-title"');
-    expect(source).toContain("Aperçu illustratif du tableau de bord");
+  it("ne charge plus la scène WebGL Ascend", () => {
+    expect(source).not.toContain("startPlanetScene");
+    expect(source).not.toContain("ascendPlanet");
+    expect(source).not.toContain("planet-canvas");
   });
-});
 
-describe("landing CSS — clic nav non bloqué par le hero", () => {
-  const css = readFileSync(resolve(process.cwd(), "client/src/components/ascend-landing.css"), "utf8");
-
-  it("garde la nav au-dessus du hero-inner (z-index) et laisse passer les clics", () => {
-    expect(css).toMatch(/\.ascend-landing\s+\.nav\s*\{[^}]*z-index:\s*5/s);
-    expect(css).toMatch(/\.ascend-landing\s+\.hero-inner\s*\{[^}]*pointer-events:\s*none/s);
-    expect(css).toMatch(/\.ascend-landing\s+\.hero-inner\s+a[\s,][^}]*pointer-events:\s*auto/s);
+  it("applique le pattern Monsoon adapté Atelier (nav pill givrée + tokens)", () => {
+    expect(css).toContain("backdrop-filter: blur(18px)");
+    expect(css).toContain("--lp-btn-radius: 1rem");
+    expect(css).toContain("--lp-primary: oklch(0.3 0.079 166)");
+    expect(css).toContain("--lp-display:");
+    expect(css).toContain(".lp-nav");
+    expect(css).toContain(".lp-footer");
+    expect(css).toContain("prefers-reduced-motion");
   });
 });

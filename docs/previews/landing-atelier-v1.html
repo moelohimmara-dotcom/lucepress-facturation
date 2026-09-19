@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview — Landing Atelier v1 (non prod)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --background: oklch(0.976 0.011 88);
+      --foreground: oklch(0.225 0.033 165);
+      --primary: oklch(0.3 0.079 166);
+      --primary-foreground: oklch(0.98 0.009 93);
+      --muted: oklch(0.946 0.012 85);
+      --muted-foreground: oklch(0.44 0.029 162);
+      --accent: oklch(0.898 0.052 86);
+      --border: oklch(0.874 0.025 83);
+      --sidebar: oklch(0.255 0.067 164);
+      --sidebar-foreground: oklch(0.94 0.012 91);
+      --sidebar-primary: oklch(0.735 0.125 89);
+      --ring: oklch(0.56 0.111 162);
+      --radius: 1.15rem;
+      --font: "Outfit", ui-sans-serif, system-ui, sans-serif;
+      --font-display: "Fraunces", ui-serif, Georgia, serif;
+      --ease: cubic-bezier(0.23, 1, 0.32, 1);
+      --max: 1120px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+      .dash-bar { animation: none !important; transform: none !important; }
+    }
+    body {
+      font-family: var(--font);
+      color: var(--foreground);
+      background: var(--background);
+      background-image:
+        radial-gradient(circle at 76% -12%, oklch(0.88 0.058 89 / 34%), transparent 32rem),
+        radial-gradient(circle at 4% 100%, oklch(0.84 0.057 157 / 16%), transparent 28rem);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+    }
+    a { color: inherit; text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+
+    .banner {
+      position: sticky; top: 0; z-index: 40;
+      display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+      padding: 10px 16px;
+      background: oklch(0.255 0.067 164);
+      color: var(--sidebar-foreground);
+      font-size: 13px; font-weight: 600;
+    }
+    .banner code { font-weight: 500; opacity: .85; }
+    .banner a {
+      color: var(--sidebar-primary);
+      border: 1px solid oklch(0.51 0.055 164 / 55%);
+      border-radius: 999px; padding: 6px 12px;
+    }
+
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: var(--max); margin: 0 auto; padding: 22px 24px;
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .12em; font-size: 15px; text-transform: uppercase; }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 10px;
+      background: oklch(0.3 0.079 166 / 12%);
+      color: var(--primary); display: grid; place-items: center; font-size: 12px;
+    }
+    .nav-links { display: flex; gap: 28px; color: var(--muted-foreground); font-size: 14.5px; }
+    .nav-links a:hover { color: var(--foreground); }
+    @media (max-width: 720px) { .nav-links { display: none; } }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 44px; padding: 11px 20px; border-radius: 999px;
+      font: inherit; font-weight: 700; font-size: 15px; border: 1px solid transparent;
+      cursor: pointer; transition: transform .18s var(--ease), background .2s, border-color .2s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+    .btn-ghost { background: transparent; border-color: var(--border); color: var(--foreground); }
+    .btn-ghost:hover { background: oklch(1 0 0 / 55%); }
+    .btn-outline { background: oklch(1 0 0 / 40%); border-color: var(--border); }
+
+    .hero {
+      min-height: calc(100vh - 44px);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .hero-stage {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: clamp(28px, 5vw, 56px);
+      align-items: end;
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 12px 24px 48px;
+      width: 100%;
+    }
+    @media (max-width: 900px) {
+      .hero-stage { grid-template-columns: 1fr; align-items: start; padding-bottom: 32px; }
+      .product-plane { min-height: 280px; }
+    }
+    .kicker {
+      color: oklch(0.39 0.095 165);
+      font-size: 12px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase;
+    }
+    .hero-brand {
+      margin-top: 18px;
+      font-family: var(--font-display);
+      font-size: clamp(48px, 8vw, 78px);
+      font-weight: 600; letter-spacing: -.04em; line-height: .95;
+    }
+    .hero-title {
+      margin-top: 22px;
+      font-family: var(--font-display);
+      font-size: clamp(26px, 3.6vw, 40px);
+      font-weight: 600; letter-spacing: -.03em; line-height: 1.12;
+      max-width: 18ch;
+    }
+    .hero-title em { font-style: italic; color: oklch(0.39 0.095 165); }
+    .hero-sub {
+      margin-top: 16px; max-width: 36ch;
+      color: var(--muted-foreground); font-size: 16.5px; line-height: 1.65;
+    }
+    .hero-actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+
+    .product-plane {
+      position: relative;
+      min-height: 420px;
+      border-radius: calc(var(--radius) + 6px);
+      border: 1px solid oklch(0.875 0.025 83 / 82%);
+      background: linear-gradient(160deg, var(--sidebar) 0%, oklch(0.3 0.079 166) 55%, oklch(0.27 0.06 170) 100%);
+      color: var(--sidebar-foreground);
+      overflow: hidden;
+      box-shadow: 0 28px 70px -40px oklch(0.18 0.06 164 / 55%);
+    }
+    .product-plane::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(circle at 80% 0%, oklch(0.735 0.125 89 / 28%), transparent 40%),
+        radial-gradient(circle at 10% 90%, oklch(0.84 0.057 157 / 18%), transparent 45%);
+    }
+    .dash {
+      position: relative; z-index: 1;
+      margin: 28px 22px 22px;
+      padding: 18px;
+      border-radius: 18px;
+      background: oklch(0.993 0.005 88 / 96%);
+      color: var(--foreground);
+      border: 1px solid oklch(0.874 0.025 83 / 70%);
+    }
+    .dash-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .dash-title { font-weight: 700; font-size: 14px; }
+    .dash-live { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: oklch(0.39 0.095 165); }
+    .dash-bars { display: flex; align-items: flex-end; gap: 8px; height: 110px; padding: 8px 4px 0; }
+    .dash-bar {
+      flex: 1; border-radius: 8px 8px 4px 4px;
+      background: linear-gradient(180deg, oklch(0.55 0.1 164), oklch(0.3 0.079 166));
+      transform-origin: bottom;
+      animation: grow .7s var(--ease) both;
+    }
+    @keyframes grow { from { transform: scaleY(.15); opacity: .4; } to { transform: scaleY(1); opacity: 1; } }
+    .dash-rows { margin-top: 16px; display: grid; gap: 10px; }
+    .row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; font-size: 12.5px; color: var(--muted-foreground); }
+    .track { height: 7px; border-radius: 999px; background: oklch(0.946 0.012 85); overflow: hidden; }
+    .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, oklch(0.67 0.12 89), oklch(0.48 0.11 164)); }
+
+    .metiers { max-width: var(--max); margin: 0 auto; padding: 0 24px 56px; text-align: center; }
+    .metiers-label { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted-foreground); font-weight: 700; }
+    .metiers-row { margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    .metier {
+      padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
+      background: oklch(1 0 0 / 45%); font-size: 13.5px; font-weight: 600;
+    }
+
+    .section { max-width: var(--max); margin: 0 auto; padding: clamp(56px, 10vw, 96px) 24px; }
+    .section-head { max-width: 640px; margin: 0 auto 40px; text-align: center; }
+    .section-head h2 {
+      margin-top: 12px; font-family: var(--font-display);
+      font-size: clamp(28px, 3.8vw, 42px); font-weight: 600; letter-spacing: -.02em; line-height: 1.1;
+    }
+    .section-head p { margin-top: 14px; color: var(--muted-foreground); font-size: 17px; line-height: 1.65; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    @media (max-width: 800px) { .steps { grid-template-columns: 1fr; } }
+    .step { padding: 8px 4px; }
+    .step-n {
+      font-family: var(--font-display); font-size: 28px; font-weight: 600;
+      color: oklch(0.39 0.095 165); letter-spacing: -.03em;
+    }
+    .step h3 { margin-top: 10px; font-size: 18px; font-weight: 700; }
+    .step p { margin-top: 8px; color: var(--muted-foreground); font-size: 15px; line-height: 1.6; }
+
+    .cta-band {
+      margin: 0 24px 72px;
+      max-width: var(--max); margin-inline: auto;
+      padding: clamp(36px, 6vw, 56px);
+      border-radius: calc(var(--radius) + 8px);
+      border: 1px solid oklch(0.875 0.025 83 / 82%);
+      background: linear-gradient(145deg, oklch(0.997 0.004 90 / 96%), oklch(0.973 0.012 88 / 84%));
+      text-align: center;
+    }
+    .cta-band h2 {
+      font-family: var(--font-display); font-size: clamp(28px, 3.5vw, 40px);
+      font-weight: 600; letter-spacing: -.02em;
+    }
+    .cta-band p { margin: 14px auto 0; max-width: 42ch; color: var(--muted-foreground); }
+    .cta-band .hero-actions { justify-content: center; }
+
+    .footer {
+      max-width: var(--max); margin: 0 auto; padding: 0 24px 48px;
+      display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+      color: var(--muted-foreground); font-size: 14px;
+    }
+    .footer strong { color: var(--foreground); }
+
+    .reveal {
+      opacity: 0; transform: translateY(18px);
+      transition: opacity .65s var(--ease), transform .65s var(--ease);
+    }
+    .reveal.in { opacity: 1; transform: none; }
+  </style>
+</head>
+<body>
+  <div class="banner" role="status">
+    <span>Maquette Atelier v1 — hors production</span>
+    <code>option C · tokens index.css</code>
+    <a href="#cta">Aller au CTA</a>
+  </div>
+
+  <header class="hero">
+    <nav class="nav" aria-label="Principale">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden>▲</span>
+        <span>Lucepres</span>
+      </a>
+      <div class="nav-links">
+        <a href="#funnel">Parcours</a>
+        <a href="#cta">Accès</a>
+        <a href="mailto:Lucepres@gmail.com">Contact</a>
+      </div>
+      <a class="btn btn-ghost" href="#login-preview">Se connecter</a>
+    </nav>
+
+    <div class="hero-stage" id="top">
+      <div>
+        <p class="kicker reveal in">Gestion commerciale · Conakry, Guinée</p>
+        <p class="hero-brand reveal in" style="transition-delay:.05s">Lucepres</p>
+        <h1 class="hero-title reveal in" style="transition-delay:.12s">
+          Du premier devis<br />au <em>paiement</em> encaissé.
+        </h1>
+        <p class="hero-sub reveal in" style="transition-delay:.2s">
+          Devis, factures et créances en GNF — pensé pour les chantiers d’hydraulique, de BTP et de maintenance.
+          Tu gagnes du temps sur le papier, tu gardes le cap sur la trésorerie.
+        </p>
+        <div class="hero-actions reveal in" style="transition-delay:.28s">
+          <a class="btn btn-primary" href="#login-preview">Accéder à l’espace</a>
+          <a class="btn btn-outline" href="mailto:Lucepres@gmail.com?subject=%C3%89change%20Lucepres%20Gestion">Écrire à l’équipe</a>
+        </div>
+      </div>
+
+      <div class="product-plane reveal in" style="transition-delay:.18s" aria-hidden="true">
+        <div class="dash">
+          <div class="dash-top">
+            <span class="dash-title">Trésorerie · aperçu</span>
+            <span class="dash-live">Live</span>
+          </div>
+          <div class="dash-bars">
+            <div class="dash-bar" style="height:62%; animation-delay:0ms"></div>
+            <div class="dash-bar" style="height:88%; animation-delay:70ms"></div>
+            <div class="dash-bar" style="height:47%; animation-delay:140ms"></div>
+            <div class="dash-bar" style="height:95%; animation-delay:210ms"></div>
+            <div class="dash-bar" style="height:71%; animation-delay:280ms"></div>
+            <div class="dash-bar" style="height:80%; animation-delay:350ms"></div>
+            <div class="dash-bar" style="height:58%; animation-delay:420ms"></div>
+          </div>
+          <div class="dash-rows">
+            <div class="row"><span>Nouveaux devis</span><div class="track"><div class="fill" style="width:90%"></div></div></div>
+            <div class="row"><span>Devis validés</span><div class="track"><div class="fill" style="width:72%"></div></div></div>
+            <div class="row"><span>Factures émises</span><div class="track"><div class="fill" style="width:48%"></div></div></div>
+            <div class="row"><span>Encaissé</span><div class="track"><div class="fill" style="width:34%"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="metiers reveal">
+    <p class="metiers-label">Terrain Lucepres</p>
+    <div class="metiers-row">
+      <span class="metier">Forage</span>
+      <span class="metier">BTP</span>
+      <span class="metier">Hydraulique</span>
+      <span class="metier">Maintenance</span>
+    </div>
+  </div>
+
+  <section class="section" id="funnel" aria-labelledby="funnel-title">
+    <div class="section-head">
+      <p class="kicker reveal">Un seul fil</p>
+      <h2 id="funnel-title" class="reveal">Trois gestes pour encaisser plus vite</h2>
+      <p class="reveal">Pas de marketing public. Accès réservé à l’équipe — le parcours mène à la connexion.</p>
+    </div>
+    <div class="steps">
+      <article class="step reveal">
+        <div class="step-n">01</div>
+        <h3>Le chantier déborde le papier</h3>
+        <p>Devis épars, relances oubliées, montants en GNF difficiles à suivre entre WhatsApp et Excel.</p>
+      </article>
+      <article class="step reveal" style="transition-delay:.08s">
+        <div class="step-n">02</div>
+        <h3>Un fil devis → facture → créances</h3>
+        <p>Tu prépares, tu envoies, tu relances. L’atelier te dit quoi faire ensuite, chantier par chantier.</p>
+      </article>
+      <article class="step reveal" style="transition-delay:.16s">
+        <div class="step-n">03</div>
+        <h3>Tu ouvres ton espace</h3>
+        <p>Connexion sécurisée pour le staff Lucepres. Invitation par e-mail — pas d’inscription ouverte.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="cta-band reveal" id="cta">
+    <p class="kicker">Prêt quand tu l’es</p>
+    <h2>Ouvre ton espace Lucepres</h2>
+    <p>Connecte-toi en quelques minutes. Devis, créances et relances sur un seul fil.</p>
+    <div class="hero-actions" id="login-preview">
+      <a class="btn btn-primary" href="#">Accéder à l’espace</a>
+      <a class="btn btn-outline" href="mailto:Lucepres@gmail.com">Parler à l’équipe</a>
+    </div>
+    <p style="margin-top:18px;font-size:13px;color:var(--muted-foreground)">
+      En prod, ces boutons mènent à <strong>/login</strong> — ici c’est une maquette.
+    </p>
+  </section>
+
+  <footer class="footer">
+    <div>
+      <strong>Lucepres Sarl</strong><br />
+      +224 624 19 06 20 · Lucepres@gmail.com
+    </div>
+    <div>Conakry, Guinée · Solutions durables</div>
+  </footer>
+
+  <script>
+    const els = document.querySelectorAll(".reveal");
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      els.forEach((el) => el.classList.add("in"));
+    } else {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("in");
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+      els.forEach((el) => io.observe(el));
+    }
+  </script>
+</body>
+</html>

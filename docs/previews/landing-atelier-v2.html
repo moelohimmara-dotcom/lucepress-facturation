@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview — Landing Atelier v2 éditoriale (non prod)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=JetBrains+Mono:wght@500&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: oklch(0.976 0.011 88);
+      --fg: oklch(0.225 0.033 165);
+      --primary: oklch(0.3 0.079 166);
+      --primary-fg: oklch(0.98 0.009 93);
+      --muted: oklch(0.44 0.029 162);
+      --muted-bg: oklch(0.946 0.012 85);
+      --accent: oklch(0.898 0.052 86);
+      --gold: oklch(0.735 0.125 89);
+      --border: oklch(0.874 0.025 83);
+      --sidebar: oklch(0.255 0.067 164);
+      --sidebar-fg: oklch(0.94 0.012 91);
+      --ring: oklch(0.56 0.111 162);
+      --radius: 1.15rem;
+      --font: "Outfit", system-ui, sans-serif;
+      --display: "Fraunces", Georgia, serif;
+      --script: "Caveat", cursive;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+      --ease: cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal, .hero-copy > *, .stage-shell { opacity: 1 !important; transform: none !important; animation: none !important; filter: none !important; }
+    }
+    body {
+      font-family: var(--font);
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    a { color: inherit; text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+
+    .banner {
+      position: relative; z-index: 60;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      padding: 11px 22px;
+      background: var(--sidebar); color: var(--sidebar-fg);
+      font-size: 12.5px; font-weight: 600; letter-spacing: .02em;
+    }
+    .banner em { font-style: normal; color: var(--gold); }
+    .banner a {
+      border: 1px solid oklch(0.51 0.055 164 / 55%);
+      color: var(--gold); border-radius: 999px; padding: 7px 14px; font-size: 12px;
+    }
+
+    .shell {
+      min-height: calc(100vh - 44px);
+      display: grid;
+      grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+    }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .stage { min-height: 62vh; }
+    }
+
+    .editorial {
+      position: relative;
+      display: flex; flex-direction: column;
+      padding: 0 0 48px;
+      background:
+        radial-gradient(circle at 88% -8%, oklch(0.88 0.058 89 / 42%), transparent 28rem),
+        radial-gradient(circle at 0% 100%, oklch(0.84 0.057 157 / 14%), transparent 22rem),
+        var(--bg);
+    }
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 26px clamp(22px, 4vw, 48px) 12px;
+    }
+    .brand {
+      display: inline-flex; align-items: center; gap: 12px;
+      font-weight: 800; letter-spacing: .18em; text-transform: uppercase; font-size: 13px;
+    }
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 14px;
+      display: grid; place-items: center;
+      background: oklch(0.3 0.079 166 / 10%);
+      border: 1px solid oklch(0.3 0.079 166 / 14%);
+      color: var(--primary); font-size: 13px;
+    }
+    .nav-right { display: flex; align-items: center; gap: 18px; }
+    .nav-link { font-size: 14px; color: var(--muted); font-weight: 500; }
+    .nav-link:hover { color: var(--fg); }
+    @media (max-width: 640px) { .nav-link { display: none; } }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      min-height: 48px; padding: 12px 22px; border-radius: 999px;
+      font: inherit; font-weight: 700; font-size: 15px;
+      border: 1px solid transparent; cursor: pointer;
+      transition: transform .2s var(--ease), box-shadow .25s var(--ease), background .2s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary {
+      background: var(--primary); color: var(--primary-fg);
+      box-shadow: 0 18px 40px -22px oklch(0.18 0.06 164 / 70%);
+    }
+    .btn-ghost {
+      background: oklch(1 0 0 / 55%); border-color: var(--border); color: var(--fg);
+    }
+    .btn-outline {
+      background: transparent; border-color: oklch(0.3 0.079 166 / 28%); color: var(--primary);
+    }
+    .btn svg { width: 16px; height: 16px; }
+
+    .hero-copy {
+      flex: 1;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: clamp(28px, 5vw, 56px) clamp(22px, 4vw, 48px) 24px;
+      max-width: 640px;
+    }
+    .kicker {
+      display: inline-flex; align-items: center; gap: 10px;
+      color: oklch(0.39 0.095 165);
+      font-size: 11.5px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase;
+    }
+    .kicker::before {
+      content: ""; width: 28px; height: 1px; background: oklch(0.39 0.095 165 / 55%);
+    }
+    .hero-brand {
+      margin-top: 22px;
+      font-family: var(--display);
+      font-size: clamp(64px, 11vw, 108px);
+      font-weight: 600; letter-spacing: -.055em; line-height: .86;
+      font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 144;
+    }
+    .hero-title {
+      margin-top: 28px;
+      font-family: var(--display);
+      font-size: clamp(28px, 4.2vw, 44px);
+      font-weight: 560; letter-spacing: -.03em; line-height: 1.08;
+      max-width: 14ch;
+    }
+    .hero-title em {
+      font-style: italic; color: oklch(0.39 0.095 165);
+      font-variation-settings: "SOFT" 70, "WONK" 1, "opsz" 144;
+    }
+    .hero-sub {
+      margin-top: 18px; max-width: 34ch;
+      color: var(--muted); font-size: 17px; line-height: 1.7;
+    }
+    .hero-actions { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .hero-note {
+      margin-top: 22px;
+      font-family: var(--script);
+      font-size: 22px; color: oklch(0.39 0.095 165);
+      transform: rotate(-1.5deg);
+    }
+
+    .stage {
+      position: relative;
+      background: linear-gradient(155deg, var(--sidebar) 0%, oklch(0.28 0.07 166) 48%, oklch(0.22 0.055 170) 100%);
+      color: var(--sidebar-fg);
+      overflow: hidden;
+      min-height: calc(100vh - 44px);
+    }
+    .stage::before, .stage::after {
+      content: ""; position: absolute; pointer-events: none; border-radius: 999px; border: 1px solid oklch(0.73 0.125 89 / 18%);
+    }
+    .stage::before { width: 280px; height: 280px; right: -70px; top: -80px; box-shadow: 0 0 0 48px oklch(0.73 0.125 89 / 5%); }
+    .stage::after { width: 180px; height: 180px; left: -50px; bottom: 12%; opacity: .7; }
+    .stage-glow {
+      position: absolute; inset: auto auto 10% 8%; width: 55%; height: 40%;
+      background: radial-gradient(circle, oklch(0.84 0.057 157 / 22%), transparent 70%);
+      filter: blur(8px); pointer-events: none;
+    }
+    .stage-inner {
+      position: relative; z-index: 1;
+      height: 100%;
+      display: flex; flex-direction: column;
+      padding: clamp(28px, 4vw, 44px);
+    }
+    .stage-top {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stage-kicker {
+      font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--gold);
+    }
+    .stage-loc {
+      font-family: var(--mono); font-size: 11px; color: oklch(0.94 0.012 91 / 55%);
+    }
+    .stage-quote {
+      max-width: 18ch;
+      font-family: var(--display);
+      font-size: clamp(26px, 3.2vw, 36px);
+      font-weight: 560; line-height: 1.12; letter-spacing: -.02em;
+      margin-bottom: 28px;
+    }
+    .stage-quote span { color: var(--gold); font-style: italic; }
+
+    .stage-shell {
+      flex: 1;
+      border-radius: 22px;
+      border: 1px solid oklch(0.51 0.055 164 / 45%);
+      background: oklch(0.993 0.005 88);
+      color: var(--fg);
+      overflow: hidden;
+      box-shadow: 0 40px 80px -36px oklch(0.1 0.04 164 / 80%);
+      display: grid;
+      grid-template-columns: 148px 1fr;
+      min-height: 420px;
+      animation: rise .9s var(--ease) both;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(28px) scale(.985); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (max-width: 640px) {
+      .stage-shell { grid-template-columns: 1fr; }
+      .side { display: none; }
+    }
+    .side {
+      background: oklch(0.255 0.067 164);
+      color: var(--sidebar-fg);
+      padding: 18px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .side-item {
+      padding: 9px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+      color: oklch(0.94 0.012 91 / 62%);
+    }
+    .side-item.active {
+      background: oklch(0.35 0.066 163);
+      color: var(--sidebar-fg);
+      box-shadow: inset 0 0 0 1px oklch(0.73 0.125 89 / 35%);
+    }
+    .panel { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 14px; }
+    .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .panel-head h3 { font-size: 15px; font-weight: 700; }
+    .panel-head span { font-size: 11px; font-family: var(--mono); color: var(--muted); }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .metric {
+      padding: 12px; border-radius: 14px;
+      border: 1px solid oklch(0.874 0.025 83 / 80%);
+      background: linear-gradient(160deg, oklch(0.997 0.004 90), oklch(0.965 0.015 88));
+    }
+    .metric b {
+      display: block; font-family: var(--display); font-size: 18px; letter-spacing: -.03em; font-weight: 600;
+    }
+    .metric small { color: var(--muted); font-size: 11px; font-weight: 600; }
+    .table { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .tr {
+      display: grid; grid-template-columns: 1.1fr 1.2fr .9fr .9fr;
+      gap: 8px; padding: 10px 12px; font-size: 11.5px;
+      border-top: 1px solid oklch(0.874 0.025 83 / 70%);
+    }
+    .tr.head {
+      border-top: 0; background: var(--muted-bg);
+      font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    }
+    .chip {
+      display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px;
+      font-size: 10px; font-weight: 700;
+      background: oklch(0.898 0.052 86 / 55%); color: oklch(0.27 0.066 163);
+    }
+    .chip.warn { background: oklch(0.69 0.1 39 / 22%); color: oklch(0.42 0.12 40); }
+
+    .rail {
+      display: flex; gap: 10px; overflow-x: auto; padding: 18px clamp(22px, 4vw, 48px) 8px;
+      border-top: 1px solid oklch(0.874 0.025 83 / 70%);
+    }
+    .pill {
+      flex: 0 0 auto; padding: 10px 16px; border-radius: 999px;
+      border: 1px solid var(--border); background: oklch(1 0 0 / 55%);
+      font-size: 13px; font-weight: 700;
+    }
+
+    .below { max-width: 1180px; margin: 0 auto; padding: clamp(64px, 10vw, 110px) 24px; }
+    .section-kicker { text-align: center; }
+    .section-title {
+      text-align: center; margin: 14px auto 12px;
+      font-family: var(--display); font-size: clamp(32px, 4.5vw, 52px);
+      font-weight: 600; letter-spacing: -.03em; line-height: 1.05; max-width: 16ch;
+    }
+    .section-lead {
+      text-align: center; margin: 0 auto 48px; max-width: 44ch;
+      color: var(--muted); font-size: 17px; line-height: 1.65;
+    }
+    .funnel {
+      display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: stretch;
+    }
+    @media (max-width: 900px) {
+      .funnel { grid-template-columns: 1fr; }
+      .funnel-rule { display: none; }
+    }
+    .funnel-card {
+      padding: 28px 22px;
+      border-radius: 22px;
+      border: 1px solid oklch(0.875 0.025 83 / 85%);
+      background: linear-gradient(145deg, oklch(0.997 0.004 90 / 96%), oklch(0.973 0.012 88 / 88%));
+      box-shadow: 0 22px 58px -44px oklch(0.18 0.06 164 / 50%);
+    }
+    .funnel-card .n {
+      font-family: var(--display); font-size: 42px; letter-spacing: -.04em;
+      color: oklch(0.39 0.095 165); line-height: 1;
+    }
+    .funnel-card h3 { margin-top: 14px; font-size: 19px; font-weight: 700; }
+    .funnel-card p { margin-top: 10px; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+    .funnel-rule {
+      width: 28px; align-self: center; height: 1px;
+      background: linear-gradient(90deg, transparent, oklch(0.39 0.095 165 / 55%), transparent);
+    }
+
+    .cta {
+      margin: 24px auto 80px; max-width: 1180px;
+      border-radius: 28px; overflow: hidden;
+      display: grid; grid-template-columns: 1.1fr 0.9fr;
+      border: 1px solid oklch(0.875 0.025 83 / 80%);
+      background: var(--bg);
+    }
+    @media (max-width: 860px) { .cta { grid-template-columns: 1fr; } }
+    .cta-copy { padding: clamp(36px, 6vw, 56px); }
+    .cta-copy h2 {
+      margin-top: 14px; font-family: var(--display);
+      font-size: clamp(30px, 4vw, 46px); font-weight: 600; letter-spacing: -.03em; line-height: 1.05;
+    }
+    .cta-copy p { margin-top: 14px; color: var(--muted); max-width: 36ch; font-size: 16.5px; line-height: 1.65; }
+    .cta-actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .cta-aside {
+      padding: clamp(36px, 5vw, 48px);
+      background: linear-gradient(155deg, var(--sidebar), oklch(0.3 0.079 166));
+      color: var(--sidebar-fg);
+      display: flex; flex-direction: column; justify-content: space-between; gap: 28px;
+    }
+    .cta-aside blockquote {
+      font-family: var(--display); font-size: clamp(24px, 3vw, 32px);
+      font-weight: 560; line-height: 1.15; letter-spacing: -.02em;
+    }
+    .cta-aside cite {
+      font-style: normal; font-family: var(--mono); font-size: 11px;
+      color: oklch(0.94 0.012 91 / 60%); letter-spacing: .06em;
+    }
+
+    .footer {
+      max-width: 1180px; margin: 0 auto; padding: 0 24px 56px;
+      display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+      color: var(--muted); font-size: 13.5px;
+      border-top: 1px solid oklch(0.874 0.025 83 / 70%);
+      padding-top: 28px;
+    }
+    .footer strong { color: var(--fg); }
+
+    .reveal {
+      opacity: 0; transform: translateY(16px);
+      transition: opacity .7s var(--ease), transform .7s var(--ease);
+    }
+    .reveal.in { opacity: 1; transform: none; }
+    .hero-copy > * {
+      opacity: 0; transform: translateY(18px);
+      animation: in .75s var(--ease) forwards;
+    }
+    .hero-copy > *:nth-child(1) { animation-delay: .05s; }
+    .hero-copy > *:nth-child(2) { animation-delay: .12s; }
+    .hero-copy > *:nth-child(3) { animation-delay: .2s; }
+    .hero-copy > *:nth-child(4) { animation-delay: .28s; }
+    .hero-copy > *:nth-child(5) { animation-delay: .36s; }
+    .hero-copy > *:nth-child(6) { animation-delay: .44s; }
+    @keyframes in {
+      to { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <span>Maquette <em>Atelier v2</em> — éditoriale · hors production</span>
+    <a href="#cta">Aller au CTA</a>
+  </div>
+
+  <div class="shell">
+    <section class="editorial" aria-label="Héro">
+      <nav class="nav">
+        <a class="brand" href="#top">
+          <span class="brand-mark" aria-hidden>▲</span>
+          <span>Lucepres</span>
+        </a>
+        <div class="nav-right">
+          <a class="nav-link" href="#funnel">Parcours</a>
+          <a class="nav-link" href="mailto:Lucepres@gmail.com">Contact</a>
+          <a class="btn btn-ghost" href="#cta" style="min-height:42px;padding:9px 16px;font-size:14px">Se connecter</a>
+        </div>
+      </nav>
+
+      <div class="hero-copy" id="top">
+        <p class="kicker">Gestion commerciale · Conakry</p>
+        <p class="hero-brand">Lucepres</p>
+        <h1 class="hero-title">Du premier devis au <em>paiement</em> encaissé.</h1>
+        <p class="hero-sub">
+          L’atelier qui réunit devis, créances et relances en GNF — pour les chantiers d’hydraulique, de BTP et de maintenance.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#cta">
+            Accéder à l’espace
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </a>
+          <a class="btn btn-outline" href="mailto:Lucepres@gmail.com?subject=%C3%89change%20Lucepres">Écrire à l’équipe</a>
+        </div>
+        <p class="hero-note">Accès réservé — invitation par e-mail.</p>
+      </div>
+
+      <div class="rail" aria-label="Métiers">
+        <span class="pill">Forage</span>
+        <span class="pill">BTP</span>
+        <span class="pill">Hydraulique</span>
+        <span class="pill">Maintenance</span>
+        <span class="pill">GNF · fr-GN</span>
+      </div>
+    </section>
+
+    <aside class="stage" aria-hidden="true">
+      <div class="stage-glow"></div>
+      <div class="stage-inner">
+        <div class="stage-top">
+          <p class="stage-kicker">Espace sécurisé</p>
+          <p class="stage-loc">Conakry · GNF</p>
+        </div>
+        <p class="stage-quote">Vos devis, vos créances, <span>une seule lumière.</span></p>
+        <div class="stage-shell">
+          <div class="side">
+            <div class="side-item">Aujourd’hui</div>
+            <div class="side-item">Devis</div>
+            <div class="side-item active">Créances</div>
+            <div class="side-item">Clients</div>
+            <div class="side-item">Relances</div>
+            <div class="side-item">Paramètres</div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Factures à encaisser</h3>
+              <span>mai 2026</span>
+            </div>
+            <div class="metrics">
+              <div class="metric"><small>Ouvertes</small><b>17</b></div>
+              <div class="metric"><small>En cours</small><b>148,8 M</b></div>
+              <div class="metric"><small>Encaissé</small><b>92,4 M</b></div>
+            </div>
+            <div class="table">
+              <div class="tr head"><span>Facture</span><span>Client</span><span>Montant</span><span>Statut</span></div>
+              <div class="tr"><span>FAC-2026-118</span><span>SOGEP BTP</span><span>24,5 M</span><span><span class="chip">En cours</span></span></div>
+              <div class="tr"><span>FAC-2026-121</span><span>Hydro Forage</span><span>18,2 M</span><span><span class="chip warn">Relance</span></span></div>
+              <div class="tr"><span>FAC-2026-124</span><span>Conakry Travaux</span><span>31,0 M</span><span><span class="chip">En cours</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="below" id="funnel">
+    <p class="kicker section-kicker reveal in" style="justify-content:center">Un seul fil</p>
+    <h2 class="section-title reveal">Trois gestes pour encaisser plus vite</h2>
+    <p class="section-lead reveal">Pas de vitrine marketing. Le parcours mène l’équipe Lucepres vers la connexion.</p>
+    <div class="funnel">
+      <article class="funnel-card reveal">
+        <div class="n">01</div>
+        <h3>Le chantier déborde le papier</h3>
+        <p>Devis épars, relances oubliées, montants GNF perdus entre WhatsApp et Excel.</p>
+      </article>
+      <div class="funnel-rule" aria-hidden="true"></div>
+      <article class="funnel-card reveal">
+        <div class="n">02</div>
+        <h3>Un fil devis → facture → créances</h3>
+        <p>Tu prépares, tu envoies, tu relances. L’atelier te dit quoi faire ensuite.</p>
+      </article>
+      <div class="funnel-rule" aria-hidden="true"></div>
+      <article class="funnel-card reveal">
+        <div class="n">03</div>
+        <h3>Tu ouvres ton espace</h3>
+        <p>Connexion sécurisée. Invitation SMTP — pas d’inscription ouverte.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="cta" id="cta">
+    <div class="cta-copy">
+      <p class="kicker">Prêt quand tu l’es</p>
+      <h2>Ouvre ton espace Lucepres</h2>
+      <p>Devis, créances et relances sur un seul fil. Accès réservé au staff.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href="#">Accéder à l’espace</a>
+        <a class="btn btn-outline" href="mailto:Lucepres@gmail.com">Parler à l’équipe</a>
+      </div>
+      <p style="margin-top:18px;font-size:13px;color:var(--muted)">En prod → <strong>/login</strong> · ici maquette uniquement.</p>
+    </div>
+    <aside class="cta-aside">
+      <blockquote>Une seule lumière pour tout le moteur commercial.</blockquote>
+      <cite>LUCEPRES SARL · SOLUTIONS DURABLES</cite>
+    </aside>
+  </section>
+
+  <footer class="footer">
+    <div><strong>Lucepres Sarl</strong><br />+224 624 19 06 20 · Lucepres@gmail.com</div>
+    <div>Conakry, Guinée</div>
+  </footer>
+
+  <script>
+    const els = [...document.querySelectorAll(".reveal")];
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      els.forEach((el) => el.classList.add("in"));
+    } else {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.14 });
+      els.forEach((el) => io.observe(el));
+    }
+  </script>
+</body>
+</html>
