@@ -68,30 +68,35 @@ export default function EmailTemplatesPage() {
   function renderLocalPreview(html: string): string {
     let result = html;
     const sampleVars: Record<string, string> = {
-      inviteLink: "https://lucepress.com/invite/abc123",
+      inviteLink: "https://lucepress-app.netlify.app/invite/abc123",
       inviterName: "Malika Morgan",
       organization: "Lucepress SARL",
       expiresAt: "15 septembre 2026",
-      resetLink: "https://lucepress.com/reset/xyz789",
+      resetLink: "https://lucepress-app.netlify.app/reset/xyz789",
       clientName: "Mamadou Diallo",
       documentNumber: "DEV-2026-0012",
       amount: "1 500 000 GNF",
       dueDate: "30 septembre 2026",
       validUntil: "30 septembre 2026",
       paymentDate: "12 septembre 2026",
-      documentLink: "https://lucepress-gestion.netlify.app/d/exemple",
-      pdfDownloadLink: "https://lucepress-gestion.netlify.app/api/d/exemple.pdf",
+      documentLink: "https://lucepress-app.netlify.app/d/exemple",
+      pdfDownloadLink: "https://lucepress-app.netlify.app/api/d/exemple.pdf",
       companyEmail: "moelohimmara@gmail.com",
       linkExpiresAt: "01 décembre 2026",
       paymentMethod: "virement bancaire",
       userName: "Malika",
-      loginLink: "https://lucepress-gestion.netlify.app/login",
+      loginLink: "https://lucepress-app.netlify.app/login",
       daysOverdue: "5",
+      alertTitle: "Échéance dépassée",
+      recipientName: "Mamadou Diallo",
+      alertBody: "La facture DEV-2026-0012 est en retard de 5 jours.",
+      actionLink: "https://lucepress-app.netlify.app/alert/123",
     };
     for (const [key, value] of Object.entries(sampleVars)) {
       result = result.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value);
     }
-    result = result.replace(/href=("|')https?:\/\//gi, 'href=$1#');
+    result = result.replace(/\bhref\s*=\s*(["'])[\s\S]*?\1/gi, 'href="#"');
+    result = result.replace(/\bhref\s*=\s*\{\{[^}]+\}\}/gi, 'href="#"');
     return result;
   }
 
