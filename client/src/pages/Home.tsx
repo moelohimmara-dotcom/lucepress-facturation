@@ -235,13 +235,13 @@ export default function Home() {
                       data-testid="bootstrap-demo-button"
                       disabled={bootstrapDemo.isPending}
                       onClick={() => bootstrapDemo.mutate()}
-                      className="h-10 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15"
+                      className="min-h-11 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15"
                     >
                       {bootstrapDemo.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
                       Charger le jeu demo
                     </Button>
                   ) : null}
-                  <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15">
+                  <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="min-h-11 rounded-xl bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/15">
                     <Sparkles className="mr-2 h-4 w-4" />Créer un devis avec l'IA
                   </Button>
                 </div>
@@ -259,7 +259,7 @@ function MiniStat({ label, value, onClick, icon: Icon }: { label: string; value:
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/35"
+      className="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/35"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
         <Icon className="h-4 w-4" />
@@ -327,7 +327,7 @@ function GettingStartedPanel({
           <h2 className="font-editorial mt-2 text-2xl font-semibold">Trois gestes pour démarrer</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">Client → devis → suivi. Ensuite, cette page devient ta file quotidienne.</p>
         </div>
-        <button type="button" onClick={onDismiss} className="shrink-0 text-xs font-extrabold text-primary hover:underline">
+        <button type="button" onClick={onDismiss} className="inline-flex min-h-11 shrink-0 items-center text-xs font-extrabold text-primary hover:underline">
           Réduire
         </button>
       </div>
@@ -342,7 +342,7 @@ function GettingStartedPanel({
             data-testid="bootstrap-demo-button"
             disabled={bootstrapPending}
             onClick={onBootstrap}
-            className="h-10 shrink-0 rounded-xl bg-primary font-bold text-primary-foreground"
+            className="min-h-11 shrink-0 rounded-xl bg-primary font-bold text-primary-foreground"
           >
             {bootstrapPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
             Charger le jeu demo
@@ -360,7 +360,7 @@ function GettingStartedPanel({
               type="button"
               key={task.id}
               onClick={() => onOpenTask(task)}
-              className={`flex items-start gap-3 rounded-xl border p-4 text-left ${complete ? "border-primary/20 bg-card/80" : "border-border bg-card hover:border-primary/35"}`}
+              className={`flex min-h-11 items-start gap-3 rounded-xl border p-4 text-left ${complete ? "border-primary/20 bg-card/80" : "border-border bg-card hover:border-primary/35"}`}
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${complete ? "bg-primary text-primary-foreground" : "bg-secondary text-primary"}`}>
                 {complete ? <Check className="h-4 w-4" /> : index + 1}
