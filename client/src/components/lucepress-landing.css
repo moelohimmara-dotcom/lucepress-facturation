@@ -37,8 +37,8 @@
 }
 .lp a.lp-btn-glass { color: var(--lp-ink); }
 .lp a.lp-btn-quiet { color: var(--lp-primary); }
-.lp a.lp-footer-link { color: var(--lp-ink-soft); }
-.lp a.lp-footer-link:hover { color: var(--lp-primary); }
+.lp a.lp-footer-link { color: oklch(0.94 0.012 91 / 88%); }
+.lp a.lp-footer-link:hover { color: var(--lp-gold); }
 .lp :focus-visible {
   outline: 2px solid oklch(0.52 0.11 164);
   outline-offset: 3px;
@@ -811,10 +811,11 @@
 
 .lp-footer {
   background:
-    linear-gradient(180deg, transparent, oklch(0.946 0.012 85 / 55%)),
-    var(--lp-bg);
-  border-top: 1px solid oklch(0.874 0.025 83 / 75%);
-  padding: 48px 24px 32px;
+    radial-gradient(circle at 12% 0%, oklch(0.34 0.07 166 / 55%), transparent 42%),
+    linear-gradient(165deg, oklch(0.28 0.07 165) 0%, var(--lp-sidebar) 48%, oklch(0.22 0.055 164) 100%);
+  color: var(--lp-sidebar-fg);
+  border-top: none;
+  padding: 52px 24px 36px;
 }
 
 .lp-footer-inner {
@@ -831,9 +832,13 @@
 
 .lp-brand-footer { margin-bottom: 14px; }
 
+.lp-footer .lp-brand-text {
+  color: var(--lp-sidebar-fg);
+}
+
 .lp-footer-brand p {
   max-width: 34ch;
-  color: var(--lp-muted);
+  color: oklch(0.94 0.012 91 / 72%);
   font-size: 14.5px;
   line-height: 1.65;
 }
@@ -845,10 +850,10 @@
   margin-top: 16px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--lp-ink-soft);
+  color: oklch(0.94 0.012 91 / 88%);
 }
 
-.lp-footer-contact a:hover { color: var(--lp-primary); }
+.lp-footer-contact a:hover { color: var(--lp-gold); }
 
 .lp-footer-cols {
   display: grid;
@@ -866,26 +871,26 @@
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: var(--lp-muted);
+  color: oklch(0.94 0.012 91 / 58%);
   margin-bottom: 4px;
 }
 
 .lp-footer-link {
   font-size: 14.5px;
   font-weight: 600;
-  color: var(--lp-ink-soft);
+  color: oklch(0.94 0.012 91 / 88%);
   transition: color 0.2s ease;
 }
 
-.lp-footer-link:hover { color: var(--lp-primary); }
+.lp-footer-link:hover { color: var(--lp-gold); }
 
 .lp-copyright {
   max-width: 1080px;
   margin: 36px auto 0;
   padding-top: 20px;
-  border-top: 1px solid oklch(0.874 0.025 83 / 70%);
+  border-top: 1px solid oklch(0.94 0.012 91 / 16%);
   font-size: 12.5px;
-  color: var(--lp-muted);
+  color: oklch(0.94 0.012 91 / 55%);
 }
 
 @media (prefers-reduced-motion: reduce) {
