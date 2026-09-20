@@ -120,16 +120,16 @@ export default function Home() {
           description={`Pilotage ${LUCEPRES_PUBLIC_PROFILE.displayName} · vos chiffres essentiels en un coup d'œil.`}
           actions={
             <>
-              <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="h-10 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-lg shadow-primary/15" data-testid="create-quote-button">
+              <Button onClick={() => setLocation("/devis/nouveau?assistant=1")} className="min-h-11 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-lg shadow-primary/15" data-testid="create-quote-button">
                 <FilePlus2 className="mr-2 h-4 w-4" />Nouveau devis
               </Button>
-              <Button variant="outline" onClick={() => setLocation("/creances")} className="h-10 rounded-xl border-border bg-card font-bold">
+              <Button variant="outline" onClick={() => setLocation("/creances")} className="min-h-11 rounded-xl border-border bg-card font-bold">
                 Créances
               </Button>
-              <Button variant="outline" onClick={() => setLocation("/calendrier")} className="h-10 rounded-xl border-border bg-card font-bold">
+              <Button variant="outline" onClick={() => setLocation("/calendrier")} className="min-h-11 rounded-xl border-border bg-card font-bold">
                 <CalendarDays className="mr-2 h-4 w-4" />Calendrier
               </Button>
-              <Button variant="outline" onClick={() => setLocation("/relances")} className="h-10 rounded-xl border-border bg-card font-bold">
+              <Button variant="outline" onClick={() => setLocation("/relances")} className="min-h-11 rounded-xl border-border bg-card font-bold">
                 <Mail className="mr-2 h-4 w-4" />Relances
               </Button>
             </>
