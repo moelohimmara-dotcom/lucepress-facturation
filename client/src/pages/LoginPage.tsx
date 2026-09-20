@@ -37,6 +37,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // État du second temps. `challenge` non nul = l’écran de code remplace le
   // formulaire de connexion.
@@ -67,10 +68,10 @@ export default function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPending(true);
+    setFormError(null);
     try {
       const result = (await login({ email, password })) as LoginResponse;
       if (result?.mfaRequired && result.challengeToken) {
-        // AUCUNE SESSION N’EXISTE ENCORE : on n’entre pas dans l’application.
         setChallenge({
           token: result.challengeToken,
           expiresAt: Date.now() + (result.expiresInSeconds ?? 300) * 1000,
@@ -81,8 +82,12 @@ export default function LoginPage() {
       }
       toast.success("Connexion réussie.");
       navigate("/");
-    } catch (err: any) {
-      const msg = err?.message || "Une erreur est survenue.";
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string"
+          ? (err as { message: string }).message
+          : "Identifiants refusés. Vérifie l’e-mail et le mot de passe, puis réessaie.";
+      setFormError(msg);
       toast.error(msg);
     } finally {
       setPending(false);
@@ -151,7 +156,10 @@ export default function LoginPage() {
       title="Bon retour."
       description="Connectez-vous avec votre e-mail et votre mot de passe."
       footerLink={
-        <a href="/forgot-password" className="text-sm text-muted-foreground underline decoration-primary/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary">
+        <a
+          href="/forgot-password"
+          className="inline-flex min-h-11 items-center justify-center px-3 text-sm text-muted-foreground underline decoration-primary/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
+        >
           Mot de passe oublié ?
         </a>
       }
@@ -162,15 +170,18 @@ export default function LoginPage() {
             E-mail
           </Label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               id="email"
+              name="email"
               type="email"
+              inputMode="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="vous@entreprise.gn"
               autoComplete="email"
+              spellCheck={false}
               className="lucepress-field h-12 rounded-xl pl-11"
             />
           </div>
@@ -180,32 +191,33 @@ export default function LoginPage() {
             Mot de passe
           </Label>
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               id="password"
+              name="password"
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Votre mot de passe"
+              placeholder="Votre mot de passe…"
               autoComplete="current-password"
               minLength={8}
               className="lucepress-field h-12 rounded-xl pl-11"
             />
           </div>
         </div>
-        {codeError && (
-          <p role="alert" data-testid="login-notice" className="text-xs leading-5 text-amber-800 dark:text-amber-200">
-            {codeError}
+        {(formError || codeError) && (
+          <p role="alert" data-testid="login-notice" className="rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+            {formError || codeError}
           </p>
         )}
         <Button
           type="submit"
           disabled={pending}
-          className="group h-12 w-full rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-[0_18px_40px_-26px_oklch(0.3_0.079_166/70%)] transition-transform duration-150 hover:-translate-y-0.5"
+          className="group h-12 w-full touch-manipulation rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-[0_18px_40px_-26px_oklch(0.3_0.079_166/70%)] transition-transform duration-150 hover:-translate-y-0.5"
         >
           {pending ? "Veuillez patienter…" : "Se connecter"}
-          {!pending && <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" />}
+          {!pending && <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />}
         </Button>
       </form>
     </AuthShell>
