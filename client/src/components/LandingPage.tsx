@@ -328,7 +328,7 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="lp-footer-cols">
+          <nav className="lp-footer-cols" aria-label="Pied de page">
             {FOOTER_COLS.map((col) => (
               <div className="lp-footer-col" key={col.title}>
                 <h4>{col.title}</h4>
@@ -345,7 +345,7 @@ export function LandingPage() {
                 )}
               </div>
             ))}
-          </div>
+          </nav>
         </div>
         <p className="lp-copyright">
           © {new Date().getFullYear()} {LUCEPRES_PUBLIC_PROFILE.legalName} · {LUCEPRES_PUBLIC_PROFILE.location}
