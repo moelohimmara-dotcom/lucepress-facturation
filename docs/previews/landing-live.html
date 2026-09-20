@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Preview Lucepres — boutons / nav / footer revus</title>
+<title>Preview Lucepres — gap CTA / strip</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,560&family=JetBrains+Mono:wght@500&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <style>
 :root { --lp-font:"Outfit",system-ui,sans-serif; --lp-display:"Fraunces",Georgia,serif; --lp-mono:"JetBrains Mono",ui-monospace,monospace; }
@@ -19,9 +19,9 @@ html,body{margin:0}
   --lp-border: oklch(0.874 0.025 83);
   --lp-sidebar: oklch(0.255 0.067 164);
   --lp-sidebar-fg: oklch(0.94 0.012 91);
-  --lp-font: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --lp-display: "Fraunces", ui-serif, Georgia, serif;
-  --lp-mono: "JetBrains Mono", ui-monospace, monospace;
+  --lp-font: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
+  --lp-display: "Fraunces Variable", ui-serif, Georgia, serif;
+  --lp-mono: "JetBrains Mono Variable", ui-monospace, monospace;
   --lp-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --lp-btn-radius: 1rem;
 
@@ -55,15 +55,39 @@ html,body{margin:0}
   border-radius: 4px;
 }
 
+.lp-skip {
+  position: absolute;
+  left: 1rem;
+  top: -3.5rem;
+  z-index: 100;
+  padding: 0.7rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--lp-primary);
+  color: var(--lp-primary-fg);
+  font-size: 0.875rem;
+  font-weight: 800;
+  box-shadow: 0 10px 28px rgba(20, 50, 40, 0.28);
+  transition: top 180ms var(--lp-ease);
+}
+
+.lp-skip:focus {
+  top: 1rem;
+  color: var(--lp-primary-fg);
+}
+
+.lp-main {
+  display: block;
+}
+
 .lp-nav-wrap {
   position: fixed;
-  top: 18px;
+  top: max(18px, env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   z-index: 50;
   display: flex;
   justify-content: center;
-  padding: 0 16px;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
   pointer-events: none;
 }
 
@@ -134,8 +158,8 @@ html,body{margin:0}
   align-items: center;
   justify-content: center;
   margin-left: auto;
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
@@ -147,6 +171,8 @@ html,body{margin:0}
     inset 0 1px 0 oklch(0.94 0.02 90 / 16%),
     0 6px 16px rgba(20, 50, 40, 0.2);
   white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.18s var(--lp-ease), box-shadow 0.2s ease, filter 0.2s ease;
 }
 
@@ -178,6 +204,8 @@ html,body{margin:0}
   position: relative;
   width: 100%;
   min-height: 100svh;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -235,12 +263,13 @@ html,body{margin:0}
 .lp-hero-content {
   position: relative;
   z-index: 10;
-  min-height: 100svh;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: clamp(6.75rem, 14vh, 9.5rem) clamp(16px, 4vw, 24px) clamp(7rem, 14vh, 8.5rem);
+  padding: clamp(6.75rem, 14vh, 9.5rem) clamp(16px, 4vw, 24px) clamp(2.25rem, 5vh, 3.25rem);
 }
 
 .lp-hero-content::before {
@@ -293,6 +322,7 @@ html,body{margin:0}
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: var(--lp-ink-soft);
+  text-wrap: balance;
   font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 144;
 }
 
@@ -312,6 +342,7 @@ html,body{margin:0}
   justify-content: center;
   gap: 12px;
   margin-top: 28px;
+  margin-bottom: 0.5rem;
   width: min(100%, 28rem);
 }
 
@@ -347,6 +378,8 @@ html,body{margin:0}
   white-space: nowrap;
   border: 1px solid transparent;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.18s var(--lp-ease), background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease;
 }
 
@@ -426,7 +459,7 @@ html,body{margin:0}
   .lp-hero-content {
     padding-left: 16px;
     padding-right: 16px;
-    padding-bottom: 6.5rem;
+    padding-bottom: 2rem;
     gap: 0;
   }
 
@@ -455,10 +488,12 @@ html,body{margin:0}
 
   .lp-hero-actions {
     margin-top: 22px;
+    margin-bottom: 0.5rem;
   }
 
   .lp-strip {
-    padding: 0 12px 16px;
+    margin-top: 2.75rem;
+    padding: 0 12px 1.5rem;
   }
 
   .lp-strip-inner {
@@ -519,12 +554,17 @@ html,body{margin:0}
 }
 
 .lp-strip {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   z-index: 10;
-  padding: 0 20px 26px;
+  flex: 0 0 auto;
+  margin-top: clamp(2.75rem, 7vh, 4rem);
+  padding: 0 20px clamp(1.5rem, 3.5vh, 2.25rem);
+}
+
+@media (max-width: 560px) {
+  .lp-strip {
+    margin-top: max(2.75rem, 6vh);
+  }
 }
 
 .lp-strip-inner {
@@ -540,11 +580,40 @@ html,body{margin:0}
 }
 
 .lp-strip-label {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 12px;
   letter-spacing: 0.01em;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.68);
+}
+
+.lp-strip-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.lp-video-toggle {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lp-video-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .lp-strip-row {
@@ -830,20 +899,16 @@ html,body{margin:0}
   .lp-hero-fallback { opacity: 1 !important; }
 }
 
-.preview-banner{position:fixed;top:0;left:0;right:0;z-index:80;background:oklch(0.255 0.067 164);color:oklch(0.94 0.012 91);font:600 12.5px/1.3 Outfit,system-ui,sans-serif;padding:10px 16px;text-align:center}
-.preview-banner em{color:oklch(0.735 0.125 89);font-style:normal}
-.lp-nav-wrap{top:52px}
-.lp-hero-content{padding-top:clamp(7.25rem,15vh,9.5rem)}
-#parcours,#cta,#top{scroll-margin-top:7.5rem}
-.lp-mark-fake{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:12px;background:oklch(0.3 0.079 166 / 10%);border:1px solid oklch(0.3 0.079 166 / 16%);color:oklch(0.3 0.079 166);font-family:Fraunces,serif;font-style:italic;font-size:1.25rem;font-weight:600}
 </style>
 </head>
+
 <body>
-<div class="preview-banner">Preview locale — boutons + responsive</div>
+<div class="preview-banner">Preview locale — gap CTA / strip · P0/P1</div>
 <div class="lp">
+  <a class="lp-skip" href="#main-content">Aller au contenu principal</a>
   <div class="lp-nav-wrap">
-    <nav class="lp-nav">
-      <a class="lp-brand" href="#top"><span class="lp-mark-fake">L</span><span class="lp-brand-text">Lucepres</span></a>
+    <nav class="lp-nav" aria-label="Principale">
+      <a class="lp-brand" href="#top"><span class="lp-mark-fake">L</span><span class="lp-brand-text" translate="no">Lucepres</span></a>
       <div class="lp-nav-links">
         <a href="#parcours">Parcours</a>
         <a href="#cta">Accès</a>
@@ -852,21 +917,22 @@ html,body{margin:0}
       <a class="lp-nav-cta" href="#cta">Se connecter</a>
     </nav>
   </div>
+  <main id="main-content" class="lp-main">
   <section class="lp-hero" id="top">
     <video class="lp-hero-video" src="https://pub-1e5b4001b36b47e28e6a2fb775966a79.r2.dev/templates/monsoon/hero.mp4" autoplay muted loop playsinline onerror="this.setAttribute('data-failed','true')"></video>
     <div class="lp-hero-fallback"></div><div class="lp-hero-overlay"></div><div class="lp-hero-veil"></div><div class="lp-hero-glow"></div>
     <div class="lp-hero-content">
       <span class="lp-eyebrow">Gestion commerciale · Conakry, Guinée</span>
-      <p class="lp-hero-brand">Lucepres</p>
+      <p class="lp-hero-brand" translate="no">Lucepres</p>
       <h1 class="lp-hero-title">Du premier devis au paiement encaissé.</h1>
-      <p class="lp-hero-sub">Devis, créances et relances en GNF — pensé pour les chantiers d’hydraulique, de BTP et de maintenance.</p>
+      <p class="lp-hero-sub">Devis, créances et relances en GNF — pensé pour les chantiers d’hydraulique, de BTP et de maintenance. Tu gagnes du temps sur le papier, tu gardes le cap sur la trésorerie.</p>
       <div class="lp-hero-actions">
-        <a class="lp-btn lp-btn-primary" href="#cta">Accéder à l'espace</a>
+        <a class="lp-btn lp-btn-primary" href="#cta">Accéder à l’espace</a>
         <a class="lp-btn lp-btn-glass" href="mailto:Lucepres@gmail.com">Écrire à l’équipe</a>
       </div>
     </div>
     <div class="lp-strip"><div class="lp-strip-inner">
-      <p class="lp-strip-label">Terrain Lucepres</p>
+      <div class="lp-strip-head"><p class="lp-strip-label">Terrain Lucepres</p></div>
       <div class="lp-strip-row">
         <span class="lp-strip-item">Forage</span><span class="lp-strip-item">BTP</span><span class="lp-strip-item">Hydraulique</span><span class="lp-strip-item">Maintenance</span><span class="lp-strip-item lp-strip-item-muted">GNF · fr-GN</span>
       </div>
@@ -874,7 +940,7 @@ html,body{margin:0}
   </section>
   <section class="lp-below" id="parcours">
     <p class="lp-section-kicker">Un seul fil</p>
-    <h2 class="lp-section-title">Trois gestes pour encaisser plus vite</h2>
+    <h2 id="parcours-title" class="lp-section-title">Trois gestes pour encaisser plus vite</h2>
     <p class="lp-section-lead">Accès réservé à l’équipe — le parcours mène à la connexion.</p>
     <ol class="lp-funnel">
       <li class="lp-funnel-row"><span class="lp-funnel-n">01</span><div class="lp-funnel-body"><h3>Le chantier déborde le papier</h3><p>Devis épars, relances oubliées, montants GNF perdus entre WhatsApp et Excel.</p></div></li>
@@ -887,7 +953,7 @@ html,body{margin:0}
         <h2>Ouvre ton espace Lucepres</h2>
         <p>Connecte-toi en quelques minutes. Devis, créances et relances sur un seul fil.</p>
         <div class="lp-hero-actions lp-hero-actions-start">
-          <a class="lp-btn lp-btn-primary" href="#">Accéder à l'espace</a>
+          <a class="lp-btn lp-btn-primary" href="#">Accéder à l’espace</a>
           <a class="lp-btn lp-btn-quiet" href="mailto:Lucepres@gmail.com">Parler à l’équipe</a>
         </div>
       </div>
@@ -898,15 +964,16 @@ html,body{margin:0}
       </aside>
     </div>
   </section>
+  </main>
   <footer class="lp-footer">
     <div class="lp-footer-inner">
       <div class="lp-footer-brand">
-        <a class="lp-brand lp-brand-footer" href="#top"><span class="lp-mark-fake">L</span><span class="lp-brand-text">Lucepres</span></a>
+        <a class="lp-brand lp-brand-footer" href="#top"><span class="lp-mark-fake">L</span><span class="lp-brand-text" translate="no">Lucepres</span></a>
         <p>L’atelier de gestion commerciale pour les chantiers ambitieux de Guinée.</p>
         <p class="lp-footer-contact"><a href="tel:+224624190620">+224 624 19 06 20</a><a href="mailto:Lucepres@gmail.com">Lucepres@gmail.com</a></p>
       </div>
       <div class="lp-footer-cols">
-        <div class="lp-footer-col"><h4>Produit</h4><a class="lp-footer-link" href="#">Devis</a><a class="lp-footer-link" href="#">Factures</a><a class="lp-footer-link" href="#">Créances</a></div>
+        <div class="lp-footer-col"><h4>Produit</h4><a class="lp-footer-link" href="#">Se connecter — devis</a><a class="lp-footer-link" href="#">Se connecter — factures</a><a class="lp-footer-link" href="#">Se connecter — créances</a></div>
         <div class="lp-footer-col"><h4>Équipe</h4><a class="lp-footer-link" href="#">Se connecter</a><a class="lp-footer-link" href="mailto:Lucepres@gmail.com">Écrire</a><a class="lp-footer-link" href="tel:+224624190620">Appeler</a></div>
       </div>
     </div>

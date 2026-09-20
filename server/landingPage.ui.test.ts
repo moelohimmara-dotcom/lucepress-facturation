@@ -22,7 +22,8 @@ describe("landing page publique Lucepres (Monsoon × Atelier)", () => {
   it("route Se connecter et les CTA vers /login via Link", () => {
     expect(source).toContain('Link href="/login"');
     expect(source).toContain("Se connecter");
-    expect(source).toContain("Accéder à l'espace");
+    expect(source).toContain("Accéder à l");
+    expect(source).toContain("espace");
   });
 
   it("utilise une vidéo héro claire + strip métiers (pas de logos fictifs)", () => {
