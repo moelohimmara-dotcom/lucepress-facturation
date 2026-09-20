@@ -257,13 +257,15 @@ export function LandingPage() {
         </section>
 
         <section className="lp-below" id="parcours" aria-labelledby="parcours-title">
-          <p className="lp-section-kicker">Un seul fil</p>
-          <h2 id="parcours-title" className="lp-section-title">
-            Trois gestes pour encaisser plus vite
-          </h2>
-          <p className="lp-section-lead">
-            Accès réservé à l’équipe — le parcours mène à la connexion, pas à une inscription publique.
-          </p>
+          <div className="lp-below-intro">
+            <p className="lp-section-kicker">Un seul fil</p>
+            <h2 id="parcours-title" className="lp-section-title">
+              Trois gestes pour encaisser plus vite
+            </h2>
+            <p className="lp-section-lead">
+              Accès réservé à l’équipe — le parcours mène à la connexion, pas à une inscription publique.
+            </p>
+          </div>
 
           <ol className="lp-funnel">
             {FUNNEL.map((step) => (
@@ -276,11 +278,13 @@ export function LandingPage() {
               </li>
             ))}
           </ol>
+        </section>
 
-          <div className="lp-cta" id="cta">
+        <section className="lp-cta-wrap" id="cta" aria-labelledby="cta-title">
+          <div className="lp-cta">
             <div className="lp-cta-copy">
               <p className="lp-section-kicker lp-section-kicker-left">Prêt quand tu l’es</p>
-              <h2>Ouvre ton espace Lucepres</h2>
+              <h2 id="cta-title">Ouvre ton espace Lucepres</h2>
               <p>Connecte-toi en quelques minutes. Devis, créances et relances sur un seul fil.</p>
               <div className="lp-hero-actions lp-hero-actions-start">
                 <Link href="/login" className="lp-btn lp-btn-primary">
@@ -294,7 +298,7 @@ export function LandingPage() {
             <aside className="lp-cta-aside">
               <LucepresMark size="md" tone="ghost" className="lp-cta-mark" />
               <p className="lp-cta-quote">
-                Vos devis, vos créances — une seule lumière.
+                Tes devis, tes créances — une seule lumière.
               </p>
               <p className="lp-cta-cite">
                 {LUCEPRES_PUBLIC_PROFILE.legalName} · {LUCEPRES_PUBLIC_PROFILE.positioning}
