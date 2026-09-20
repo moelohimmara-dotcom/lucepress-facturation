@@ -26,11 +26,18 @@ describe("landing page publique Lucepres (Monsoon × Atelier)", () => {
     expect(source).toContain("espace");
   });
 
-  it("utilise une vidéo héro claire + strip métiers (pas de logos fictifs)", () => {
+  it("utilise une vidéo héro claire + sections métiers avec images (pas de logos fictifs)", () => {
     expect(source).toContain("lp-hero-video");
     expect(source).toContain("hero.mp4");
-    expect(source).toContain("METIERS");
+    expect(source).toContain("SECTEURS");
     expect(source).toContain("Forage");
+    expect(source).toContain("Hydraulique");
+    expect(source).toContain("/landing/secteur-forage.png");
+    expect(source).toContain("lp-sectors");
+    expect(source).not.toContain("lp-strip");
+    expect(source).not.toContain("Terrain Lucepres");
+    expect(source).not.toContain("Gestion commerciale");
+    expect(source).not.toContain("lp-eyebrow");
     expect(source).not.toContain("Northwind");
     expect(source).not.toContain("3.4×");
   });

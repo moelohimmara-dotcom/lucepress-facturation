@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
@@ -6,12 +6,50 @@ import { LucepresMark } from "@/components/LucepresMark";
 import "./lucepress-landing.css";
 
 const NAV_LINKS = [
+  { label: "Métiers", href: "#metiers" },
   { label: "Parcours", href: "#parcours" },
   { label: "Accès", href: "#cta" },
   { label: "Contact", href: `mailto:${LUCEPRES_PUBLIC_PROFILE.email}` },
 ] as const;
 
-const METIERS = ["Forage", "BTP", "Hydraulique", "Maintenance"] as const;
+const SECTEURS = [
+  {
+    id: "forage",
+    name: "Forage",
+    lead: "Du trou d’essai au tubage, tu chiffres ce qui tient sur le terrain.",
+    body: "Profondeur, diamètre, essais de pompage, tubage — chaque poste a son unité et son prix. Tu prépares le devis pendant que le chantier avance, tu factures sans tout retaper dans Excel.",
+    note: "Utile quand un forage Kindia ou Coyah se transforme en plusieurs avenants.",
+    image: "/landing/secteur-forage.png",
+    imageAlt: "Chantier de forage tubulaire en Guinée, forêt et sol latéritique",
+  },
+  {
+    id: "btp",
+    name: "BTP",
+    lead: "Gros œuvre et finitions : un devis clair pour chaque lot.",
+    body: "Maçonnerie, ferraillage, couverture, second œuvre — tu sépares les lots, tu gardes les quantités, tu suis ce qui est livré. Le client voit le même fil que toi : devis, avenant, facture.",
+    note: "Pensé pour les chantiers Conakry où le papier ne suit pas le rythme du béton.",
+    image: "/landing/secteur-btp.png",
+    imageAlt: "Chantier BTP avec structure béton et échafaudages à Conakry",
+  },
+  {
+    id: "hydraulique",
+    name: "Hydraulique",
+    lead: "L’eau qui arrive — et le paiement qui suit.",
+    body: "Pompes, réservoirs, réseaux, adduction : tu devises les équipements et la pose, tu relances les collectivités et les bailleurs. Les montants en GNF restent lisibles d’un bout à l’autre.",
+    note: "Pour les projets ruraux comme urbains, où le délai de règlement compte autant que le débit.",
+    image: "/landing/secteur-hydraulique.png",
+    imageAlt: "Infrastructure hydraulique et château d’eau en zone rurale",
+  },
+  {
+    id: "maintenance",
+    name: "Maintenance",
+    lead: "Interventions courtes, suivi long — sans perdre la créance.",
+    body: "Entretien de pompes, groupes, réseaux : tu notes l’intervention, tu factures le forfait ou la journée, tu rappelles si le solde traîne. L’atelier te montre ce qui reste ouvert.",
+    note: "Idéal quand les petites interventions se multiplient et que WhatsApp ne suffit plus.",
+    image: "/landing/secteur-maintenance.png",
+    imageAlt: "Technicien en maintenance sur équipement de chantier",
+  },
+] as const;
 
 const FUNNEL = [
   {
@@ -56,7 +94,6 @@ const easeOut = [0.23, 1, 0.32, 1] as const;
 export function LandingPage() {
   const reduceMotion = useReducedMotion();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoPlaying, setVideoPlaying] = useState(!reduceMotion);
   const contactMailto = `mailto:${LUCEPRES_PUBLIC_PROFILE.email}?subject=${encodeURIComponent("Échange Lucepres Gestion")}`;
 
   useEffect(() => {
@@ -64,10 +101,9 @@ export function LandingPage() {
     if (!video) return;
     if (reduceMotion) {
       video.pause();
-      setVideoPlaying(false);
       return;
     }
-    void video.play().then(() => setVideoPlaying(true)).catch(() => setVideoPlaying(false));
+    void video.play().catch(() => undefined);
   }, [reduceMotion]);
 
   const fade = (delay: number) =>
@@ -78,17 +114,6 @@ export function LandingPage() {
           animate: { opacity: 1, y: 0 },
           transition: { duration: 0.75, delay, ease: easeOut },
         };
-
-  const toggleVideo = () => {
-    const video = videoRef.current;
-    if (!video || reduceMotion) return;
-    if (video.paused) {
-      void video.play().then(() => setVideoPlaying(true)).catch(() => setVideoPlaying(false));
-    } else {
-      video.pause();
-      setVideoPlaying(false);
-    }
-  };
 
   return (
     <div className="lp">
@@ -143,24 +168,20 @@ export function LandingPage() {
           <div className="lp-hero-glow" aria-hidden="true" />
 
           <div className="lp-hero-content">
-            <motion.span className="lp-eyebrow" {...fade(0.08)}>
-              Gestion commerciale · {LUCEPRES_PUBLIC_PROFILE.location}
-            </motion.span>
-
-            <motion.p className="lp-hero-brand" translate="no" {...fade(0.16)}>
+            <motion.p className="lp-hero-brand" translate="no" {...fade(0.08)}>
               {LUCEPRES_PUBLIC_PROFILE.displayName}
             </motion.p>
 
-            <motion.h1 className="lp-hero-title" {...fade(0.24)}>
+            <motion.h1 className="lp-hero-title" {...fade(0.2)}>
               Du premier devis au paiement encaissé.
             </motion.h1>
 
-            <motion.p className="lp-hero-sub" {...fade(0.36)}>
+            <motion.p className="lp-hero-sub" {...fade(0.32)}>
               Devis, créances et relances en GNF — pensé pour les chantiers d’hydraulique, de BTP et de
               maintenance. Tu gagnes du temps sur le papier, tu gardes le cap sur la trésorerie.
             </motion.p>
 
-            <motion.div className="lp-hero-actions" {...fade(0.48)}>
+            <motion.div className="lp-hero-actions" {...fade(0.44)}>
               <motion.div whileHover={reduceMotion ? undefined : { scale: 1.03 }} whileTap={reduceMotion ? undefined : { scale: 0.97 }}>
                 <Link href="/login" className="lp-btn lp-btn-primary">
                   Accéder à l’espace
@@ -173,32 +194,45 @@ export function LandingPage() {
               </motion.div>
             </motion.div>
           </div>
+        </section>
 
-          <motion.div className="lp-strip" {...fade(0.62)}>
-            <div className="lp-strip-inner">
-              <div className="lp-strip-head">
-                <p className="lp-strip-label">Terrain Lucepres</p>
-                {!reduceMotion ? (
-                  <button
-                    type="button"
-                    className="lp-video-toggle"
-                    onClick={toggleVideo}
-                    aria-pressed={videoPlaying}
-                  >
-                    {videoPlaying ? "Pause le paysage" : "Lancer le paysage"}
-                  </button>
-                ) : null}
-              </div>
-              <div className="lp-strip-row" role="list">
-                {METIERS.map((name) => (
-                  <span key={name} className="lp-strip-item" role="listitem">
-                    {name}
-                  </span>
-                ))}
-                <span className="lp-strip-item lp-strip-item-muted" role="listitem">GNF · fr-GN</span>
-              </div>
-            </div>
-          </motion.div>
+        <section className="lp-sectors" id="metiers" aria-labelledby="metiers-title">
+          <div className="lp-sectors-intro">
+            <p className="lp-section-kicker">Sur le terrain</p>
+            <h2 id="metiers-title" className="lp-section-title">
+              Quatre métiers, un même fil commercial
+            </h2>
+            <p className="lp-section-lead">
+              Forage, BTP, hydraulique, maintenance — chaque secteur a son rythme. L’atelier parle le tien.
+            </p>
+          </div>
+
+          <div className="lp-sectors-list">
+            {SECTEURS.map((secteur, index) => (
+              <article
+                key={secteur.id}
+                className={`lp-sector${index % 2 === 1 ? " lp-sector-flip" : ""}`}
+                id={secteur.id}
+              >
+                <figure className="lp-sector-media">
+                  <img
+                    src={secteur.image}
+                    alt={secteur.imageAlt}
+                    width={1280}
+                    height={720}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                </figure>
+                <div className="lp-sector-copy">
+                  <h3 className="lp-sector-name">{secteur.name}</h3>
+                  <p className="lp-sector-lead">{secteur.lead}</p>
+                  <p className="lp-sector-body">{secteur.body}</p>
+                  <p className="lp-sector-note">{secteur.note}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="lp-below" id="parcours" aria-labelledby="parcours-title">

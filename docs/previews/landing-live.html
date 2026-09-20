@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Preview Lucepres — gap CTA / strip</title>
+<title>Preview Lucepres — secteurs métiers</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,560&family=JetBrains+Mono:wght@500&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <style>
 :root { --lp-font:"Outfit",system-ui,sans-serif; --lp-display:"Fraunces",Georgia,serif; --lp-mono:"JetBrains Mono",ui-monospace,monospace; }
@@ -269,7 +269,7 @@ html,body{margin:0}
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: clamp(6.75rem, 14vh, 9.5rem) clamp(16px, 4vw, 24px) clamp(2.25rem, 5vh, 3.25rem);
+  padding: clamp(6.75rem, 14vh, 9.5rem) clamp(16px, 4vw, 24px) clamp(4rem, 10vh, 6.5rem);
 }
 
 .lp-hero-content::before {
@@ -459,7 +459,7 @@ html,body{margin:0}
   .lp-hero-content {
     padding-left: 16px;
     padding-right: 16px;
-    padding-bottom: 2rem;
+    padding-bottom: 4.5rem;
     gap: 0;
   }
 
@@ -489,24 +489,6 @@ html,body{margin:0}
   .lp-hero-actions {
     margin-top: 22px;
     margin-bottom: 0.5rem;
-  }
-
-  .lp-strip {
-    margin-top: 2.75rem;
-    padding: 0 12px 1.5rem;
-  }
-
-  .lp-strip-inner {
-    padding: 12px 14px 14px;
-    border-radius: 14px;
-  }
-
-  .lp-strip-label {
-    font-size: 13px;
-  }
-
-  .lp-strip-row {
-    gap: 12px 18px;
   }
 
   .lp-below {
@@ -553,90 +535,161 @@ html,body{margin:0}
   }
 }
 
-.lp-strip {
-  position: relative;
-  z-index: 10;
-  flex: 0 0 auto;
-  margin-top: clamp(2.75rem, 7vh, 4rem);
-  padding: 0 20px clamp(1.5rem, 3.5vh, 2.25rem);
-}
-
-@media (max-width: 560px) {
-  .lp-strip {
-    margin-top: max(2.75rem, 6vh);
-  }
-}
-
-.lp-strip-inner {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 14px 18px 16px;
-  border-radius: 18px;
-  background: rgba(12, 28, 22, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  text-align: center;
-}
-
-.lp-strip-label {
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.01em;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.lp-strip-head {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px 18px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
 .lp-video-toggle {
+  position: absolute;
+  z-index: 12;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.88);
+  background: rgba(12, 28, 22, 0.42);
+  color: rgba(255, 255, 255, 0.92);
   border-radius: 999px;
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 0 14px;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .lp-video-toggle:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(12, 28, 22, 0.58);
 }
 
-.lp-strip-row {
+.lp-video-toggle:focus-visible {
+  outline: 2px solid oklch(0.735 0.125 89);
+  outline-offset: 3px;
+}
+
+.lp-sectors {
+  position: relative;
+  z-index: 2;
+  background: var(--lp-bg);
+  padding: clamp(64px, 10vw, 104px) 0 0;
+}
+
+.lp-sectors-intro {
+  padding: 0 clamp(16px, 4vw, 24px);
+}
+
+.lp-sectors-list {
+  margin-top: clamp(36px, 6vw, 56px);
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lp-sector {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: stretch;
+  min-height: min(70vh, 560px);
+}
+
+.lp-sector-flip {
+  grid-template-columns: 0.95fr 1.05fr;
+}
+
+.lp-sector-flip .lp-sector-media {
+  order: 2;
+}
+
+.lp-sector-flip .lp-sector-copy {
+  order: 1;
+}
+
+.lp-sector-media {
+  margin: 0;
+  min-height: 280px;
+  overflow: hidden;
+  background: oklch(0.88 0.02 90);
+}
+
+.lp-sector-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.lp-sector-copy {
+  display: flex;
+  flex-direction: column;
   justify-content: center;
-  gap: clamp(16px, 3.5vw, 36px);
-  flex-wrap: wrap;
+  padding: clamp(28px, 5vw, 56px) clamp(20px, 5vw, 64px);
+  background:
+    linear-gradient(160deg, oklch(0.985 0.008 88), oklch(0.96 0.014 90));
+  border-block: 1px solid oklch(0.874 0.025 83 / 55%);
 }
 
-.lp-strip-item {
-  font-size: clamp(14px, 1.8vw, 17px);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.88);
-  transition: color 0.2s ease;
-}
-
-.lp-strip-item-muted {
-  color: rgba(255, 255, 255, 0.62);
+.lp-sector-name {
+  margin: 0;
+  font-family: var(--lp-display);
+  font-size: clamp(2rem, 4.2vw, 3.1rem);
   font-weight: 600;
-  font-size: clamp(12px, 1.5vw, 14px);
-  letter-spacing: 0.01em;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--lp-ink);
+}
+
+.lp-sector-lead {
+  margin: 16px 0 0;
+  max-width: 28ch;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--lp-ink-soft);
+}
+
+.lp-sector-body {
+  margin: 14px 0 0;
+  max-width: 38ch;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--lp-muted);
+}
+
+.lp-sector-note {
+  margin: 20px 0 0;
+  max-width: 36ch;
+  padding-top: 14px;
+  border-top: 1px solid oklch(0.874 0.025 83 / 80%);
+  font-family: var(--lp-display);
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 560;
+  line-height: 1.5;
+  color: oklch(0.39 0.095 165);
+}
+
+@media (max-width: 840px) {
+  .lp-sector,
+  .lp-sector-flip {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .lp-sector-flip .lp-sector-media,
+  .lp-sector-flip .lp-sector-copy {
+    order: unset;
+  }
+
+  .lp-sector-media {
+    min-height: 220px;
+    aspect-ratio: 16 / 10;
+  }
+
+  .lp-sector-copy {
+    border-block: none;
+    border-bottom: 1px solid oklch(0.874 0.025 83 / 55%);
+  }
 }
 
 .lp-below {
@@ -650,6 +703,11 @@ html,body{margin:0}
 }
 
 #parcours,
+#metiers,
+#forage,
+#btp,
+#hydraulique,
+#maintenance,
 #cta,
 #top {
   scroll-margin-top: 6rem;
@@ -901,85 +959,84 @@ html,body{margin:0}
 
 </style>
 </head>
-
 <body>
-<div class="preview-banner">Preview locale — gap CTA / strip · P0/P1</div>
+
 <div class="lp">
-  <a class="lp-skip" href="#main-content">Aller au contenu principal</a>
+  <a href="#main-content" class="lp-skip">Aller au contenu principal</a>
   <div class="lp-nav-wrap">
     <nav class="lp-nav" aria-label="Principale">
-      <a class="lp-brand" href="#top"><span class="lp-mark-fake">L</span><span class="lp-brand-text" translate="no">Lucepres</span></a>
+      <a class="lp-brand" href="#top"><span class="lp-brand-text">Lucepres</span></a>
       <div class="lp-nav-links">
+        <a href="#metiers">Métiers</a>
         <a href="#parcours">Parcours</a>
         <a href="#cta">Accès</a>
-        <a href="mailto:Lucepres@gmail.com">Contact</a>
       </div>
-      <a class="lp-nav-cta" href="#cta">Se connecter</a>
+      <a class="lp-nav-cta" href="/login">Se connecter</a>
     </nav>
   </div>
   <main id="main-content" class="lp-main">
-  <section class="lp-hero" id="top">
-    <video class="lp-hero-video" src="https://pub-1e5b4001b36b47e28e6a2fb775966a79.r2.dev/templates/monsoon/hero.mp4" autoplay muted loop playsinline onerror="this.setAttribute('data-failed','true')"></video>
-    <div class="lp-hero-fallback"></div><div class="lp-hero-overlay"></div><div class="lp-hero-veil"></div><div class="lp-hero-glow"></div>
-    <div class="lp-hero-content">
-      <span class="lp-eyebrow">Gestion commerciale · Conakry, Guinée</span>
-      <p class="lp-hero-brand" translate="no">Lucepres</p>
-      <h1 class="lp-hero-title">Du premier devis au paiement encaissé.</h1>
-      <p class="lp-hero-sub">Devis, créances et relances en GNF — pensé pour les chantiers d’hydraulique, de BTP et de maintenance. Tu gagnes du temps sur le papier, tu gardes le cap sur la trésorerie.</p>
-      <div class="lp-hero-actions">
-        <a class="lp-btn lp-btn-primary" href="#cta">Accéder à l’espace</a>
-        <a class="lp-btn lp-btn-glass" href="mailto:Lucepres@gmail.com">Écrire à l’équipe</a>
-      </div>
-    </div>
-    <div class="lp-strip"><div class="lp-strip-inner">
-      <div class="lp-strip-head"><p class="lp-strip-label">Terrain Lucepres</p></div>
-      <div class="lp-strip-row">
-        <span class="lp-strip-item">Forage</span><span class="lp-strip-item">BTP</span><span class="lp-strip-item">Hydraulique</span><span class="lp-strip-item">Maintenance</span><span class="lp-strip-item lp-strip-item-muted">GNF · fr-GN</span>
-      </div>
-    </div></div>
-  </section>
-  <section class="lp-below" id="parcours">
-    <p class="lp-section-kicker">Un seul fil</p>
-    <h2 id="parcours-title" class="lp-section-title">Trois gestes pour encaisser plus vite</h2>
-    <p class="lp-section-lead">Accès réservé à l’équipe — le parcours mène à la connexion.</p>
-    <ol class="lp-funnel">
-      <li class="lp-funnel-row"><span class="lp-funnel-n">01</span><div class="lp-funnel-body"><h3>Le chantier déborde le papier</h3><p>Devis épars, relances oubliées, montants GNF perdus entre WhatsApp et Excel.</p></div></li>
-      <li class="lp-funnel-row"><span class="lp-funnel-n">02</span><div class="lp-funnel-body"><h3>Un fil devis → facture → créances</h3><p>Tu prépares, tu envoies, tu relances. L’atelier te dit quoi faire ensuite.</p></div></li>
-      <li class="lp-funnel-row"><span class="lp-funnel-n">03</span><div class="lp-funnel-body"><h3>Tu ouvres ton espace</h3><p>Connexion sécurisée. Invitation par e-mail — pas d’inscription ouverte.</p></div></li>
-    </ol>
-    <div class="lp-cta" id="cta">
-      <div class="lp-cta-copy">
-        <p class="lp-section-kicker lp-section-kicker-left">Prêt quand tu l’es</p>
-        <h2>Ouvre ton espace Lucepres</h2>
-        <p>Connecte-toi en quelques minutes. Devis, créances et relances sur un seul fil.</p>
-        <div class="lp-hero-actions lp-hero-actions-start">
-          <a class="lp-btn lp-btn-primary" href="#">Accéder à l’espace</a>
-          <a class="lp-btn lp-btn-quiet" href="mailto:Lucepres@gmail.com">Parler à l’équipe</a>
+    <section class="lp-hero" id="top" aria-label="Accueil">
+      <div class="lp-hero-fallback" aria-hidden="true"></div>
+      <div class="lp-hero-overlay" aria-hidden="true"></div>
+      <div class="lp-hero-veil" aria-hidden="true"></div>
+      <div class="lp-hero-content">
+        <span class="lp-eyebrow">Gestion commerciale · Conakry, Guinée</span>
+        <p class="lp-hero-brand">Lucepres</p>
+        <h1 class="lp-hero-title">Du premier devis au paiement encaissé.</h1>
+        <p class="lp-hero-sub">Devis, créances et relances en GNF — pensé pour les chantiers d’hydraulique, de BTP et de maintenance.</p>
+        <div class="lp-hero-actions">
+          <a class="lp-btn lp-btn-primary" href="/login">Accéder à l’espace</a>
+          <a class="lp-btn lp-btn-glass" href="mailto:Lucepres@gmail.com">Écrire à l’équipe</a>
         </div>
       </div>
-      <aside class="lp-cta-aside">
-        <span class="lp-mark-fake" style="background:oklch(0.735 0.125 89 / 14%);border-color:oklch(0.735 0.125 89 / 28%);color:oklch(0.735 0.125 89)">L</span>
-        <p class="lp-cta-quote">Vos devis, vos créances — une seule lumière.</p>
-        <p class="lp-cta-cite">Lucepres Sarl · Solutions durables</p>
-      </aside>
-    </div>
-  </section>
+    </section>
+    <section class="lp-sectors" id="metiers" aria-labelledby="metiers-title">
+      <div class="lp-sectors-intro">
+        <p class="lp-section-kicker">Sur le terrain</p>
+        <h2 id="metiers-title" class="lp-section-title">Quatre métiers, un même fil commercial</h2>
+        <p class="lp-section-lead">Forage, BTP, hydraulique, maintenance — chaque secteur a son rythme.</p>
+      </div>
+      <div class="lp-sectors-list">
+        <article class="lp-sector" id="forage">
+          <figure class="lp-sector-media"><img src="landing/secteur-forage.png" alt="Forage" width="1280" height="720" /></figure>
+          <div class="lp-sector-copy">
+            <h3 class="lp-sector-name">Forage</h3>
+            <p class="lp-sector-lead">Du trou d’essai au tubage, tu chiffres ce qui tient sur le terrain.</p>
+            <p class="lp-sector-body">Profondeur, diamètre, essais de pompage, tubage — chaque poste a son unité et son prix.</p>
+            <p class="lp-sector-note">Utile quand un forage Kindia ou Coyah se transforme en plusieurs avenants.</p>
+          </div>
+        </article>
+        <article class="lp-sector lp-sector-flip" id="btp">
+          <figure class="lp-sector-media"><img src="landing/secteur-btp.png" alt="BTP" width="1280" height="720" /></figure>
+          <div class="lp-sector-copy">
+            <h3 class="lp-sector-name">BTP</h3>
+            <p class="lp-sector-lead">Gros œuvre et finitions : un devis clair pour chaque lot.</p>
+            <p class="lp-sector-body">Maçonnerie, ferraillage, couverture, second œuvre — tu sépares les lots, tu gardes les quantités.</p>
+            <p class="lp-sector-note">Pensé pour les chantiers Conakry où le papier ne suit pas le rythme du béton.</p>
+          </div>
+        </article>
+        <article class="lp-sector" id="hydraulique">
+          <figure class="lp-sector-media"><img src="landing/secteur-hydraulique.png" alt="Hydraulique" width="1280" height="720" /></figure>
+          <div class="lp-sector-copy">
+            <h3 class="lp-sector-name">Hydraulique</h3>
+            <p class="lp-sector-lead">L’eau qui arrive — et le paiement qui suit.</p>
+            <p class="lp-sector-body">Pompes, réservoirs, réseaux, adduction : tu devises les équipements et la pose.</p>
+            <p class="lp-sector-note">Pour les projets ruraux comme urbains, où le délai de règlement compte autant que le débit.</p>
+          </div>
+        </article>
+        <article class="lp-sector lp-sector-flip" id="maintenance">
+          <figure class="lp-sector-media"><img src="landing/secteur-maintenance.png" alt="Maintenance" width="1280" height="720" /></figure>
+          <div class="lp-sector-copy">
+            <h3 class="lp-sector-name">Maintenance</h3>
+            <p class="lp-sector-lead">Interventions courtes, suivi long — sans perdre la créance.</p>
+            <p class="lp-sector-body">Entretien de pompes, groupes, réseaux : tu notes l’intervention, tu factures le forfait.</p>
+            <p class="lp-sector-note">Idéal quand les petites interventions se multiplient et que WhatsApp ne suffit plus.</p>
+          </div>
+        </article>
+      </div>
+    </section>
   </main>
-  <footer class="lp-footer">
-    <div class="lp-footer-inner">
-      <div class="lp-footer-brand">
-        <a class="lp-brand lp-brand-footer" href="#top"><span class="lp-mark-fake">L</span><span class="lp-brand-text" translate="no">Lucepres</span></a>
-        <p>L’atelier de gestion commerciale pour les chantiers ambitieux de Guinée.</p>
-        <p class="lp-footer-contact"><a href="tel:+224624190620">+224 624 19 06 20</a><a href="mailto:Lucepres@gmail.com">Lucepres@gmail.com</a></p>
-      </div>
-      <div class="lp-footer-cols">
-        <div class="lp-footer-col"><h4>Produit</h4><a class="lp-footer-link" href="#">Se connecter — devis</a><a class="lp-footer-link" href="#">Se connecter — factures</a><a class="lp-footer-link" href="#">Se connecter — créances</a></div>
-        <div class="lp-footer-col"><h4>Équipe</h4><a class="lp-footer-link" href="#">Se connecter</a><a class="lp-footer-link" href="mailto:Lucepres@gmail.com">Écrire</a><a class="lp-footer-link" href="tel:+224624190620">Appeler</a></div>
-      </div>
-    </div>
-    <p class="lp-copyright">© 2026 Lucepres Sarl · Conakry, Guinée</p>
-  </footer>
 </div>
+
 </body>
 </html>
-

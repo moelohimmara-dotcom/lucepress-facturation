@@ -259,7 +259,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: clamp(6.75rem, 14vh, 9.5rem) clamp(16px, 4vw, 24px) clamp(2.25rem, 5vh, 3.25rem);
+  padding: clamp(6.75rem, 14vh, 9.5rem) clamp(16px, 4vw, 24px) clamp(3rem, 8vh, 5rem);
 }
 
 .lp-hero-content::before {
@@ -273,22 +273,6 @@
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(ellipse at 50% 42%, rgba(255, 252, 245, 0.78) 0%, rgba(255, 252, 245, 0.28) 48%, transparent 72%);
-}
-
-.lp-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: rgba(34, 55, 48, 0.88);
-  margin-bottom: 18px;
 }
 
 .lp-hero-brand {
@@ -449,15 +433,8 @@
   .lp-hero-content {
     padding-left: 16px;
     padding-right: 16px;
-    padding-bottom: 2rem;
+    padding-bottom: 3rem;
     gap: 0;
-  }
-
-  .lp-eyebrow {
-    margin-bottom: 14px;
-    font-size: 13px;
-    padding: 7px 12px;
-    max-width: 100%;
   }
 
   .lp-hero-brand {
@@ -479,24 +456,6 @@
   .lp-hero-actions {
     margin-top: 22px;
     margin-bottom: 0.5rem;
-  }
-
-  .lp-strip {
-    margin-top: 2.75rem;
-    padding: 0 12px 1.5rem;
-  }
-
-  .lp-strip-inner {
-    padding: 12px 14px 14px;
-    border-radius: 14px;
-  }
-
-  .lp-strip-label {
-    font-size: 13px;
-  }
-
-  .lp-strip-row {
-    gap: 12px 18px;
   }
 
   .lp-below {
@@ -543,90 +502,130 @@
   }
 }
 
-.lp-strip {
+.lp-sectors {
   position: relative;
-  z-index: 10;
-  flex: 0 0 auto;
-  margin-top: clamp(2.75rem, 7vh, 4rem);
-  padding: 0 20px clamp(1.5rem, 3.5vh, 2.25rem);
+  z-index: 2;
+  background: var(--lp-bg);
+  padding: clamp(64px, 10vw, 104px) 0 0;
 }
 
-@media (max-width: 560px) {
-  .lp-strip {
-    margin-top: max(2.75rem, 6vh);
-  }
+.lp-sectors-intro {
+  padding: 0 clamp(16px, 4vw, 24px);
 }
 
-.lp-strip-inner {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 14px 18px 16px;
-  border-radius: 18px;
-  background: rgba(12, 28, 22, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  text-align: center;
+.lp-sectors-list {
+  margin-top: clamp(36px, 6vw, 56px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
-.lp-strip-label {
+.lp-sector {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: stretch;
+  min-height: min(70vh, 560px);
+}
+
+.lp-sector-flip {
+  grid-template-columns: 0.95fr 1.05fr;
+}
+
+.lp-sector-flip .lp-sector-media {
+  order: 2;
+}
+
+.lp-sector-flip .lp-sector-copy {
+  order: 1;
+}
+
+.lp-sector-media {
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.01em;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.68);
+  min-height: 280px;
+  overflow: hidden;
+  background: oklch(0.88 0.02 90);
 }
 
-.lp-strip-head {
+.lp-sector-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.lp-sector-copy {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  gap: 12px 18px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
+  padding: clamp(28px, 5vw, 56px) clamp(20px, 5vw, 64px);
+  background:
+    linear-gradient(160deg, oklch(0.985 0.008 88), oklch(0.96 0.014 90));
+  border-block: 1px solid oklch(0.874 0.025 83 / 55%);
 }
 
-.lp-video-toggle {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.88);
-  border-radius: 999px;
-  min-height: 32px;
-  padding: 0 12px;
-  font: inherit;
-  font-size: 12px;
+.lp-sector-name {
+  margin: 0;
+  font-family: var(--lp-display);
+  font-size: clamp(2rem, 4.2vw, 3.1rem);
   font-weight: 600;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--lp-ink);
 }
 
-.lp-video-toggle:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.lp-strip-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(16px, 3.5vw, 36px);
-  flex-wrap: wrap;
-}
-
-.lp-strip-item {
-  font-size: clamp(14px, 1.8vw, 17px);
+.lp-sector-lead {
+  margin: 16px 0 0;
+  max-width: 28ch;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
   font-weight: 700;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.88);
-  transition: color 0.2s ease;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--lp-ink-soft);
 }
 
-.lp-strip-item-muted {
-  color: rgba(255, 255, 255, 0.62);
-  font-weight: 600;
-  font-size: clamp(12px, 1.5vw, 14px);
-  letter-spacing: 0.01em;
+.lp-sector-body {
+  margin: 14px 0 0;
+  max-width: 38ch;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--lp-muted);
+}
+
+.lp-sector-note {
+  margin: 20px 0 0;
+  max-width: 36ch;
+  padding-top: 14px;
+  border-top: 1px solid oklch(0.874 0.025 83 / 80%);
+  font-family: var(--lp-display);
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 560;
+  line-height: 1.5;
+  color: oklch(0.39 0.095 165);
+}
+
+@media (max-width: 840px) {
+  .lp-sector,
+  .lp-sector-flip {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .lp-sector-flip .lp-sector-media,
+  .lp-sector-flip .lp-sector-copy {
+    order: unset;
+  }
+
+  .lp-sector-media {
+    min-height: 220px;
+    aspect-ratio: 16 / 10;
+  }
+
+  .lp-sector-copy {
+    border-block: none;
+    border-bottom: 1px solid oklch(0.874 0.025 83 / 55%);
+  }
 }
 
 .lp-below {
@@ -640,6 +639,11 @@
 }
 
 #parcours,
+#metiers,
+#forage,
+#btp,
+#hydraulique,
+#maintenance,
 #cta,
 #top {
   scroll-margin-top: 6rem;
