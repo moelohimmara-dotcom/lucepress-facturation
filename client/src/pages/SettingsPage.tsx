@@ -126,7 +126,7 @@ export default function SettingsPage() {
           }
           actions={
             isAdmin ? (
-              <Button form="company-settings" type="submit" disabled={save.isPending} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+              <Button form="company-settings" type="submit" disabled={save.isPending} className="min-h-11 rounded-xl bg-primary font-bold text-primary-foreground">
                 <Save className="mr-2 h-4 w-4" />
                 {save.isPending ? "Enregistrement…" : "Enregistrer"}
               </Button>
@@ -255,7 +255,7 @@ function SettingsField({ label, children, full = false, error }: { label: string
   return (
     <label className={`block text-xs font-extrabold ${full ? "sm:col-span-2" : ""}`}>
       {label}
-      <div className="mt-2 [&_input]:h-10 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-border [&_input]:bg-card [&_input]:px-3 [&_input]:text-sm [&_select]:h-10 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-card [&_select]:px-3 [&_select]:text-sm [&_textarea]:min-h-24 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-border [&_textarea]:bg-card [&_textarea]:p-3 [&_textarea]:text-sm">
+      <div className="mt-2 [&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-border [&_input]:bg-card [&_input]:px-3 [&_input]:text-sm [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-border [&_select]:bg-card [&_select]:px-3 [&_select]:text-sm [&_textarea]:min-h-24 [&_textarea]:w-full [&_textarea]:rounded-xl [&_textarea]:border [&_textarea]:border-border [&_textarea]:bg-card [&_textarea]:p-3 [&_textarea]:text-sm">
         {children}
       </div>
       {error && <p role="alert" className="mt-1 text-[11px] font-medium leading-4 text-destructive">{error}</p>}

@@ -163,10 +163,10 @@ export default function UsersPage() {
           description="Créez des comptes pour votre équipe, ajustez leurs droits, réinitialisez un mot de passe bloqué ou révoquez un accès."
           actions={
             <>
-              <Button onClick={() => { setInviteLink(null); setInviteEmailMeta(null); setOpenDialog("invite"); }} className="h-10 rounded-xl bg-primary font-bold text-primary-foreground">
+              <Button onClick={() => { setInviteLink(null); setInviteEmailMeta(null); setOpenDialog("invite"); }} className="min-h-11 rounded-xl bg-primary font-bold text-primary-foreground">
                 <Mail className="mr-2 h-4 w-4" /> Inviter par e-mail
               </Button>
-              <Button variant="outline" onClick={() => setOpenDialog("create")} className="h-10 rounded-xl font-bold">
+              <Button variant="outline" onClick={() => setOpenDialog("create")} className="min-h-11 rounded-xl font-bold">
                 <UserPlus className="mr-2 h-4 w-4" /> Nouveau compte
               </Button>
             </>
@@ -205,7 +205,7 @@ export default function UsersPage() {
                       {u.id !== user?.id && u.role !== "client" && (
                         <Button
                           variant="outline"
-                          size="sm"
+                          className="min-h-11 rounded-xl"
                           onClick={() => setRoleMutation.mutate({ userId: u.id, role: nextAssignableStaffRole(u.role) })}
                           disabled={setRoleMutation.isPending}
                         >
@@ -215,7 +215,7 @@ export default function UsersPage() {
                       )}
                       <Button
                         variant="outline"
-                        size="sm"
+                        className="min-h-11 rounded-xl"
                         onClick={() => { setSelected(u); setOpenDialog("reset"); }}
                       >
                         <KeyRound className="mr-1 h-4 w-4" /> Réinitialiser le mot de passe
@@ -223,7 +223,7 @@ export default function UsersPage() {
                       {u.id !== user?.id && (
                         <Button
                           variant="destructive"
-                          size="sm"
+                          className="min-h-11 rounded-xl"
                           onClick={() => { setSelected(u); setOpenDialog("remove"); }}
                         >
                           <Trash2 className="mr-1 h-4 w-4" /> Supprimer
@@ -262,7 +262,7 @@ export default function UsersPage() {
                       <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
-                          size="sm"
+                          className="min-h-11 rounded-xl"
                           onClick={() => resendInvitationMutation.mutate({ id: inv.id })}
                           disabled={resendInvitationMutation.isPending}
                         >
@@ -270,7 +270,7 @@ export default function UsersPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          size="sm"
+                          className="min-h-11 rounded-xl"
                           onClick={() => revokeMutation.mutate({ id: inv.id })}
                           disabled={revokeMutation.isPending}
                         >
@@ -327,6 +327,7 @@ export default function UsersPage() {
               <div className="flex gap-2">
                 <Input readOnly value={inviteLink} className="font-mono text-xs" />
                 <Button
+                  className="min-h-11 rounded-xl"
                   onClick={() => {
                     navigator.clipboard.writeText(inviteLink);
                     toast.success("Lien copié.");
@@ -375,8 +376,8 @@ export default function UsersPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenDialog(null)}>Annuler</Button>
-            <Button variant="destructive" onClick={() => removeMutation.mutate({ userId: selected!.id })} disabled={removeMutation.isPending}>
+            <Button variant="outline" className="min-h-11 rounded-xl" onClick={() => setOpenDialog(null)}>Annuler</Button>
+            <Button variant="destructive" className="min-h-11 rounded-xl" onClick={() => removeMutation.mutate({ userId: selected!.id })} disabled={removeMutation.isPending}>
               Supprimer définitivement
             </Button>
           </DialogFooter>
@@ -424,13 +425,13 @@ function CreateUserForm({
       <div className="space-y-2">
         <Label>Rôle</Label>
         <div className="flex gap-2">
-          <Button type="button" variant={role === "cadre" ? "default" : "outline"} size="sm" onClick={() => setRole("cadre")}>Cadre</Button>
-          <Button type="button" variant={role === "directeur" ? "default" : "outline"} size="sm" onClick={() => setRole("directeur")}>Directeur</Button>
-          <Button type="button" variant={role === "admin" ? "default" : "outline"} size="sm" onClick={() => setRole("admin")}>Admin</Button>
+          <Button type="button" variant={role === "cadre" ? "default" : "outline"} className="min-h-11 rounded-xl" onClick={() => setRole("cadre")}>Cadre</Button>
+          <Button type="button" variant={role === "directeur" ? "default" : "outline"} className="min-h-11 rounded-xl" onClick={() => setRole("directeur")}>Directeur</Button>
+          <Button type="button" variant={role === "admin" ? "default" : "outline"} className="min-h-11 rounded-xl" onClick={() => setRole("admin")}>Admin</Button>
         </div>
       </div>
       {error && <p className="text-sm font-medium text-destructive">{error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button type="submit" className="min-h-11 w-full rounded-xl" disabled={pending}>
         {pending ? "Création…" : "Créer le compte"}
       </Button>
     </form>
@@ -463,7 +464,7 @@ function ResetForm({
         <Input id="rf-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </div>
       {error && <p className="text-sm font-medium text-destructive">{error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button type="submit" className="min-h-11 w-full rounded-xl" disabled={pending}>
         {pending ? "Réinitialisation…" : "Définir le nouveau mot de passe"}
       </Button>
     </form>
@@ -497,13 +498,13 @@ function InviteForm({
       <div className="space-y-2">
         <Label>Rôle</Label>
         <div className="flex gap-2">
-          <Button type="button" variant={role === "cadre" ? "default" : "outline"} size="sm" onClick={() => setRole("cadre")}>Cadre</Button>
-          <Button type="button" variant={role === "directeur" ? "default" : "outline"} size="sm" onClick={() => setRole("directeur")}>Directeur</Button>
-          <Button type="button" variant={role === "admin" ? "default" : "outline"} size="sm" onClick={() => setRole("admin")}>Admin</Button>
+          <Button type="button" variant={role === "cadre" ? "default" : "outline"} className="min-h-11 rounded-xl" onClick={() => setRole("cadre")}>Cadre</Button>
+          <Button type="button" variant={role === "directeur" ? "default" : "outline"} className="min-h-11 rounded-xl" onClick={() => setRole("directeur")}>Directeur</Button>
+          <Button type="button" variant={role === "admin" ? "default" : "outline"} className="min-h-11 rounded-xl" onClick={() => setRole("admin")}>Admin</Button>
         </div>
       </div>
       {error && <p className="text-sm font-medium text-destructive">{error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button type="submit" className="min-h-11 w-full rounded-xl" disabled={pending}>
         {pending ? "Génération du lien…" : "Générer le lien d'invitation"}
       </Button>
     </form>
