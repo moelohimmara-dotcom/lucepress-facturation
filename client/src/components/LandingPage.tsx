@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 import { LUCEPRES_PUBLIC_PROFILE } from "@shared/companyProfile";
@@ -94,6 +94,7 @@ const easeOut = [0.23, 1, 0.32, 1] as const;
 export function LandingPage() {
   const reduceMotion = useReducedMotion();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoPlaying, setVideoPlaying] = useState(!reduceMotion);
   const contactMailto = `mailto:${LUCEPRES_PUBLIC_PROFILE.email}?subject=${encodeURIComponent("Échange Lucepres Gestion")}`;
 
   useEffect(() => {
@@ -101,19 +102,31 @@ export function LandingPage() {
     if (!video) return;
     if (reduceMotion) {
       video.pause();
+      setVideoPlaying(false);
       return;
     }
-    void video.play().catch(() => undefined);
+    void video.play().then(() => setVideoPlaying(true)).catch(() => setVideoPlaying(false));
   }, [reduceMotion]);
 
   const fade = (delay: number) =>
     reduceMotion
-      ? { initial: false as const, animate: { opacity: 1, y: 0 } }
+      ? { initial: false as const, animate: { y: 0 } }
       : {
-          initial: { opacity: 0, y: 18 },
+          initial: { opacity: 1, y: 14 },
           animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.75, delay, ease: easeOut },
+          transition: { duration: 0.65, delay, ease: easeOut },
         };
+
+  const toggleVideo = () => {
+    const video = videoRef.current;
+    if (!video || reduceMotion) return;
+    if (video.paused) {
+      void video.play().then(() => setVideoPlaying(true)).catch(() => setVideoPlaying(false));
+    } else {
+      video.pause();
+      setVideoPlaying(false);
+    }
+  };
 
   return (
     <div className="lp">
@@ -122,13 +135,7 @@ export function LandingPage() {
       </a>
 
       <div className="lp-nav-wrap">
-        <motion.nav
-          className="lp-nav"
-          aria-label="Principale"
-          initial={reduceMotion ? false : { opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        >
+        <nav className="lp-nav" aria-label="Principale">
           <a className="lp-brand" href="#top" aria-label={`${LUCEPRES_PUBLIC_PROFILE.displayName} — accueil`}>
             <LucepresMark size="sm" tone="ghost" className="lp-mark" />
             <span className="lp-brand-text" translate="no">{LUCEPRES_PUBLIC_PROFILE.displayName}</span>
@@ -143,7 +150,7 @@ export function LandingPage() {
           <Link href="/login" className="lp-nav-cta">
             Se connecter
           </Link>
-        </motion.nav>
+        </nav>
       </div>
 
       <main id="main-content" className="lp-main">
@@ -194,6 +201,17 @@ export function LandingPage() {
               </motion.div>
             </motion.div>
           </div>
+
+          {!reduceMotion ? (
+            <button
+              type="button"
+              className="lp-video-toggle"
+              onClick={toggleVideo}
+              aria-pressed={videoPlaying}
+            >
+              {videoPlaying ? "Pause le paysage" : "Lancer le paysage"}
+            </button>
+          ) : null}
         </section>
 
         <section className="lp-sectors" id="metiers" aria-labelledby="metiers-title">
