@@ -87,7 +87,7 @@ export default function RemindersPage() {
                   <button
                     key={invoice.id}
                     onClick={() => { setSelectedId(invoice.id); setCopied(false); generate.reset(); }}
-                    className={`w-full p-5 text-left transition-colors ${selectedId === invoice.id ? "bg-red-50 dark:bg-red-950/70 ring-1 ring-inset ring-red-200" : "hover:bg-muted/40"}`}
+                    className={`min-h-11 w-full p-5 text-left transition-colors ${selectedId === invoice.id ? "bg-red-50 dark:bg-red-950/70 ring-1 ring-inset ring-red-200" : "hover:bg-muted/40"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -126,7 +126,7 @@ export default function RemindersPage() {
               <Button
                 onClick={() => selectedId && generate.mutate({ documentId: selectedId, tone })}
                 disabled={!selectedId || generate.isPending}
-                className="mt-4 h-10 rounded-xl bg-primary font-bold text-primary-foreground"
+                className="mt-4 min-h-11 rounded-xl bg-primary font-bold text-primary-foreground"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
                 {generate.isPending ? "Préparation…" : "Générer le modèle"}
@@ -148,7 +148,7 @@ export default function RemindersPage() {
                     Ton : {reminder.tone}. Destinataire : {clientEmail || "e-mail client manquant"}.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={copyReminder} className="h-9 rounded-lg border-border text-xs font-bold">
+                    <Button variant="outline" onClick={copyReminder} className="min-h-11 rounded-xl border-border text-xs font-bold">
                       {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
                       {copied ? "Copié" : "Copier"}
                     </Button>
@@ -156,7 +156,7 @@ export default function RemindersPage() {
                       onClick={sendReminder}
                       disabled={sendEmail.isPending || !clientEmail || !smtpReady}
                       title={!smtpReady ? "SMTP non configuré" : !clientEmail ? "E-mail client manquant" : "Envoyer la relance par e-mail"}
-                      className="h-9 rounded-lg bg-primary text-xs font-bold text-primary-foreground"
+                      className="min-h-11 rounded-xl bg-primary text-xs font-bold text-primary-foreground"
                     >
                       <Send className="mr-1.5 h-3.5 w-3.5" />
                       {sendEmail.isPending ? "Envoi…" : "Envoyer par e-mail"}
@@ -185,7 +185,7 @@ function ToneButton({ selected, onClick, children }: { selected: boolean; onClic
     <button
       onClick={onClick}
       type="button"
-      className={`h-8 rounded-lg border px-3 text-xs font-bold ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted"}`}
+      className={`min-h-11 rounded-xl border px-3 text-xs font-bold ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted"}`}
     >
       {children}
     </button>
