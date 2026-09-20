@@ -22,6 +22,7 @@
   overflow-x: hidden;
   min-height: 100vh;
   box-sizing: border-box;
+  scrollbar-gutter: stable;
 }
 
 .lp *,
@@ -285,8 +286,8 @@
   background: rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.92);
   border-radius: 999px;
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -332,7 +333,7 @@
 }
 
 .lp-hero-title {
-  margin: 18px 0 0;
+  margin: 16px 0 0;
   max-width: 16ch;
   font-family: var(--lp-display);
   font-weight: 560;
@@ -351,6 +352,7 @@
   line-height: 1.65;
   font-weight: 500;
   color: rgba(28, 46, 40, 0.9);
+  text-wrap: pretty;
 }
 
 .lp-hero-actions {
@@ -360,6 +362,7 @@
   justify-content: center;
   gap: 12px;
   margin-top: 28px;
+  margin-inline: auto;
   margin-bottom: 0.5rem;
   width: min(100%, 28rem);
 }
@@ -616,6 +619,7 @@
   letter-spacing: -0.03em;
   line-height: 1.05;
   color: var(--lp-ink);
+  text-wrap: balance;
 }
 
 .lp-sector-lead {
@@ -626,6 +630,7 @@
   letter-spacing: -0.015em;
   line-height: 1.35;
   color: var(--lp-ink-soft);
+  text-wrap: pretty;
 }
 
 .lp-sector-body {
@@ -634,6 +639,7 @@
   font-size: 16px;
   line-height: 1.65;
   color: var(--lp-muted);
+  text-wrap: pretty;
 }
 
 .lp-sector-note {
@@ -713,6 +719,7 @@
   letter-spacing: -0.03em;
   line-height: 1.05;
   color: var(--lp-ink);
+  text-wrap: balance;
 }
 
 .lp-section-lead {
@@ -722,6 +729,7 @@
   color: var(--lp-muted);
   font-size: 16px;
   line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .lp-funnel {

@@ -208,6 +208,7 @@ export function LandingPage() {
               className="lp-video-toggle"
               onClick={toggleVideo}
               aria-pressed={videoPlaying}
+              aria-label={videoPlaying ? "Mettre la vidéo en pause" : "Lancer la vidéo du paysage"}
             >
               {videoPlaying ? "Pause le paysage" : "Lancer le paysage"}
             </button>
@@ -239,6 +240,7 @@ export function LandingPage() {
                     width={1280}
                     height={720}
                     loading={index === 0 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "auto"}
                     decoding="async"
                   />
                 </figure>
