@@ -239,6 +239,7 @@ export function LandingPage() {
                     alt={secteur.imageAlt}
                     width={1280}
                     height={720}
+                    sizes="(max-width: 840px) 100vw, 50vw"
                     loading={index === 0 ? "eager" : "lazy"}
                     fetchPriority={index === 0 ? "high" : "auto"}
                     decoding="async"

@@ -557,11 +557,14 @@
 }
 
 .lp-sectors-intro {
+  max-width: 42rem;
+  margin-inline: auto;
   padding: 0 clamp(16px, 4vw, 24px);
+  text-align: center;
 }
 
 .lp-sectors-list {
-  margin-top: clamp(36px, 6vw, 56px);
+  margin-top: clamp(40px, 6vw, 64px);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -569,13 +572,13 @@
 
 .lp-sector {
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: 1fr 1fr;
   align-items: stretch;
-  min-height: min(70vh, 560px);
+  min-height: min(68vh, 540px);
 }
 
 .lp-sector-flip {
-  grid-template-columns: 0.95fr 1.05fr;
+  grid-template-columns: 1fr 1fr;
 }
 
 .lp-sector-flip .lp-sector-media {
@@ -605,10 +608,25 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: clamp(28px, 5vw, 56px) clamp(20px, 5vw, 64px);
+  padding: clamp(28px, 5vw, 56px) clamp(24px, 5vw, 64px);
   background:
     linear-gradient(160deg, oklch(0.985 0.008 88), oklch(0.96 0.014 90));
-  border-block: 1px solid oklch(0.874 0.025 83 / 55%);
+  border-bottom: 1px solid oklch(0.874 0.025 83 / 55%);
+}
+
+.lp-sector:first-child .lp-sector-copy {
+  border-top: 1px solid oklch(0.874 0.025 83 / 55%);
+}
+
+.lp-sector-flip .lp-sector-copy {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.lp-sector-flip .lp-sector-lead,
+.lp-sector-flip .lp-sector-body,
+.lp-sector-flip .lp-sector-note {
+  margin-left: auto;
 }
 
 .lp-sector-name {
@@ -653,6 +671,7 @@
   font-weight: 560;
   line-height: 1.5;
   color: oklch(0.39 0.095 165);
+  text-wrap: pretty;
 }
 
 @media (max-width: 840px) {
@@ -667,14 +686,28 @@
     order: unset;
   }
 
+  .lp-sector-flip .lp-sector-copy {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .lp-sector-flip .lp-sector-lead,
+  .lp-sector-flip .lp-sector-body,
+  .lp-sector-flip .lp-sector-note {
+    margin-left: 0;
+  }
+
   .lp-sector-media {
     min-height: 220px;
     aspect-ratio: 16 / 10;
   }
 
   .lp-sector-copy {
-    border-block: none;
-    border-bottom: 1px solid oklch(0.874 0.025 83 / 55%);
+    border-top: none;
+  }
+
+  .lp-sector:first-child .lp-sector-copy {
+    border-top: none;
   }
 }
 
